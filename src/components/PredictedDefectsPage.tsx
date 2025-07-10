@@ -12,7 +12,7 @@ function PredictedDefectsPage({
   const [corrections, setCorrections] = useState({});
   const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
   const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
-console.log(defects)
+  console.log(defects);
   const handleMarkIncorrect = (defectKey) => {
     setCorrections((prev) => ({
       ...prev,
@@ -97,7 +97,7 @@ console.log(defects)
                       <span
                         className={isMarkedIncorrect ? 'text-orange-500' : ''}
                       >
-                        {label}
+                        {`${label} ${found ? 'Found' : 'Not Found'}`}
                         {isMarkedIncorrect && ' (Marked Incorrect)'}
                       </span>
                     </div>

@@ -72,10 +72,10 @@ const data = {
           title: 'Pattern EBC',
           url: '#pattern-ebc',
         },
-        {
-          title: 'Defect Configuration',
-          url: '#defect-configuration',
-        },
+        // {
+        //   title: 'Defect Configuration',
+        //   url: '#defect-configuration',
+        // },
         // {
         //   title: 'Team',
         //   url: '#settings-team',

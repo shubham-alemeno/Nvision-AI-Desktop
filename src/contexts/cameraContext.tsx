@@ -62,12 +62,27 @@ export const useCamera = () => {
   return context;
 };
 
-// Common resolution presets
+// Common resolution presets (ordered by preference)
 const RESOLUTION_PRESETS: CameraResolution[] = [
-  { width: 1920, height: 1080, label: 'Full HD (1920x1080)' },
+  // 4K resolutions first (highest priority for professional cameras)
+  { width: 4096, height: 2160, label: 'DCI 4K (4096x2160)' },
   { width: 3840, height: 2160, label: '4K UHD (3840x2160)' },
+  { width: 4096, height: 3072, label: 'HXGA (4096x3072)' },
+
+  // 2K and high-end resolutions
+  { width: 3200, height: 2400, label: 'QUXGA (3200x2400)' },
+  { width: 2560, height: 2048, label: 'QSXGA (2560x2048)' },
   { width: 2560, height: 1440, label: 'QHD (2560x1440)' },
+  { width: 2048, height: 1536, label: 'QXGA (2048x1536)' },
+
+  // Standard HD resolutions
+  { width: 1920, height: 1080, label: 'Full HD (1920x1080)' },
+  { width: 1600, height: 1200, label: 'UXGA (1600x1200)' },
+  { width: 1280, height: 1024, label: 'SXGA (1280x1024)' },
   { width: 1280, height: 720, label: 'HD (1280x720)' },
+  { width: 1024, height: 768, label: 'XGA (1024x768)' },
+  { width: 800, height: 600, label: 'SVGA (800x600)' },
+  { width: 640, height: 480, label: 'VGA (640x480)' },
 ];
 
 export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({
@@ -88,46 +103,12 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({
     CameraResolution[]
   >([]);
   const [selectedResolution, setSelectedResolution] =
-    useState<CameraResolution>(() => {
-      // Try to load saved resolution from localStorage
-      const savedResolution = localStorage.getItem('cameraResolution');
-      if (savedResolution) {
-        try {
-          const parsed = JSON.parse(savedResolution);
-          // Validate the parsed resolution has required properties
-          if (parsed.width && parsed.height && parsed.label) {
-            return parsed;
-          }
-        } catch (error) {
-          console.log('Failed to parse saved resolution, using default');
-        }
-      }
-      return RESOLUTION_PRESETS[0]; // Default to Full HD
-    });
+    useState<CameraResolution>(RESOLUTION_PRESETS[0]); // Always start with Full HD default
 
   const [availableDevices, setAvailableDevices] = useState<CameraDevice[]>([]);
   const [selectedDevice, setSelectedDevice] = useState<CameraDevice | null>(
-    () => {
-      // Try to load saved device from localStorage
-      const savedDevice = localStorage.getItem('cameraDevice');
-      if (savedDevice) {
-        try {
-          const parsed = JSON.parse(savedDevice);
-          if (parsed.deviceId && parsed.label) {
-            return parsed;
-          }
-        } catch (error) {
-          console.log('Failed to parse saved device, will auto-select');
-        }
-      }
-      return null; // Will be set when devices are loaded
-    }
-  );
-
-  // Cache for device resolutions to avoid retesting
-  const deviceResolutionCache = useRef<Map<string, CameraResolution[]>>(
-    new Map()
-  );
+    null
+  ); // Will be set when devices are loaded
 
   // Get available camera devices
   const getAvailableDevices = async (): Promise<CameraDevice[]> => {
@@ -180,14 +161,18 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({
           const settings = track.getSettings();
 
           console.log(
-            `Testing ${preset.label} for device ${deviceId}: got ${settings.width}x${settings.height}`
+            `Testing ${preset.label} for device ${deviceId}: got ${settings.width}x${settings.height} (expected ${preset.width}x${preset.height})`
           );
 
           // More flexible resolution matching - allow for small variations
+          // Use larger tolerance for 4K resolutions as they may have more variation
+          const is4K = preset.width >= 3840 || preset.height >= 2160;
+          const tolerance = is4K ? 50 : 10; // Allow 50px variation for 4K, 10px for others
+
           const widthMatch =
-            Math.abs((settings.width || 0) - preset.width) <= 10;
+            Math.abs((settings.width || 0) - preset.width) <= tolerance;
           const heightMatch =
-            Math.abs((settings.height || 0) - preset.height) <= 10;
+            Math.abs((settings.height || 0) - preset.height) <= tolerance;
           const isSupported = widthMatch && heightMatch;
 
           // Clean up test stream immediately
@@ -211,7 +196,7 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({
     });
   };
 
-  // Get available camera resolutions for a specific device (optimized with caching)
+  // Get available camera resolutions for a specific device (always fresh detection)
   const getAvailableResolutions = async (
     deviceId?: string
   ): Promise<CameraResolution[]> => {
@@ -224,33 +209,27 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({
         return getAvailableResolutions(devices[0].deviceId);
       }
 
-      // Check cache first for faster switching (but allow bypassing for debugging)
-      const cached = deviceResolutionCache.current.get(targetDeviceId);
-      const forceRetest = false; // Set to true for debugging resolution issues
-
-      if (cached && !forceRetest) {
-        console.log(
-          `Using cached resolutions for device ${targetDeviceId}:`,
-          cached
-        );
-        return cached;
-      }
-
-      if (forceRetest && cached) {
-        console.log(
-          `Force retesting resolutions for device ${targetDeviceId} (cache bypassed)`
-        );
-      }
-
       console.log(`Testing resolutions for device ${targetDeviceId}...`);
 
       // Test resolutions in parallel with adequate timeout for reliable detection
-      const resolutionTests = RESOLUTION_PRESETS.map((preset) =>
-        testResolution(targetDeviceId, preset, 2500).then((isSupported) => ({
-          preset,
-          isSupported,
-        }))
-      );
+      // Use longer timeout for 4K resolutions as they take more time to initialize
+      const resolutionTests = RESOLUTION_PRESETS.map((preset) => {
+        const is4K = preset.width >= 3840 || preset.height >= 2160;
+        const timeout = is4K ? 5000 : 3000; // 5 seconds for 4K, 3 seconds for others
+
+        console.log(
+          `Starting test for ${preset.label} with ${timeout}ms timeout${
+            is4K ? ' (4K resolution)' : ''
+          }...`
+        );
+
+        return testResolution(targetDeviceId, preset, timeout).then(
+          (isSupported) => ({
+            preset,
+            isSupported,
+          })
+        );
+      });
 
       const results = await Promise.all(resolutionTests);
       const supportedResolutions = results
@@ -262,11 +241,9 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({
           ? supportedResolutions
           : [RESOLUTION_PRESETS[0]];
 
-      // Cache the results for faster future switching
-      deviceResolutionCache.current.set(targetDeviceId, finalResolutions);
-
       console.log(
-        `Found ${finalResolutions.length} supported resolutions for device ${targetDeviceId}`
+        `Found ${finalResolutions.length} supported resolutions for device ${targetDeviceId}:`,
+        finalResolutions.map((r) => r.label)
       );
 
       return finalResolutions;
@@ -373,10 +350,6 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({
                 `Updating selectedResolution to match actual camera resolution: ${matchingPreset.label} (${actualResolution.width}x${actualResolution.height})`
               );
               setSelectedResolution(matchingPreset);
-              localStorage.setItem(
-                'cameraResolution',
-                JSON.stringify(matchingPreset)
-              );
             }
           } else {
             // If actual resolution doesn't match any preset, create a custom one
@@ -390,10 +363,6 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({
               `Camera is using non-standard resolution: ${customResolution.label}`
             );
             setSelectedResolution(customResolution);
-            localStorage.setItem(
-              'cameraResolution',
-              JSON.stringify(customResolution)
-            );
           }
         };
 
@@ -414,8 +383,6 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({
   const setResolution = async (resolution: CameraResolution) => {
     try {
       setSelectedResolution(resolution);
-      // Save to localStorage for persistence
-      localStorage.setItem('cameraResolution', JSON.stringify(resolution));
       await setupCamera(resolution);
     } catch (error) {
       console.error('Error setting resolution:', error);
@@ -428,10 +395,8 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({
     try {
       setIsLoading(true);
       setSelectedDevice(device);
-      // Save to localStorage for persistence
-      localStorage.setItem('cameraDevice', JSON.stringify(device));
 
-      // Get resolutions for the new device (uses cache if available for faster switching)
+      // Get resolutions for the new device (always fresh detection)
       const resolutions = await getAvailableResolutions(device.deviceId);
       setAvailableResolutions(resolutions);
 
@@ -448,10 +413,6 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({
 
       if (!isCurrentResolutionSupported && resolutions.length > 0) {
         setSelectedResolution(targetResolution);
-        localStorage.setItem(
-          'cameraResolution',
-          JSON.stringify(targetResolution)
-        );
       }
 
       // Start camera setup immediately with target resolution
@@ -465,30 +426,24 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({
   // Initialize devices and resolutions on mount
   useEffect(() => {
     const initCamera = async () => {
+      console.log('Initializing camera - fresh detection');
+
       const devices = await getAvailableDevices();
       setAvailableDevices(devices);
 
       if (devices.length > 0) {
-        // If we have a saved device, verify it still exists
-        let deviceToUse = selectedDevice;
-        if (selectedDevice) {
-          const deviceExists = devices.some(
-            (d) => d.deviceId === selectedDevice.deviceId
-          );
-          if (!deviceExists) {
-            deviceToUse = devices[0];
-            setSelectedDevice(deviceToUse);
-            localStorage.setItem('cameraDevice', JSON.stringify(deviceToUse));
-          }
-        } else {
-          deviceToUse = devices[0];
-          setSelectedDevice(deviceToUse);
-          localStorage.setItem('cameraDevice', JSON.stringify(deviceToUse));
-        }
+        // Always use the first device as default
+        const deviceToUse = devices[0];
+        setSelectedDevice(deviceToUse);
 
-        // Get resolutions for the selected device
+        // Get resolutions for the selected device (always fresh detection)
         const resolutions = await getAvailableResolutions(deviceToUse.deviceId);
         setAvailableResolutions(resolutions);
+
+        // Set the first resolution as default
+        if (resolutions.length > 0) {
+          setSelectedResolution(resolutions[0]);
+        }
       }
     };
     initCamera();
