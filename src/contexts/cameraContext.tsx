@@ -253,7 +253,79 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
-  // Setup camera stream
+  // Setup camera stream with exact resolution constraints (for resolution switching)
+  const setupCameraWithExactResolution = async (
+    resolution: CameraResolution
+  ) => {
+    setIsLoading(true);
+    setIsCameraReady(false);
+
+    const targetDeviceId = selectedDevice?.deviceId;
+
+    try {
+      if (!targetDeviceId) {
+        throw new Error('No camera device selected');
+      }
+
+      console.log(
+        `Setting up camera with EXACT resolution: ${resolution.width}x${resolution.height}`
+      );
+
+      // Use EXACT constraints to force the specific resolution
+      const constraints = {
+        video: {
+          deviceId: { exact: targetDeviceId },
+          width: { exact: resolution.width },
+          height: { exact: resolution.height },
+        },
+      };
+
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      streamRef.current = stream;
+
+      if (videoRef.current) {
+        // Clear any existing event handlers first
+        videoRef.current.onloadedmetadata = null;
+        videoRef.current.onplaying = null;
+        videoRef.current.onerror = null;
+
+        videoRef.current.srcObject = stream;
+        const videoTrack = stream.getVideoTracks()[0];
+        videoTrackRef.current = videoTrack;
+
+        // Set up event handlers for video element
+        videoRef.current.onloadedmetadata = () => {
+          videoRef.current?.play();
+        };
+
+        videoRef.current.onplaying = () => {
+          const actualSettings = videoTrack.getSettings();
+          console.log(
+            `Camera started with EXACT resolution: ${actualSettings.width}x${actualSettings.height} (requested: ${resolution.width}x${resolution.height})`
+          );
+
+          setCameraResolution({
+            width: actualSettings.width || resolution.width,
+            height: actualSettings.height || resolution.height,
+          });
+
+          setIsLoading(false);
+          setIsCameraReady(true);
+        };
+
+        videoRef.current.onerror = () => {
+          setIsLoading(false);
+          console.error('Video element error during resolution switch');
+        };
+      }
+    } catch (error) {
+      console.error('Error setting up camera with exact resolution:', error);
+      setIsLoading(false);
+      throw error;
+    }
+  };
+
+  // Setup camera stream (for initial setup with flexible constraints)
   const setupCamera = async (
     resolution?: CameraResolution,
     deviceId?: string
@@ -332,38 +404,12 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({
 
           setCameraResolution(actualResolution);
 
-          // Update selectedResolution to match what the camera is actually providing
-          const matchingPreset = RESOLUTION_PRESETS.find(
-            (preset) =>
-              preset.width === actualResolution.width &&
-              preset.height === actualResolution.height
+          console.log(
+            `Camera initialized with resolution: ${actualResolution.width}x${actualResolution.height} (selected: ${selectedResolution.label})`
           );
 
-          if (matchingPreset) {
-            // Check if we need to update the selected resolution
-            if (
-              !selectedResolution ||
-              selectedResolution.width !== actualResolution.width ||
-              selectedResolution.height !== actualResolution.height
-            ) {
-              console.log(
-                `Updating selectedResolution to match actual camera resolution: ${matchingPreset.label} (${actualResolution.width}x${actualResolution.height})`
-              );
-              setSelectedResolution(matchingPreset);
-            }
-          } else {
-            // If actual resolution doesn't match any preset, create a custom one
-            const customResolution: CameraResolution = {
-              width: actualResolution.width,
-              height: actualResolution.height,
-              label: `Custom (${actualResolution.width}x${actualResolution.height})`,
-            };
-
-            console.log(
-              `Camera is using non-standard resolution: ${customResolution.label}`
-            );
-            setSelectedResolution(customResolution);
-          }
+          // Don't auto-update selectedResolution - let user's manual selection stay
+          // Only update if this is initial setup and no resolution was explicitly selected
         };
 
         videoRef.current.onerror = () => {
@@ -379,11 +425,29 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
-  // Set resolution and restart camera
+  // Set resolution and restart camera (force complete restart)
   const setResolution = async (resolution: CameraResolution) => {
     try {
+      console.log(
+        `Switching to resolution: ${resolution.label} (${resolution.width}x${resolution.height})`
+      );
+
+      // Force stop current camera completely
+      stopCamera();
+
+      // Clear video element source to prevent caching
+      if (videoRef.current) {
+        videoRef.current.srcObject = null;
+      }
+
+      // Wait a bit to ensure complete cleanup
+      await new Promise((resolve) => setTimeout(resolve, 100));
+
+      // Update selected resolution
       setSelectedResolution(resolution);
-      await setupCamera(resolution);
+
+      // Force complete camera restart with exact constraints
+      await setupCameraWithExactResolution(resolution);
     } catch (error) {
       console.error('Error setting resolution:', error);
       setIsLoading(false);
@@ -449,14 +513,30 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({
     initCamera();
   }, []);
 
-  // Stop camera stream
+  // Stop camera stream (thorough cleanup)
   const stopCamera = () => {
+    console.log('Stopping camera stream...');
+
+    // Stop all tracks in the current stream
     if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current.getTracks().forEach((track: MediaStreamTrack) => {
+        track.stop();
+        console.log(`Stopped ${track.kind} track`);
+      });
       streamRef.current = null;
     }
+
+    // Clear video track reference
     videoTrackRef.current = null;
+
+    // Clear video element source
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+
+    // Reset camera state
     setIsCameraReady(false);
+    setCameraResolution(null);
   };
 
   // Adjust camera settings
