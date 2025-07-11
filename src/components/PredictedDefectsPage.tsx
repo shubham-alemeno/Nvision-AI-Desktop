@@ -39,16 +39,27 @@ function PredictedDefectsPage({
     try {
       const feedbackData = {};
 
-      Object.entries(defects).forEach(([defectKey]) => {
-        // Default: feedback is false (no correction needed)
-        // If marked as incorrect: feedback is true (correction/feedback provided)
+      Object.entries(defects).forEach(([defectKey, predictedValue]) => {
+        // New logic:
+        // Default: feedback = same as predicted value
+        // If marked as incorrect: feedback = inverted predicted value (opposite)
+        // If not marked: feedback = same as predicted value
         const isMarkedIncorrect = corrections[defectKey] === true;
 
+        const feedbackValue = isMarkedIncorrect
+          ? !predictedValue
+          : predictedValue;
+
         feedbackData[defectKey] = {
-          feedback: isMarkedIncorrect ? true : false,
+          feedback: feedbackValue,
         };
+
+        console.log(
+          `${defectKey}: predicted=${predictedValue}, marked=${isMarkedIncorrect}, feedback=${feedbackValue}`
+        );
       });
 
+      console.log('Final feedback payload:', feedbackData);
       const response = await submitFeedback(taskUuid, feedbackData);
       console.log('Feedback submitted successfully:', response);
 
