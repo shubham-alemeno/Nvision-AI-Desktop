@@ -40,15 +40,23 @@ function PredictedDefectsPage({
       const feedbackData = {};
 
       Object.entries(defects).forEach(([defectKey, predictedValue]) => {
-        // New logic:
-        // Default: feedback = same as predicted value
-        // If marked as incorrect: feedback = inverted predicted value (opposite)
-        // If not marked: feedback = same as predicted value
+        // Logic: Send classification strings based on prediction vs user feedback
+        // False (not found) + selected for feedback = False Negative
+        // False (not found) + not selected = True Negative
+        // True (found) + selected for feedback = False Positive
+        // True (found) + not selected = True Positive
         const isMarkedIncorrect = corrections[defectKey] === true;
 
-        const feedbackValue = isMarkedIncorrect
-          ? !predictedValue
-          : predictedValue;
+        let feedbackValue: string;
+        if (predictedValue === false && isMarkedIncorrect) {
+          feedbackValue = 'False Negative'; // Model said not found, but user says it should be found
+        } else if (predictedValue === false && !isMarkedIncorrect) {
+          feedbackValue = 'True Negative'; // Model said not found, user agrees
+        } else if (predictedValue === true && isMarkedIncorrect) {
+          feedbackValue = 'False Positive'; // Model said found, but user says it shouldn't be found
+        } else if (predictedValue === true && !isMarkedIncorrect) {
+          feedbackValue = 'True Positive'; // Model said found, user agrees
+        }
 
         feedbackData[defectKey] = {
           feedback: feedbackValue,
