@@ -1,6 +1,7 @@
 // components/CustomTitlebar.tsx
 import React from 'react';
 import nvision_icon from '../assets/nvision_logo.ico';
+import packageJson from '../../package.json';
 
 interface CustomTitlebarProps {
   onMinimize: () => void;
@@ -17,7 +18,8 @@ const CustomTitlebar: React.FC<CustomTitlebarProps> = ({
     <div className="h-8 bg-[#2b2b2b] flex justify-between items-center select-none">
       <div className="flex items-center flex-grow pl-3 text-white text-xs font-medium -webkit-app-region-drag">
         {/* <img src={nvision_icon} alt="Nvision AI" className="w-4 h-4 mr-2" /> */}
-        Nvision AI
+        <span>Nvision AI</span>
+        <span className="ml-2 text-gray-400">v{packageJson.version}</span>
       </div>
 
       <div className="flex -webkit-app-region-no-drag">
