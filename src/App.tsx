@@ -262,7 +262,7 @@ function App() {
           { name: 'Incoming Galaxy', key: 'def_incoming_galaxy' },
           { name: 'Led Off', key: 'def_led_off' },
           { name: 'Bleeding', key: 'def_bleeding' },
-          { name: 'No Trouble Found', key: 'def_no_trouble_found' },
+          // { name: 'No Trouble Found', key: 'def_no_trouble_found' },
         ];
 
         let defectsToUse: string[] = defectsList.map((d) => d.key);
@@ -320,6 +320,34 @@ function App() {
       }
     };
 
+    const initializeUser = async () => {
+      const storedUserData = localStorage.getItem('sentinel_dash_user');
+      if (storedUserData) {
+        try {
+          const parsedUserData = JSON.parse(storedUserData);
+          setUserData(parsedUserData);
+        } catch (error) {
+          console.error('Error parsing stored user data:', error);
+          localStorage.removeItem('sentinel_dash_user'); 
+        }
+      }
+
+      const token = localStorage.getItem('sentinel_dash_token'); 
+      if (token) {
+        try {
+          console.log('called')
+          const userData = await getUserFromToken(token);
+          setUserData(userData.user);
+          localStorage.setItem('sentinel_dash_user', JSON.stringify(userData.user));
+        } catch (error) {
+          console.error('Error refreshing user data:', error);
+          localStorage.removeItem('sentinel_dash_user');
+          localStorage.removeItem('sentinel_dash_token');
+        }
+      }
+    };
+
+    initializeUser();
     loadDefectDisplayMap();
   }, []);
 
@@ -344,6 +372,7 @@ function App() {
     try {
       localStorage.setItem('sentinel_dash_token', token);
       setAuthToken(token);
+          console.log('called1')
 
       // Fetch user data from token
       const userData = await getUserFromToken(token);
@@ -929,6 +958,7 @@ function App() {
     }
   };
 
+  
   return (
     <AppModeProvider>
       <CameraProvider>

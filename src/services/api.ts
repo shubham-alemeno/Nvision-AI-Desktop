@@ -77,51 +77,70 @@ api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
-
-    // Check for expired access token
-    if (
-      error.response?.data?.code === 'token_not_valid' &&
-      !originalRequest._retry
-    ) {
+    
+    // Check for expired access token - handle multiple error formats
+    const isTokenExpired = 
+      error.response?.data?.code === 'token_not_valid' ||
+      error.response?.data?.error === 'Token error: Token is expired' ||
+      error.response?.status === 401;
+    
+    if (isTokenExpired && !originalRequest._retry) {
       originalRequest._retry = true;
-
+      
       if (!isRefreshing) {
         isRefreshing = true;
         try {
           const refreshToken = getRefreshToken();
+          
+          if (!refreshToken) {
+            console.log('No refresh token found, logging out user');
+            isRefreshing = false;
+            performLogout();
+            return Promise.reject(error);
+          }
+          
           const response = await axios.post(
             `${currentEnvironment.baseUrl}/login/refresh/`,
             {
               refresh: refreshToken,
             }
           );
-
+          
           const { access, refresh } = response.data;
-
+          
           // Save new tokens
           localStorage.setItem('sentinel_dash_token', access);
           localStorage.setItem('sentinel_dash_refresh', refresh);
-
+          
+          // Update the original request with new token
+          originalRequest.headers.Authorization = `Bearer ${access}`;
+          
           onRefreshed(access);
           isRefreshing = false;
-
+          
           return api(originalRequest); // Retry original request
         } catch (refreshError) {
           console.error('Refresh token failed:', refreshError);
           isRefreshing = false;
-
-          // Check if refresh also failed with token_not_valid
-          if (refreshError.response?.data?.code === 'token_not_valid') {
-            console.log('Refresh token is also invalid, logging out user');
-            performLogout();
+          
+          // Check if refresh also failed with token_not_valid or expired
+          const isRefreshTokenExpired = 
+            refreshError.response?.data?.code === 'token_not_valid' ||
+            refreshError.response?.data?.error === 'Token error: Token is expired' ||
+            refreshError.response?.status === 401;
+            
+          if (isRefreshTokenExpired) {
+            console.log('Refresh token is also invalid/expired, logging out user');
           } else {
-            performLogout();
+            console.log('Refresh token request failed for other reason, logging out user');
           }
-
+          
+          performLogout();
           return Promise.reject(refreshError);
         }
       }
-
+      
+      // If already refreshing, wait for the refresh to complete
       return new Promise((resolve) => {
         subscribeTokenRefresh((newToken) => {
           originalRequest.headers.Authorization = `Bearer ${newToken}`;
@@ -129,7 +148,7 @@ api.interceptors.response.use(
         });
       });
     }
-
+    
     return Promise.reject(error);
   }
 );
@@ -381,9 +400,23 @@ export const getDefects = async () => {
 
 //Past Data
 
-export const getPastTasks = async (page = 1) => {
+export const getPastTasks = async (params: {
+  page?: number;
+  from_date?: string;
+  to_date?: string;
+  ppid?: string;
+  group?: boolean; 
+}) => {
   try {
-    const response = await api.get(`/data/taks/past_tasks/?page=${page}`);
+    const queryParams = new URLSearchParams();
+    if (params.page) queryParams.append('page', params.page.toString());
+    if (params.from_date) queryParams.append('from_date', params.from_date);
+    if (params.to_date) queryParams.append('to_date', params.to_date);
+    if (params.ppid) queryParams.append('ppid', params.ppid);
+    
+    queryParams.append('group', (params.group || false).toString());
+    
+    const response = await api.get(`/data/taks/past_tasks/?${queryParams.toString()}`);
     return response.data;
   } catch (error) {
     console.error('Error fetching past tasks:', error);
@@ -396,7 +429,6 @@ export const getPastTasks = async (page = 1) => {
     throw error;
   }
 };
-
 // Statistics
 export const getPanelStats = async () => {
   try {

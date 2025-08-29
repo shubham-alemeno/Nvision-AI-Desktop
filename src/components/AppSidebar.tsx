@@ -17,7 +17,6 @@ import { NavMain } from '@/components/NavMain';
 import { NavUser } from '@/components/NavUser';
 import { TeamSwitcher } from './team-switcher';
 import { useAppMode } from '../contexts/appModeContext';
-import { Button } from '@/components/ui/button';
 // import nvision_logo from '../assets/nvision_logo.png';
 
 // This is sample data
@@ -106,6 +105,7 @@ const AppSidebar = ({
   activePage: string;
   username?: string;
 }) => {
+  console.log(userData)
   const { isTestMode, setIsTestMode } = useAppMode();
   const { state } = useSidebar();
   return (

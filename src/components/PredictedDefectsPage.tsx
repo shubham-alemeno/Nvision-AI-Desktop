@@ -23,7 +23,7 @@ function PredictedDefectsPage({
     { key: 'def_incoming_galaxy', label: 'Incoming Galaxy' },
     { key: 'def_led_off', label: 'LED Off' },
     { key: 'def_bleeding', label: 'Bleeding' },
-    { key: 'def_no_trouble_found', label: 'No Trouble Found' },
+    // { key: 'def_no_trouble_found', label: 'No Trouble Found' },
     // { key: 'def_other_defects', label: 'Other Defects' },
   ],
 }) {

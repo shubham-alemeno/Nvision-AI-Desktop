@@ -346,13 +346,13 @@ const AdminUserManagement = () => {
   }, [searchTerm, filterActive, filterStaff]);
 
   // Debounce search input
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      fetchUsers();
-    }, 300); // 300ms delay for search
+  // useEffect(() => {
+  //   const timer = setTimeout(() => {
+  //     fetchUsers();
+  //   }, 300); // 300ms delay for search
 
-    return () => clearTimeout(timer);
-  }, [fetchUsers]);
+  //   return () => clearTimeout(timer);
+  // }, [fetchUsers]);
 
   // Reset to first page when filters change
   // useEffect(() => {
@@ -537,83 +537,19 @@ const AdminUserManagement = () => {
   return (
     <div className="space-y-6">
       {/* Stats Cards */}
-      <Card>
-        <CardHeader>
-          <CardTitle>User Management</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-6">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-                <CardTitle className="text-sm font-medium">
-                  Total Users
-                </CardTitle>
-                <Users className="h-5 w-5 text-muted-foreground" />
-              </CardHeader>
-              <CardContent className="pt-0">
-                <div className="text-3xl font-bold">
-                  {stats?.total_users || 0}
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-                <CardTitle className="text-sm font-medium">
-                  Active Users
-                </CardTitle>
-                <UserCheck className="h-5 w-5 text-green-600" />
-              </CardHeader>
-              <CardContent className="pt-0">
-                <div className="text-3xl font-bold text-green-600">
-                  {stats?.active_users || 0}
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-                <CardTitle className="text-sm font-medium">
-                  Staff Users
-                </CardTitle>
-                <Shield className="h-5 w-5 text-blue-600" />
-              </CardHeader>
-              <CardContent className="pt-0">
-                <div className="text-3xl font-bold text-blue-600">
-                  {stats?.staff_users || 0}
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-                <CardTitle className="text-sm font-medium">
-                  Super Users
-                </CardTitle>
-                <Shield className="h-5 w-5 text-purple-600" />
-              </CardHeader>
-              <CardContent className="pt-0">
-                <div className="text-3xl font-bold text-purple-600">
-                  {stats?.superusers || 0}
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-4">
-                <CardTitle className="text-sm font-medium">
-                  Inactive Users
-                </CardTitle>
-                <UserX className="h-5 w-5 text-red-600" />
-              </CardHeader>
-              <CardContent className="pt-0">
-                <div className="text-3xl font-bold text-red-600">
-                  {stats?.inactive_users || 0}
-                </div>
-              </CardContent>
-            </Card>
+    <Card>
+        <CardHeader className="flex flex-row items-center justify-between">
+          <CardTitle className='text-xl'>User Management</CardTitle>
+          <div className="flex items-center gap-3 bg-blue-50 px-4 py-2 rounded-lg">
+            <Users className="h-5 w-5 text-blue-600" />
+            <div>
+              <p className="text-sm text-blue-600 font-medium">Total Users</p>
+              <p className="text-2xl font-bold text-blue-900">
+                {stats?.total_users || 0}
+              </p>
+            </div>
           </div>
-        </CardContent>
+        </CardHeader>
       </Card>
 
       {/* Filters and Actions */}
@@ -635,7 +571,7 @@ const AdminUserManagement = () => {
                 <div className="grid gap-4 py-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <Label htmlFor="username">Username</Label>
+                      <Label htmlFor="username">Username <span className='text-red-600'>*</span></Label>
                       <Input
                         id="username"
                         value={createForm.username}
@@ -648,7 +584,7 @@ const AdminUserManagement = () => {
                       />
                     </div>
                     <div>
-                      <Label htmlFor="email">Email</Label>
+                      <Label htmlFor="email">Email <span className='text-red-600'>*</span></Label>
                       <Input
                         id="email"
                         type="email"
@@ -691,7 +627,7 @@ const AdminUserManagement = () => {
                     </div>
                   </div>
                   <div>
-                    <Label htmlFor="password">Password</Label>
+                    <Label htmlFor="password">Password <span className='text-red-600'>*</span></Label>
                     <Input
                       id="password"
                       type="password"
@@ -706,7 +642,7 @@ const AdminUserManagement = () => {
                     />
                   </div>
                   <div>
-                    <Label htmlFor="confirm_password">Confirm Password</Label>
+                    <Label htmlFor="confirm_password">Confirm Password <span className='text-red-600'>*</span></Label>
                     <Input
                       id="confirm_password"
                       type="password"
@@ -719,38 +655,6 @@ const AdminUserManagement = () => {
                         })
                       }
                     />
-                  </div>
-                  <div>
-                    <Label htmlFor="groups">Groups (comma-separated)</Label>
-                    <Input
-                      id="groups"
-                      value={createForm.groups}
-                      onChange={(e) =>
-                        setCreateForm({ ...createForm, groups: e.target.value })
-                      }
-                    />
-                  </div>
-                  <div className="flex items-center space-x-4">
-                    <div className="flex items-center space-x-2">
-                      <Switch
-                        id="is_active"
-                        checked={createForm.is_active}
-                        onCheckedChange={(checked) =>
-                          setCreateForm({ ...createForm, is_active: checked })
-                        }
-                      />
-                      <Label htmlFor="is_active">Active</Label>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <Switch
-                        id="is_staff"
-                        checked={createForm.is_staff}
-                        onCheckedChange={(checked) =>
-                          setCreateForm({ ...createForm, is_staff: checked })
-                        }
-                      />
-                      <Label htmlFor="is_staff">Staff</Label>
-                    </div>
                   </div>
                 </div>
                 <div className="flex justify-end space-x-2">
@@ -789,39 +693,7 @@ const AdminUserManagement = () => {
               </div>
             </div>
 
-            <Select
-              value={
-                filterActive === undefined ? 'all' : filterActive.toString()
-              }
-              onValueChange={(value) =>
-                setFilterActive(value === 'all' ? undefined : value === 'true')
-              }
-            >
-              <SelectTrigger className="w-[140px]">
-                <SelectValue placeholder="All Status" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Status</SelectItem>
-                <SelectItem value="true">Active</SelectItem>
-                <SelectItem value="false">Inactive</SelectItem>
-              </SelectContent>
-            </Select>
 
-            <Select
-              value={filterStaff === undefined ? 'all' : filterStaff.toString()}
-              onValueChange={(value) =>
-                setFilterStaff(value === 'all' ? undefined : value === 'true')
-              }
-            >
-              <SelectTrigger className="w-[140px]">
-                <SelectValue placeholder="All Roles" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Roles</SelectItem>
-                <SelectItem value="true">Staff</SelectItem>
-                <SelectItem value="false">Regular</SelectItem>
-              </SelectContent>
-            </Select>
           </div>
 
           {/* Users Table */}
@@ -831,10 +703,8 @@ const AdminUserManagement = () => {
                 <thead className="bg-muted/50">
                   <tr>
                     <th className="text-left p-3 font-medium">User</th>
-                    <th className="text-left p-3 font-medium">Email</th>
-                    <th className="text-left p-3 font-medium">Status</th>
+                    {/* <th className="text-left p-3 font-medium">Email</th> */}
                     <th className="text-left p-3 font-medium">Role</th>
-                    <th className="text-left p-3 font-medium">Groups</th>
                     <th className="text-left p-3 font-medium">Actions</th>
                   </tr>
                 </thead>
@@ -854,32 +724,21 @@ const AdminUserManagement = () => {
                           </div>
                         </div>
                       </td>
-                      <td className="p-3 text-sm">{user.email}</td>
-                      <td className="p-3">
-                        <Badge
-                          variant={user.is_active ? 'default' : 'secondary'}
-                        >
-                          {user.is_active ? 'Active' : 'Inactive'}
-                        </Badge>
-                      </td>
+                      {/* <td className="p-3 text-sm">{user.email}</td> */}
                       <td className="p-3">
                         <div className="flex gap-1">
-                          {user.is_superuser && (
-                            <Badge variant="destructive">Super</Badge>
-                          )}
-                          {user.is_staff && (
-                            <Badge variant="outline">Staff</Badge>
-                          )}
-                          {!user.is_staff && !user.is_superuser && (
+                          {user.is_superuser ? (
+                            <Badge variant="destructive">Admin</Badge>
+                          ) : (
                             <Badge variant="secondary">User</Badge>
                           )}
                         </div>
                       </td>
-                      <td className="p-3 text-sm">
+                      {/* <td className="p-3 text-sm">
                         {user?.groups?.length > 0
                           ? user.groups.join(', ')
                           : 'None'}
-                      </td>
+                      </td> */}
                       <td className="p-3">
                         <div className="flex items-center">
                           {/* <Button
@@ -998,7 +857,7 @@ const AdminUserManagement = () => {
                 />
               </div>
             </div>
-            <div>
+            {/* <div>
               <Label htmlFor="edit_groups">Groups (comma-separated)</Label>
               <Input
                 id="edit_groups"
@@ -1007,29 +866,7 @@ const AdminUserManagement = () => {
                   setEditForm({ ...editForm, groups: e.target.value })
                 }
               />
-            </div>
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2">
-                <Switch
-                  id="edit_is_active"
-                  checked={editForm.is_active}
-                  onCheckedChange={(checked) =>
-                    setEditForm({ ...editForm, is_active: checked })
-                  }
-                />
-                <Label htmlFor="edit_is_active">Active</Label>
-              </div>
-              <div className="flex items-center space-x-2">
-                <Switch
-                  id="edit_is_staff"
-                  checked={editForm.is_staff}
-                  onCheckedChange={(checked) =>
-                    setEditForm({ ...editForm, is_staff: checked })
-                  }
-                />
-                <Label htmlFor="edit_is_staff">Staff</Label>
-              </div>
-            </div>
+            </div> */}
           </div>
           <div className="flex justify-end space-x-2">
             <Button variant="outline" onClick={() => setEditModalOpen(false)}>
