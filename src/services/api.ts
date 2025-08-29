@@ -115,9 +115,6 @@ api.interceptors.response.use(
             console.log('Refresh token is also invalid, logging out user');
             performLogout();
           } else {
-            // For other refresh errors, still clear tokens but don't trigger full logout
-            // localStorage.removeItem('sentinel_dash_token');
-            // localStorage.removeItem('sentinel_dash_refresh');
             performLogout();
           }
 
@@ -138,6 +135,7 @@ api.interceptors.response.use(
 );
 
 // Function to update environment state
+
 export const updateEnvironment = (newEnvironment) => {
   currentEnvironment = { ...newEnvironment };
 };
@@ -198,6 +196,28 @@ export const login = async (username: string, password: string) => {
       },
       extra: {
         username: username,
+      },
+    });
+    throw error;
+  }
+};
+
+// get user data from token
+export const getUserFromToken = async (accessToken: string) => {
+  try {
+    const response = await api.post('/data/users/get_user_from_token/', {
+      access_token: accessToken,
+    });
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching user from token:', error);
+    Sentry.captureException(error, {
+      tags: {
+        location: 'getUserFromToken',
+        operation: 'authentication',
+      },
+      extra: {
+        accessToken: accessToken ? 'present' : 'missing',
       },
     });
     throw error;
@@ -359,6 +379,24 @@ export const getDefects = async () => {
   }
 };
 
+//Past Data
+
+export const getPastTasks = async (page = 1) => {
+  try {
+    const response = await api.get(`/data/taks/past_tasks/?page=${page}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching past tasks:', error);
+    Sentry.captureException(error, {
+      tags: {
+        location: 'getPastTasks',
+        operation: 'past_tasks_fetch',
+      },
+    });
+    throw error;
+  }
+};
+
 // Statistics
 export const getPanelStats = async () => {
   try {
@@ -403,6 +441,186 @@ export const getGroupInferenceUsage = async () => {
       tags: {
         location: 'getGroupInferenceUsage',
         operation: 'group_inference_usage_fetch',
+      },
+    });
+    throw error;
+  }
+};
+
+//admin account creation
+
+// Get all users with optional filtering
+export const getUsers = async (params?: {
+  search?: string;
+  is_active?: boolean;
+  is_staff?: boolean;
+  page?: number;
+  page_size?: number;
+}) => {
+  try {
+    const queryParams = new URLSearchParams();
+    if (params?.search) queryParams.append('search', params.search);
+    if (params?.is_active !== undefined)
+      queryParams.append('is_active', params.is_active.toString());
+    if (params?.is_staff !== undefined)
+      queryParams.append('is_staff', params.is_staff.toString());
+    if (params?.page) queryParams.append('page', params.page.toString());
+    if (params?.page_size)
+      queryParams.append('page_size', params.page_size.toString());
+
+    const response = await api.get(`/data/users/?${queryParams.toString()}`);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching users:', error);
+    Sentry.captureException(error, {
+      tags: {
+        location: 'getUsers',
+        operation: 'users_fetch',
+      },
+    });
+    throw error;
+  }
+};
+
+// Get user details by ID
+export const getUserById = async (id: number) => {
+  try {
+    const response = await api.get(`/data/users/${id}/`);
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching user details:', error);
+    Sentry.captureException(error, {
+      tags: {
+        location: 'getUserById',
+        operation: 'user_details_fetch',
+        user_id: id.toString(),
+      },
+    });
+    throw error;
+  }
+};
+
+// Create new user
+export const createUser = async (userData) => {
+  try {
+    const response = await api.post('/data/users/', userData);
+    return response.data;
+  } catch (error) {
+    console.error('Error creating user:', error);
+    Sentry.captureException(error, {
+      tags: {
+        location: 'createUser',
+        operation: 'user_create',
+      },
+    });
+    throw error;
+  }
+};
+
+// Update user
+export const updateUser = async (id: number, userData) => {
+  try {
+    const response = await api.patch(`/data/users/${id}/`, userData);
+    return response.data;
+  } catch (error) {
+    console.error('Error updating user:', error);
+    Sentry.captureException(error, {
+      tags: {
+        location: 'updateUser',
+        operation: 'user_update',
+        user_id: id.toString(),
+      },
+    });
+    throw error;
+  }
+};
+
+// Delete user
+export const deleteUser = async (id: number) => {
+  try {
+    const response = await api.delete(`/data/users/${id}/`);
+    return response.data;
+  } catch (error) {
+    console.error('Error deleting user:', error);
+    Sentry.captureException(error, {
+      tags: {
+        location: 'deleteUser',
+        operation: 'user_delete',
+        user_id: id.toString(),
+      },
+    });
+    throw error;
+  }
+};
+
+// Set user password
+export const setUserPassword = async (id: number, passwordData) => {
+  try {
+    const response = await api.post(
+      `/data/users/${id}/set_password/`,
+      passwordData
+    );
+    return response.data;
+  } catch (error) {
+    console.error('Error setting user password:', error);
+    Sentry.captureException(error, {
+      tags: {
+        location: 'setUserPassword',
+        operation: 'user_password_set',
+        user_id: id.toString(),
+      },
+    });
+    throw error;
+  }
+};
+
+// Toggle user active status
+export const toggleUserActive = async (id: number) => {
+  try {
+    const response = await api.post(`/data/users/${id}/toggle_active/`);
+    return response.data;
+  } catch (error) {
+    console.error('Error toggling user active status:', error);
+    Sentry.captureException(error, {
+      tags: {
+        location: 'toggleUserActive',
+        operation: 'user_active_toggle',
+        user_id: id.toString(),
+      },
+    });
+    throw error;
+  }
+};
+
+// Toggle user staff status
+export const toggleUserStaff = async (id: number) => {
+  try {
+    const response = await api.post(`/data/users/${id}/toggle_staff/`);
+    return response.data;
+  } catch (error) {
+    console.error('Error toggling user staff status:', error);
+    Sentry.captureException(error, {
+      tags: {
+        location: 'toggleUserStaff',
+        operation: 'user_staff_toggle',
+        user_id: id.toString(),
+      },
+    });
+    throw error;
+  }
+};
+
+// Get user statistics
+export const getUserStats = async () => {
+  try {
+    const response = await api.get('/data/users/stats/');
+    return response.data;
+  } catch (error) {
+    console.error('Error fetching user statistics:', error);
+    Sentry.captureException(error, {
+      tags: {
+        location: 'getUserStats',
+        operation: 'user_stats_fetch',
       },
     });
     throw error;

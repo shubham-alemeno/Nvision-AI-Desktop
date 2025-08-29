@@ -7,7 +7,25 @@ function PredictedDefectsPage({
   defects,
   onGoHome,
   taskUuid,
-  defectDisplayMap = [],
+  defectDisplayMap = [
+    { key: 'def_abnormal_display', label: 'Abnormal Display' },
+    { key: 'def_horizontal_line', label: 'Horizontal Line' },
+    { key: 'def_horizontal_band', label: 'Horizontal Band' },
+    { key: 'def_vertical_line', label: 'Vertical Line' },
+    { key: 'def_vertical_band', label: 'Vertical Band' },
+    { key: 'def_particles', label: 'Particles' },
+    { key: 'def_white_patches', label: 'White Patches' },
+    { key: 'def_polariser_scratches', label: 'Polariser Scratches' },
+    { key: 'def_light_leakage', label: 'Light Leakage' },
+    { key: 'def_mura', label: 'Mura' },
+    { key: 'def_incoming_border_patch', label: 'Incoming Border Patch' },
+    { key: 'def_pixel_bright_dot', label: 'Pixel Bright Dot' },
+    { key: 'def_incoming_galaxy', label: 'Incoming Galaxy' },
+    { key: 'def_led_off', label: 'LED Off' },
+    { key: 'def_bleeding', label: 'Bleeding' },
+    { key: 'def_no_trouble_found', label: 'No Trouble Found' },
+    // { key: 'def_other_defects', label: 'Other Defects' },
+  ],
 }) {
   const [corrections, setCorrections] = useState({});
   const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);

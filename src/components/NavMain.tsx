@@ -27,16 +27,56 @@ interface NavMainProps {
   }[];
   onNavigate: (page: string) => void;
   activePage: string;
+  userData?: {
+    is_staff: boolean;
+    is_superuser: boolean;
+    is_active: boolean;
+    username: string;
+    email?: string;
+  };
 }
 
-export function NavMain({ items, onNavigate, activePage }: NavMainProps) {
+export function NavMain({
+  items,
+  onNavigate,
+  activePage,
+  userData,
+}: NavMainProps) {
   // Helper to extract page key from url (e.g., '#pattern-EBC' => 'pattern-ebc')
   const getPageKey = (url: string) => url.replace(/^#/, '').toLowerCase();
+
+  const hasAdminPermissions = (userData: any): boolean => {
+    if (!userData) return false;
+    return userData.is_active && (userData.is_staff || userData.is_superuser);
+  };
+
+  // Filter navigation items based on permissions
+  const getFilteredNavItems = () => {
+    return items.map((item) => {
+      if (item.title === 'App settings' && item.items) {
+        // Filter sub-items for App settings
+        const filteredSubItems = item.items.filter((subItem) => {
+          if (subItem.title === 'Admin Settings') {
+            return hasAdminPermissions(userData);
+          }
+          return true; // Show other sub-items
+        });
+
+        return {
+          ...item,
+          items: filteredSubItems,
+        };
+      }
+      return item;
+    });
+  };
+
+  const filteredItems = getFilteredNavItems();
 
   return (
     <SidebarGroup>
       <SidebarMenu>
-        {items.map((item) => {
+        {filteredItems.map((item) => {
           if (!item.items || item.items.length === 0) {
             const pageKey = getPageKey(item.url);
             return (

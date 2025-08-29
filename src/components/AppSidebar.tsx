@@ -72,6 +72,10 @@ const data = {
           title: 'Pattern EBC',
           url: '#pattern-ebc',
         },
+        {
+          title: 'Admin Settings',
+          url: '#admin-settings',
+        },
         // {
         //   title: 'Defect Configuration',
         //   url: '#defect-configuration',
@@ -94,6 +98,7 @@ const AppSidebar = ({
   onNavigate,
   activePage,
   username,
+  userData,
   ...props
 }: React.ComponentProps<typeof Sidebar> & {
   handleLogout: () => void;
@@ -177,6 +182,7 @@ const AppSidebar = ({
           items={data.navMain}
           onNavigate={onNavigate}
           activePage={activePage}
+          userData={userData}
         />
       </SidebarContent>
       <SidebarFooter>

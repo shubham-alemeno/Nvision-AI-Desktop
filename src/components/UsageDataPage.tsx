@@ -64,7 +64,7 @@ const UsageDataPage = () => {
   }
 
   return (
-    <div className="p-4 space-y-6">
+    <div className="space-y-6">
       <Card>
         <CardHeader>
           <CardTitle>Defect Checker Usage</CardTitle>

@@ -13,6 +13,7 @@ interface HomePageProps {
   activePage: string;
   pageTitle?: string;
   username?: string;
+  userData?: string;
 }
 
 function HomePage({
@@ -22,6 +23,7 @@ function HomePage({
   activePage,
   pageTitle,
   username,
+  userData,
 }: HomePageProps) {
   return (
     <div className="flex min-h-screen bg-gray-100 dark:bg-gray-900">
@@ -31,6 +33,7 @@ function HomePage({
           onNavigate={onNavigate}
           activePage={activePage}
           username={username}
+          userData={userData} 
         />
         <SidebarInset className="bg-gray-100">
           <header className="sticky top-0 z-10 flex h-16 shrink-0 items-center gap-2 border-b bg-background px-4">

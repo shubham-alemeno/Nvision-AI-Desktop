@@ -103,13 +103,12 @@ const DefectConfiguration = ({ onDefectsSelected, selectedDefects = [] }) => {
     },
   ];
 
+  // Get all defect keys for default selection
+  const getAllDefectKeys = () => defectsList.map((defect) => defect.key);
+
   // Load saved defects from localStorage on component mount
   useEffect(() => {
-    const defaultDefects = [
-      'def_horizontal_band',
-      'def_white_patches',
-      'def_polariser_scratches',
-    ];
+    const allDefects = getAllDefectKeys();
 
     try {
       const savedDefects = localStorage.getItem('selectedDefects');
@@ -119,12 +118,9 @@ const DefectConfiguration = ({ onDefectsSelected, selectedDefects = [] }) => {
         if (parsedDefects.length > 0) {
           setCheckedDefects(new Set(parsedDefects));
         } else {
-          // If saved defects exist but are empty, use defaults and save them
-          setCheckedDefects(new Set(defaultDefects));
-          localStorage.setItem(
-            'selectedDefects',
-            JSON.stringify(defaultDefects)
-          );
+          // If saved defects exist but are empty, use all defects and save them
+          setCheckedDefects(new Set(allDefects));
+          localStorage.setItem('selectedDefects', JSON.stringify(allDefects));
         }
         // Override with props if provided and not empty
         if (selectedDefects.length > 0) {
@@ -134,15 +130,15 @@ const DefectConfiguration = ({ onDefectsSelected, selectedDefects = [] }) => {
         // Use props if no saved data but props provided
         setCheckedDefects(new Set(selectedDefects));
       } else {
-        // No saved data and no props - use defaults and save them
-        setCheckedDefects(new Set(defaultDefects));
-        localStorage.setItem('selectedDefects', JSON.stringify(defaultDefects));
+        // No saved data and no props - use all defects and save them
+        setCheckedDefects(new Set(allDefects));
+        localStorage.setItem('selectedDefects', JSON.stringify(allDefects));
       }
     } catch (error) {
       console.error('Error loading saved defects:', error);
-      // Fallback to default selection and save them
-      setCheckedDefects(new Set(defaultDefects));
-      localStorage.setItem('selectedDefects', JSON.stringify(defaultDefects));
+      // Fallback to all defects selection and save them
+      setCheckedDefects(new Set(allDefects));
+      localStorage.setItem('selectedDefects', JSON.stringify(allDefects));
     }
     setIsLoading(false);
   }, [selectedDefects]);
@@ -156,17 +152,13 @@ const DefectConfiguration = ({ onDefectsSelected, selectedDefects = [] }) => {
         newSet.add(defectKey);
       }
 
-      // If the set becomes empty, apply defaults
+      // If the set becomes empty, apply all defects as defaults
       let finalSet = newSet;
       if (newSet.size === 0) {
-        const defaultDefects = [
-          'def_horizontal_band',
-          'def_white_patches',
-          'def_polariser_scratches',
-        ];
-        finalSet = new Set(defaultDefects);
+        const allDefects = getAllDefectKeys();
+        finalSet = new Set(allDefects);
         console.log(
-          'Applied defaults due to empty selection:',
+          'Applied all defects due to empty selection:',
           Array.from(finalSet)
         );
       }
@@ -183,13 +175,9 @@ const DefectConfiguration = ({ onDefectsSelected, selectedDefects = [] }) => {
   const handleSelectAll = () => {
     let newSet;
     if (checkedDefects.size === defectsList.length) {
-      // Deselecting all - apply defaults instead of empty
-      const defaultDefects = [
-        'def_horizontal_band',
-        'def_white_patches',
-        'def_polariser_scratches',
-      ];
-      newSet = new Set(defaultDefects);
+      // Deselecting all - apply all defects instead of empty (since we want all by default)
+      const allDefects = getAllDefectKeys();
+      newSet = new Set(allDefects);
     } else {
       newSet = new Set(defectsList.map((defect) => defect.key));
     }
@@ -250,15 +238,11 @@ const DefectConfiguration = ({ onDefectsSelected, selectedDefects = [] }) => {
   const allSelected = checkedDefects.size === defectsList.length;
   const someSelected = checkedDefects.size > 0;
 
-  // Check if current selection matches defaults
-  const defaultDefects = [
-    'def_horizontal_band',
-    'def_white_patches',
-    'def_polariser_scratches',
-  ];
+  // Check if current selection matches all defects (new default)
+  const allDefects = getAllDefectKeys();
   const isDefaultSelection =
-    defaultDefects.length === checkedDefects.size &&
-    defaultDefects.every((defect) => checkedDefects.has(defect));
+    allDefects.length === checkedDefects.size &&
+    allDefects.every((defect) => checkedDefects.has(defect));
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
@@ -283,7 +267,7 @@ const DefectConfiguration = ({ onDefectsSelected, selectedDefects = [] }) => {
               onClick={handleSelectAll}
               className="px-3 py-1 text-sm border border-gray-300 rounded hover:bg-gray-50 transition-colors"
             >
-              {allSelected ? 'Reset to Defaults' : 'Select All'}
+              {allSelected ? 'Deselect All' : 'Select All'}
             </button>
           </div>
         </CardHeader>
@@ -348,23 +332,6 @@ const DefectConfiguration = ({ onDefectsSelected, selectedDefects = [] }) => {
           </div>
         </CardContent>
       </Card>
-
-      {/* <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <h3 className="font-medium text-blue-900 mb-2">Configuration Tips:</h3>
-        <ul className="text-sm text-blue-800 space-y-1">
-          <li>
-            • Selected defects will be monitored during the inspection process
-          </li>
-          <li>
-            • Your configuration is automatically saved as you make changes
-          </li>
-          <li>• Changes persist across sessions and are applied immediately</li>
-          <li>
-            • Common defects like Horizontal Band, White Patches, and Polariser
-            Scratches are selected by default
-          </li>
-        </ul>
-      </div> */}
     </div>
   );
 };

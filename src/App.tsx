@@ -35,12 +35,15 @@ import {
   createDisplayPanel,
   getLatestTask,
   getTaskStatus,
+  getUserFromToken,
   initializeAPI,
   retryDisplayPanel,
   setLogoutCallback,
 } from './services/api';
 import { EnvironmentIndicator } from './hooks/useEnvironment';
 import DefectConfiguration from './components/DefectConfiguration';
+import AdminUserManagement from './components/AdminSettingsPage';
+import packageInfo from '../package.json';
 
 declare global {
   interface Window {
@@ -109,6 +112,7 @@ function App() {
   const [activePage, setActivePage] = useState('defect-checker');
   const [isCapturing, setIsCapturing] = useState(false);
   const [ppid, setPpid] = useState('');
+  const [userData, setUserData] = useState('');
   const [focusDistance, setFocusDistance] = useState();
   const [isTestMode, setIsTestMode] = useState(false);
   const [capturedImages, setCapturedImages] = useState([]);
@@ -131,7 +135,7 @@ function App() {
       },
       {
         name: 'black_BBB',
-        settings: { exposure: 0, brightness: 100, contrast: 145 },
+        settings: { exposure: 100, brightness: 120, contrast: 145 },
       },
       {
         name: 'cyan_CCC',
@@ -207,7 +211,21 @@ function App() {
   const pollingRef = useRef(null);
   const pollCountRef = useRef(0);
 
-  console.log(selectedDefects);
+  useEffect(() => {
+    const VERSION_KEY = 'app_version';
+    const CURRENT_VERSION = packageInfo.version; // "4.7.0"
+    const storedVersion = localStorage.getItem(VERSION_KEY);
+
+    if (storedVersion !== CURRENT_VERSION) {
+      console.log(
+        `Version update: ${
+          storedVersion || 'first install'
+        } → ${CURRENT_VERSION}`
+      );
+      localStorage.clear();
+      localStorage.setItem(VERSION_KEY, CURRENT_VERSION);
+    }
+  }, []);
 
   useEffect(() => {
     initializeAPI();
@@ -217,12 +235,12 @@ function App() {
       try {
         const savedDefects = localStorage.getItem('selectedDefects');
 
-        // Default defects that should be selected if no saved configuration exists
-        const defaultDefects = [
-          'def_horizontal_band',
-          'def_white_patches',
-          'def_polariser_scratches',
-        ];
+        // // Default defects that should be selected if no saved configuration exists
+        // const defaultDefects = [
+        //   'def_horizontal_band',
+        //   'def_white_patches',
+        //   'def_polariser_scratches',
+        // ];
 
         // Complete defect list matching DefectConfiguration.tsx
         const defectsList = [
@@ -245,28 +263,32 @@ function App() {
           { name: 'Led Off', key: 'def_led_off' },
           { name: 'Bleeding', key: 'def_bleeding' },
           { name: 'No Trouble Found', key: 'def_no_trouble_found' },
-          { name: 'Other Defects', key: 'def_other_defects' },
         ];
 
-        let defectsToUse = defaultDefects;
+        let defectsToUse: string[] = defectsList.map((d) => d.key);
 
         if (savedDefects) {
           const parsedDefects = JSON.parse(savedDefects);
           // Only use saved defects if they exist and are not empty
           if (parsedDefects.length > 0) {
-            defectsToUse = parsedDefects;
+            // If the saved defects are objects, convert to keys
+            if (typeof parsedDefects[0] === 'object' && parsedDefects[0] !== null && 'key' in parsedDefects[0]) {
+              defectsToUse = parsedDefects.map((d: any) => d.key);
+            } else {
+              defectsToUse = parsedDefects;
+            }
           } else {
             // If saved defects exist but are empty, save the defaults
             localStorage.setItem(
               'selectedDefects',
-              JSON.stringify(defaultDefects)
+              JSON.stringify(defectsList.map((d) => d.key))
             );
           }
         } else {
           // No saved defects, save the defaults
           localStorage.setItem(
             'selectedDefects',
-            JSON.stringify(defaultDefects)
+            JSON.stringify(defectsList.map((d) => d.key))
           );
         }
 
@@ -288,13 +310,13 @@ function App() {
           error
         );
         // Fallback to defaults on error
-        const defaultDefects = [
-          'def_horizontal_band',
-          'def_white_patches',
-          'def_polariser_scratches',
-        ];
-        setSelectedDefects(defaultDefects);
-        localStorage.setItem('selectedDefects', JSON.stringify(defaultDefects));
+        // const defaultDefects = [
+        //   'def_horizontal_band',
+        //   'def_white_patches',
+        //   'def_polariser_scratches',
+        // ];
+        // setSelectedDefects(defaultDefects);
+        // localStorage.setItem('selectedDefects', JSON.stringify(defaultDefects));
       }
     };
 
@@ -318,13 +340,30 @@ function App() {
 
   console.log(defectDisplayMap);
 
-  const handleLogin = (token) => {
-    localStorage.setItem('sentinel_dash_token', token);
-    setAuthToken(token);
-    // setShowSignup(false);
-    setActivePage('defect-checker');
-    const savedUsername = localStorage.getItem('sentinel_dash_username') || '';
-    setUsername(savedUsername);
+  const handleLogin = async (token) => {
+    try {
+      localStorage.setItem('sentinel_dash_token', token);
+      setAuthToken(token);
+
+      // Fetch user data from token
+      const userData = await getUserFromToken(token);
+
+      // Store user data in state and localStorage
+      setUserData(userData.user);
+      localStorage.setItem('sentinel_dash_user', JSON.stringify(userData.user));
+
+      setActivePage('defect-checker');
+      const savedUsername =
+        localStorage.getItem('sentinel_dash_username') ||
+        userData.user.username ||
+        '';
+      setUsername(savedUsername);
+    } catch (error) {
+      console.error('Failed to fetch user data:', error);
+      // Handle error - maybe clear token and show error
+      localStorage.removeItem('sentinel_dash_token');
+      setAuthToken(null);
+    }
   };
 
   const handleLogout = () => {
@@ -511,6 +550,7 @@ function App() {
     'predicted-defects': 'Predicted Defects',
     'usage-data': 'Defect Checker Usage',
     'select-defects': 'Select Defects',
+    'admin-settings': 'Admin Settings',
     // Add more as needed
   };
 
@@ -808,7 +848,7 @@ function App() {
                 },
                 {
                   name: 'black_BBB',
-                  settings: { exposure: 0, brightness: 100, contrast: 145 },
+                  settings: { exposure: 100, brightness: 120, contrast: 145 },
                 },
                 {
                   name: 'cyan_CCC',
@@ -875,6 +915,8 @@ function App() {
         return <PastDataPage />;
       case 'usage-data':
         return <UsageDataPage />;
+      case 'admin-settings':
+        return <AdminUserManagement />;
       case 'defect-configuration':
         return (
           <DefectConfiguration
@@ -1046,6 +1088,7 @@ function App() {
                 activePage={activePage}
                 pageTitle={pageTitles[activePage] || ''}
                 username={username}
+                userData={userData}
               >
                 {renderActivePage() || <></>}
               </HomePage>
