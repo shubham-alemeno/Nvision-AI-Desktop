@@ -405,7 +405,8 @@ export const getPastTasks = async (params: {
   from_date?: string;
   to_date?: string;
   ppid?: string;
-  group?: boolean; 
+  group?: boolean;
+  test_type?: string;
 }) => {
   try {
     const queryParams = new URLSearchParams();
@@ -413,6 +414,7 @@ export const getPastTasks = async (params: {
     if (params.from_date) queryParams.append('from_date', params.from_date);
     if (params.to_date) queryParams.append('to_date', params.to_date);
     if (params.ppid) queryParams.append('ppid', params.ppid);
+    if (params.test_type) queryParams.append('test_type', params.test_type);
     
     queryParams.append('group', (params.group || false).toString());
     

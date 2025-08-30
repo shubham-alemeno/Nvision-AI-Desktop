@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { getPastTasks } from "@/services/api";
 import { Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { useAppMode } from "../contexts/appModeContext";
 
 function PastDataPage() {
   const [pastTasks, setPastTasks] = useState([]);
@@ -19,6 +20,7 @@ function PastDataPage() {
   const [toDate, setToDate] = useState("");
   const [ppidSearch, setPpidSearch] = useState("");
   const [groupFilter, setGroupFilter] = useState(false);
+  const { isTestMode } = useAppMode();
 
   const fetchPastTasks = async (page = 1, overrides = {}) => {
     try {
@@ -31,6 +33,7 @@ function PastDataPage() {
         to_date: toDate || undefined,
         ppid: ppidSearch || undefined,
         group: groupFilter,
+        test_type: isTestMode ? "test" : "production",
         ...overrides, // allow reset to inject clean params
       };
 
@@ -63,10 +66,11 @@ function PastDataPage() {
     fetchPastTasks(1);
   };
 
-  // Remove the dependency array from useEffect to prevent auto-triggering
+  // Initial load and when test mode changes
   useEffect(() => {
+    setCurrentPage(1); // Reset to first page when mode changes
     fetchPastTasks(1);
-  }, []);
+  }, [isTestMode]); // Re-fetch when test mode changes
 
   // Add a separate useEffect for pagination only
   useEffect(() => {
@@ -87,6 +91,7 @@ function PastDataPage() {
       to_date: undefined,
       ppid: undefined,
       group: false,
+      test_type: isTestMode ? "test" : "production",
     });
   };
 
@@ -229,6 +234,14 @@ function PastDataPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
+          {/* App Mode Display */}
+          <div className="flex items-center gap-4 mb-6">
+            <span className="font-semibold">App mode:</span>
+            <span className="text-xs font-semibold px-2 py-1 rounded bg-gray-200 dark:bg-gray-700">
+              {isTestMode ? 'Test' : 'Production'}
+            </span>
+          </div>
+
           <div className="space-y-4 mb-6">
             {/* Row 1: Date Filters */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
