@@ -20,42 +20,42 @@ function PastDataPage() {
   const [ppidSearch, setPpidSearch] = useState("");
   const [groupFilter, setGroupFilter] = useState(false);
 
-const fetchPastTasks = async (page = 1, overrides = {}) => {
-  try {
-    setLoading(true);
-    console.log("Fetching page:", page);
+  const fetchPastTasks = async (page = 1, overrides = {}) => {
+    try {
+      setLoading(true);
+      console.log("Fetching page:", page);
 
-    const params = {
-      page,
-      from_date: fromDate || undefined,
-      to_date: toDate || undefined,
-      ppid: ppidSearch || undefined,
-      group: groupFilter,
-      ...overrides, // allow reset to inject clean params
-    };
+      const params = {
+        page,
+        from_date: fromDate || undefined,
+        to_date: toDate || undefined,
+        ppid: ppidSearch || undefined,
+        group: groupFilter,
+        ...overrides, // allow reset to inject clean params
+      };
 
-    const data = await getPastTasks(params);
-    console.log("API Response:", data);
+      const data = await getPastTasks(params);
+      console.log("API Response:", data);
 
-    if (data.results && data.results.tasks) {
-      setPastTasks(data.results.tasks);
-      setTotalTasks(data.results.total_tasks || 0);
-      setTotalPages(Math.ceil(data.results.total_tasks / 20)); 
-    } else {
-      setPastTasks([]);
-      setTotalTasks(0);
-      setTotalPages(1);
+      if (data.results && data.results.tasks) {
+        setPastTasks(data.results.tasks);
+        setTotalTasks(data.results.total_tasks || 0);
+        setTotalPages(Math.ceil(data.results.total_tasks / 20));
+      } else {
+        setPastTasks([]);
+        setTotalTasks(0);
+        setTotalPages(1);
+      }
+
+      setNextUrl(data.next);
+      setPreviousUrl(data.previous);
+    } catch (error) {
+      console.error("Error fetching past tasks:", error);
+      setError("Failed to load past tasks");
+    } finally {
+      setLoading(false);
     }
-
-    setNextUrl(data.next);
-    setPreviousUrl(data.previous);
-  } catch (error) {
-    console.error("Error fetching past tasks:", error);
-    setError("Failed to load past tasks");
-  } finally {
-    setLoading(false);
-  }
-};
+  };
 
   // Modified useEffect and search function
   const handleSearch = () => {
@@ -75,21 +75,20 @@ const fetchPastTasks = async (page = 1, overrides = {}) => {
     }
   }, [currentPage]);
 
- const handleReset = () => {
-  setFromDate('');
-  setToDate('');
-  setPpidSearch('');
-  setGroupFilter(false);
+  const handleReset = () => {
+    setFromDate("");
+    setToDate("");
+    setPpidSearch("");
+    setGroupFilter(false);
 
-  // Call API directly with cleared filters (ignores stale state issue)
-  fetchPastTasks(1, {
-    from_date: undefined,
-    to_date: undefined,
-    ppid: undefined,
-    group: false,
-  });
-};
-
+    // Call API directly with cleared filters (ignores stale state issue)
+    fetchPastTasks(1, {
+      from_date: undefined,
+      to_date: undefined,
+      ppid: undefined,
+      group: false,
+    });
+  };
 
   const handleNextPage = () => {
     if (nextUrl) {
@@ -155,7 +154,7 @@ const fetchPastTasks = async (page = 1, overrides = {}) => {
         }
 
         // Case 3: False Negative → Blue
-        if (!predicted && correction && correction !== "False Positive") {
+        if (!predicted && correction === "False Negative") {
           return (
             <span key={key} className="text-blue-600 font-medium">
               {prettyName}
@@ -294,11 +293,7 @@ const fetchPastTasks = async (page = 1, overrides = {}) => {
                 <Search className="h-4 w-4" />
                 {loading ? "Searching..." : "Search"}
               </Button>
-              <Button
-                variant="outline"
-                onClick={handleReset}
-                className="h-10"
-              >
+              <Button variant="outline" onClick={handleReset} className="h-10">
                 Reset
               </Button>
             </div>
