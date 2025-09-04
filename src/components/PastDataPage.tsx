@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from "react";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
-import { getPastTasks } from "@/services/api";
-import { Search } from "lucide-react";
-import { Button } from "@/components/ui/button";
-import { useAppMode } from "../contexts/appModeContext";
+import React, { useState, useEffect } from 'react';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import { getPastTasks } from '@/services/api';
+import { Search, Download } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { useAppMode } from '../contexts/appModeContext';
 
 function PastDataPage() {
   const [pastTasks, setPastTasks] = useState([]);
@@ -16,16 +16,16 @@ function PastDataPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [nextUrl, setNextUrl] = useState(null);
   const [previousUrl, setPreviousUrl] = useState(null);
-  const [fromDate, setFromDate] = useState("");
-  const [toDate, setToDate] = useState("");
-  const [ppidSearch, setPpidSearch] = useState("");
-  const [groupFilter, setGroupFilter] = useState(false);
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
+  const [ppidSearch, setPpidSearch] = useState('');
+  const [groupFilter, setGroupFilter] = useState(true); // Changed default to true
   const { isTestMode } = useAppMode();
 
   const fetchPastTasks = async (page = 1, overrides = {}) => {
     try {
       setLoading(true);
-      console.log("Fetching page:", page);
+      console.log('Fetching page:', page);
 
       const params = {
         page,
@@ -33,12 +33,12 @@ function PastDataPage() {
         to_date: toDate || undefined,
         ppid: ppidSearch || undefined,
         group: groupFilter,
-        test_type: isTestMode ? "test" : "production",
+        test_type: isTestMode ? 'test' : 'production',
         ...overrides, // allow reset to inject clean params
       };
 
       const data = await getPastTasks(params);
-      console.log("API Response:", data);
+      console.log('API Response:', data);
 
       if (data.results && data.results.tasks) {
         setPastTasks(data.results.tasks);
@@ -53,11 +53,104 @@ function PastDataPage() {
       setNextUrl(data.next);
       setPreviousUrl(data.previous);
     } catch (error) {
-      console.error("Error fetching past tasks:", error);
-      setError("Failed to load past tasks");
+      console.error('Error fetching past tasks:', error);
+      setError('Failed to load past tasks');
     } finally {
       setLoading(false);
     }
+  };
+
+  // Export to Excel functionality
+  const exportToExcel = () => {
+    if (pastTasks.length === 0) {
+      alert('No data to export');
+      return;
+    }
+
+    // Prepare data for Excel export
+    const exportData = pastTasks.map((task) => {
+      // Format predictions
+      const predictions = formatDefects(task.Prediction);
+
+      // Format corrections with status
+      const corrections = formatCorrectionsForExport(
+        task.Prediction,
+        task.Correction
+      );
+
+      return {
+        PPID: task.PPID,
+        Timestamp: formatTimestamp(task.Timestamp),
+        Predictions: predictions,
+        Corrections: corrections,
+        'Created By': task.Created_By || 'N/A',
+        // Status: task.Status,
+        // 'Test Type': task.Test_Type,
+      };
+    });
+
+    // Create CSV content
+    const headers = Object.keys(exportData[0]).join(',');
+    const csvContent = [
+      headers,
+      ...exportData.map((row) =>
+        Object.values(row)
+          .map((value) => `"${String(value).replace(/"/g, '""')}"`)
+          .join(',')
+      ),
+    ].join('\n');
+
+    // Download file
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const link = document.createElement('a');
+    const url = URL.createObjectURL(blob);
+    link.setAttribute('href', url);
+    link.setAttribute(
+      'download',
+      `past_data_${new Date().toISOString().split('T')[0]}.csv`
+    );
+    link.style.visibility = 'hidden';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  // Helper function to format corrections for export
+  const formatCorrectionsForExport = (predictions, corrections) => {
+    if (!predictions && !corrections) return 'N/A';
+
+    const items = Object.keys({
+      ...predictions,
+      ...corrections,
+    })
+      .map((key) => {
+        const defectName = key.replace('def_', '').replace(/_/g, ' ');
+        const prettyName =
+          defectName.charAt(0).toUpperCase() + defectName.slice(1);
+
+        const predicted = predictions?.[key] === true;
+        const correction = corrections?.[key];
+
+        // True Positive
+        if (predicted && correction !== 'False Positive') {
+          return `${prettyName} (TP)`;
+        }
+
+        // False Positive
+        if (predicted && correction === 'False Positive') {
+          return `${prettyName} (FP)`;
+        }
+
+        // False Negative
+        if (!predicted && correction === 'False Negative') {
+          return `${prettyName} (FN)`;
+        }
+
+        return null;
+      })
+      .filter(Boolean);
+
+    return items.length > 0 ? items.join(', ') : 'None';
   };
 
   // Modified useEffect and search function
@@ -80,32 +173,32 @@ function PastDataPage() {
   }, [currentPage]);
 
   const handleReset = () => {
-    setFromDate("");
-    setToDate("");
-    setPpidSearch("");
-    setGroupFilter(false);
+    setFromDate('');
+    setToDate('');
+    setPpidSearch('');
+    setGroupFilter(true); // Reset to default (whole group)
 
     // Call API directly with cleared filters (ignores stale state issue)
     fetchPastTasks(1, {
       from_date: undefined,
       to_date: undefined,
       ppid: undefined,
-      group: false,
-      test_type: isTestMode ? "test" : "production",
+      group: true, // Default to whole group
+      test_type: isTestMode ? 'test' : 'production',
     });
   };
 
   const handleNextPage = () => {
     if (nextUrl) {
       setCurrentPage((prev) => prev + 1);
-      window.scrollTo({ top: 0, behavior: "smooth" });
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 
   const handlePreviousPage = () => {
     if (previousUrl) {
       setCurrentPage((prev) => prev - 1);
-      window.scrollTo({ top: 0, behavior: "smooth" });
+      window.scrollTo({ top: 0, behavior: 'smooth' });
     }
   };
 
@@ -114,26 +207,26 @@ function PastDataPage() {
   };
 
   const formatDefects = (defects) => {
-    if (!defects) return "N/A";
+    if (!defects) return 'N/A';
 
     const activeDefects = Object.entries(defects)
       .filter(([key, value]) => value === true)
-      .map(([key]) => key.replace("def_", "").replace(/_/g, " "))
+      .map(([key]) => key.replace('def_', '').replace(/_/g, ' '))
       .map((defect) => defect.charAt(0).toUpperCase() + defect.slice(1));
 
-    return activeDefects.length > 0 ? activeDefects.join(", ") : "None";
+    return activeDefects.length > 0 ? activeDefects.join(', ') : 'None';
   };
 
   const renderDefectsWithCorrections = (predictions, corrections) => {
     if (!predictions && !corrections)
-      return <span style={{ color: "green" }}>N/A</span>;
+      return <span style={{ color: 'green' }}>N/A</span>;
 
     const items = Object.keys({
       ...predictions,
       ...corrections,
     })
       .map((key) => {
-        const defectName = key.replace("def_", "").replace(/_/g, " ");
+        const defectName = key.replace('def_', '').replace(/_/g, ' ');
         const prettyName =
           defectName.charAt(0).toUpperCase() + defectName.slice(1);
 
@@ -141,7 +234,7 @@ function PastDataPage() {
         const correction = corrections?.[key];
 
         // Case 1: True Positive → Green
-        if (predicted && correction !== "False Positive") {
+        if (predicted && correction !== 'False Positive') {
           return (
             <span key={key} className="text-green-600 font-medium">
               {prettyName}
@@ -150,7 +243,7 @@ function PastDataPage() {
         }
 
         // Case 2: False Positive → Green + Strikethrough
-        if (predicted && correction === "False Positive") {
+        if (predicted && correction === 'False Positive') {
           return (
             <span key={key} className="text-green-600 line-through font-medium">
               {prettyName}
@@ -159,7 +252,7 @@ function PastDataPage() {
         }
 
         // Case 3: False Negative → Blue
-        if (!predicted && correction === "False Negative") {
+        if (!predicted && correction === 'False Negative') {
           return (
             <span key={key} className="text-blue-600 font-medium">
               {prettyName}
@@ -178,7 +271,7 @@ function PastDataPage() {
           {item}
           {idx < items.length - 1 && (
             <span className="whitespace-pre text-green-600 font-medium">
-              ,{" "}
+              ,{' '}
             </span>
           )}
         </React.Fragment>
@@ -223,14 +316,26 @@ function PastDataPage() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6">
+    <div className="max-w-6xl mx-auto space-y-6">
       <Card>
         <CardHeader>
           <CardTitle className="flex justify-between items-center">
             <span>Past Data</span>
-            <span className="text-sm text-gray-500">
-              Total Tasks: {totalTasks.toLocaleString()}
-            </span>
+            <div className="flex items-center gap-4">
+              <span className="text-sm text-gray-500">
+                Total Tasks: {totalTasks.toLocaleString()}
+              </span>
+              <Button
+                onClick={exportToExcel}
+                variant="outline"
+                size="sm"
+                disabled={pastTasks.length === 0}
+                className="flex items-center gap-2"
+              >
+                <Download className="h-4 w-4" />
+                Export to Excel
+              </Button>
+            </div>
           </CardTitle>
         </CardHeader>
         <CardContent>
@@ -280,14 +385,14 @@ function PastDataPage() {
                   value={ppidSearch}
                   onChange={(e) => setPpidSearch(e.target.value)}
                   className="w-full"
-                  onKeyPress={(e) => e.key === "Enter" && handleSearch()}
+                  onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
                 />
               </div>
               <div>
                 <Label className="block text-sm font-medium mb-1">Group</Label>
                 <select
                   value={groupFilter.toString()}
-                  onChange={(e) => setGroupFilter(e.target.value === "true")}
+                  onChange={(e) => setGroupFilter(e.target.value === 'true')}
                   className="w-full border border-gray-300 rounded-md p-2 h-10"
                 >
                   <option value="false">This Account</option>
@@ -304,7 +409,7 @@ function PastDataPage() {
                 className="h-10 flex items-center justify-center gap-2"
               >
                 <Search className="h-4 w-4" />
-                {loading ? "Searching..." : "Search"}
+                {loading ? 'Searching...' : 'Search'}
               </Button>
               <Button variant="outline" onClick={handleReset} className="h-10">
                 Reset
@@ -316,17 +421,20 @@ function PastDataPage() {
             <table className="min-w-full table-fixed border-collapse border border-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="border border-gray-200 px-4 py-3 text-left font-semibold text-sm w-[15%]">
+                  <th className="border border-gray-200 px-4 py-3 text-left font-semibold text-sm w-[12%]">
                     PPID
                   </th>
-                  <th className="border border-gray-200 px-4 py-3 text-left font-semibold text-sm w-[20%]">
+                  <th className="border border-gray-200 px-4 py-3 text-left font-semibold text-sm w-[16%]">
                     Timestamp
                   </th>
-                  <th className="border border-gray-200 px-4 py-3 text-left font-semibold text-sm w-[32.5%]">
+                  <th className="border border-gray-200 px-4 py-3 text-left font-semibold text-sm w-[28%]">
                     Predictions
                   </th>
-                  <th className="border border-gray-200 px-4 py-3 text-left font-semibold text-sm w-[32.5%]">
+                  <th className="border border-gray-200 px-4 py-3 text-left font-semibold text-sm w-[28%]">
                     Corrections
+                  </th>
+                  <th className="border border-gray-200 px-4 py-3 text-left font-semibold text-sm w-[16%]">
+                    Created By
                   </th>
                 </tr>
               </thead>
@@ -355,12 +463,15 @@ function PastDataPage() {
                           )}
                         </div>
                       </td>
+                      <td className="border border-gray-200 px-4 py-3 text-sm">
+                        {task.Created_By || 'N/A'}
+                      </td>
                     </tr>
                   ))
                 ) : (
                   <tr>
                     <td
-                      colSpan="4"
+                      colSpan="5"
                       className="text-center py-8 text-gray-500 border border-gray-200"
                     >
                       No past tasks found

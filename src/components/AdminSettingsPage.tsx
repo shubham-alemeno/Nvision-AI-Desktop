@@ -537,9 +537,9 @@ const AdminUserManagement = () => {
   return (
     <div className="space-y-6">
       {/* Stats Cards */}
-    <Card>
+      <Card>
         <CardHeader className="flex flex-row items-center justify-between">
-          <CardTitle className='text-xl'>User Management</CardTitle>
+          <CardTitle className="text-xl">User Management</CardTitle>
           <div className="flex items-center gap-3 bg-blue-50 px-4 py-2 rounded-lg">
             <Users className="h-5 w-5 text-blue-600" />
             <div>
@@ -571,7 +571,9 @@ const AdminUserManagement = () => {
                 <div className="grid gap-4 py-4">
                   <div className="grid grid-cols-2 gap-4">
                     <div>
-                      <Label htmlFor="username">Username <span className='text-red-600'>*</span></Label>
+                      <Label htmlFor="username">
+                        Username <span className="text-red-600">*</span>
+                      </Label>
                       <Input
                         id="username"
                         value={createForm.username}
@@ -584,7 +586,9 @@ const AdminUserManagement = () => {
                       />
                     </div>
                     <div>
-                      <Label htmlFor="email">Email <span className='text-red-600'>*</span></Label>
+                      <Label htmlFor="email">
+                        Email <span className="text-red-600">*</span>
+                      </Label>
                       <Input
                         id="email"
                         type="email"
@@ -627,7 +631,9 @@ const AdminUserManagement = () => {
                     </div>
                   </div>
                   <div>
-                    <Label htmlFor="password">Password <span className='text-red-600'>*</span></Label>
+                    <Label htmlFor="password">
+                      Password <span className="text-red-600">*</span>
+                    </Label>
                     <Input
                       id="password"
                       type="password"
@@ -642,7 +648,9 @@ const AdminUserManagement = () => {
                     />
                   </div>
                   <div>
-                    <Label htmlFor="confirm_password">Confirm Password <span className='text-red-600'>*</span></Label>
+                    <Label htmlFor="confirm_password">
+                      Confirm Password <span className="text-red-600">*</span>
+                    </Label>
                     <Input
                       id="confirm_password"
                       type="password"
@@ -692,8 +700,6 @@ const AdminUserManagement = () => {
                 </Button>
               </div>
             </div>
-
-
           </div>
 
           {/* Users Table */}
