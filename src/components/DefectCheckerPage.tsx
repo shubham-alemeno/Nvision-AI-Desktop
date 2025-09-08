@@ -49,6 +49,7 @@ const DefectCheckerPage: React.FC<DefectCheckerPageProps> = ({
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [isManual, setIsManual] = useState(false);
   const [cameraRefreshTrigger, setCameraRefreshTrigger] = useState(0);
+  const [cameraError, setCameraError] = useState<string | null>(null);
 
   const {
     setupCamera,
@@ -56,6 +57,8 @@ const DefectCheckerPage: React.FC<DefectCheckerPageProps> = ({
     isCameraReady,
     adjustCameraSettings,
     videoRef,
+    cameraError: contextCameraError,
+    clearCameraError,
   } = useCamera();
 
   useEffect(() => {
@@ -71,6 +74,14 @@ const DefectCheckerPage: React.FC<DefectCheckerPageProps> = ({
   useEffect(() => {
     setupCamera();
   }, []);
+
+  useEffect(() => {
+    if (contextCameraError) {
+      setCameraError(contextCameraError);
+    } else {
+      setCameraError(null);
+    }
+  }, [contextCameraError]);
 
   useEffect(() => {
     if (isCameraReady) {
@@ -105,9 +116,9 @@ const DefectCheckerPage: React.FC<DefectCheckerPageProps> = ({
           'defect-checker'
         );
       } catch (error) {
-        setSubmitError(
-          error instanceof Error ? error.message : 'An unknown error occurred'
-        );
+        const errorDetail = error.response?.data?.detail ||
+                           (error instanceof Error ? error.message : 'An unknown error occurred');
+        setSubmitError(errorDetail);
       } finally {
         setSubmitLoading(false);
       }
@@ -164,6 +175,27 @@ const DefectCheckerPage: React.FC<DefectCheckerPageProps> = ({
               {submitLoading ? 'Processing...' : 'Start Defect Cheker Routine'}
             </Button>
           </form>
+          {cameraError && (
+            <div className="mb-4 p-4 bg-red-100 border border-red-300 rounded-lg text-red-800">
+              <div className="flex items-center justify-between">
+                <div>
+                  <strong>Camera Error:</strong> {cameraError}
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    setCameraError(null);
+                    clearCameraError();
+                    handleRefresh();
+                  }}
+                  className="text-red-800 hover:text-red-900 hover:bg-red-200"
+                >
+                  Retry
+                </Button>
+              </div>
+            </div>
+          )}
           <div className="aspect-video w-full h-full bg-gray-200 relative mb-4 rounded-lg overflow-hidden">
             <video
               ref={videoRef}

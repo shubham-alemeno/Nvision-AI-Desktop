@@ -24,6 +24,7 @@ interface CameraContextType {
   videoTrackRef: React.RefObject<MediaStreamTrack>;
   isCameraReady: boolean;
   isLoading: boolean;
+  cameraError: string | null;
   cameraResolution: { width: number; height: number } | null;
   availableResolutions: CameraResolution[];
   selectedResolution: CameraResolution;
@@ -40,6 +41,7 @@ interface CameraContextType {
   setDevice: (device: CameraDevice) => Promise<void>;
   getAvailableResolutions: (deviceId?: string) => Promise<CameraResolution[]>;
   getAvailableDevices: () => Promise<CameraDevice[]>;
+  clearCameraError: () => void;
 }
 
 interface CameraSettings {
@@ -95,6 +97,7 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({
 
   const [isCameraReady, setIsCameraReady] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [cameraError, setCameraError] = useState<string | null>(null);
   const [cameraResolution, setCameraResolution] = useState<{
     width: number;
     height: number;
@@ -127,6 +130,7 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({
       }));
     } catch (error) {
       console.error('Error getting available devices:', error);
+      setCameraError(error instanceof Error ? error.message : 'Failed to get available devices');
       return [];
     }
   };
@@ -191,6 +195,9 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({
             `Resolution ${preset.label} failed for device ${deviceId}:`,
             error.message
           );
+          if (error instanceof DOMException) {
+            console.error('DOMException in testResolution:', error.name, error.message);
+          }
           resolve(false);
         });
     });
@@ -249,6 +256,7 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({
       return finalResolutions;
     } catch (error) {
       console.error('Error getting available resolutions:', error);
+      setCameraError(error instanceof Error ? error.message : 'Failed to get available resolutions');
       return [RESOLUTION_PRESETS[0]];
     }
   };
@@ -321,6 +329,12 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({
     } catch (error) {
       console.error('Error setting up camera with exact resolution:', error);
       setIsLoading(false);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to set up camera with exact resolution';
+      setCameraError(errorMessage);
+      
+      if (error instanceof DOMException) {
+        console.error('DOMException in setupCameraWithExactResolution:', error.name, error.message);
+      }
       throw error;
     }
   };
@@ -422,6 +436,27 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({
       console.error('Error accessing camera:', error);
       setIsLoading(false);
       setIsCameraReady(false);
+      console.log('called')
+      
+      let errorMessage = 'Failed to access camera';
+      
+      if (error instanceof DOMException) {
+        // Provide user-friendly messages for specific DOMException types
+        if (error.name === 'OverconstrainedError') {
+          errorMessage = 'Camera disconnected or not available. Please check if the camera is connected properly and try again.';
+        } else if (error.name === 'NotAllowedError') {
+          errorMessage = 'Camera access denied. Please allow camera permissions in your browser settings.';
+        } else if (error.name === 'NotFoundError') {
+          errorMessage = 'No camera devices found. Please connect a camera and try again.';
+        } else {
+          errorMessage = `Camera error: ${error.message}`;
+        }
+        console.error('DOMException details:', error.name, error.message);
+      } else if (error instanceof Error) {
+        errorMessage = error.message;
+      }
+      
+      setCameraError(errorMessage);
     }
   };
 
@@ -451,6 +486,10 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({
     } catch (error) {
       console.error('Error setting resolution:', error);
       setIsLoading(false);
+      if (error instanceof DOMException) {
+        console.error('DOMException in setResolution:', error.name, error.message);
+        setCameraError(`Resolution error: ${error.message}`);
+      }
     }
   };
 
@@ -484,6 +523,12 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({
     } catch (error) {
       console.error('Error setting device:', error);
       setIsLoading(false);
+      const errorMessage = error instanceof Error ? error.message : 'Failed to set device';
+      setCameraError(errorMessage);
+      
+      if (error instanceof DOMException) {
+        console.error('DOMException in setDevice:', error.name, error.message);
+      }
     }
   };
 
@@ -539,6 +584,11 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({
     setCameraResolution(null);
   };
 
+  // Clear camera error
+  const clearCameraError = () => {
+    setCameraError(null);
+  };
+
   // Adjust camera settings
   const adjustCameraSettings = async (settings: CameraSettings) => {
     const track = videoTrackRef.current;
@@ -590,6 +640,10 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({
       console.log('After settings:', track.getSettings());
     } catch (error) {
       console.error('Error applying camera constraints:', error);
+      if (error instanceof DOMException) {
+        console.error('DOMException in adjustCameraSettings:', error.name, error.message);
+        setCameraError(`Camera settings error: ${error.message}`);
+      }
     }
   };
 
@@ -629,6 +683,7 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({
     videoTrackRef,
     isCameraReady,
     isLoading,
+    cameraError,
     cameraResolution,
     availableResolutions,
     selectedResolution,
@@ -642,6 +697,7 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({
     setDevice,
     getAvailableResolutions,
     getAvailableDevices,
+    clearCameraError,
   };
 
   return (

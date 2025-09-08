@@ -624,8 +624,9 @@ function App() {
       pollPredictionStatus(task_uuid);
     } catch (err) {
       setIsPredicting(false);
-      setPredictedDefects({ error: err.message || 'Prediction failed' });
-      setPredictionError(err.message || 'Prediction failed');
+      const errorDetail = err.response?.data?.detail || err.message || 'Prediction failed';
+      setPredictedDefects({ error: errorDetail });
+      setPredictionError(errorDetail);
       Sentry.captureException(err, {
         tags: {
           location: 'startPrediction',
@@ -716,6 +717,7 @@ function App() {
           ) {
             errMsg = 'Unauthorized. Please log in again.';
           } else {
+            // Use the error detail if available, otherwise fallback to message or default
             errMsg = error.response?.data?.detail || error.message || errMsg;
           }
           setIsPredicting(false);
@@ -837,10 +839,9 @@ function App() {
       pollPredictionStatus(latestTask.task_uuid);
     } catch (error) {
       setIsPredicting(false);
-      const errorMessage =
-        error.response?.data?.detail || error.message || 'Retry failed';
-      setPredictedDefects({ error: errorMessage });
-      setPredictionError(errorMessage);
+      const errorDetail = error.response?.data?.detail || error.message || 'Retry failed';
+      setPredictedDefects({ error: errorDetail });
+      setPredictionError(errorDetail);
       Sentry.captureException(error, {
         tags: {
           location: 'retryPrediction',

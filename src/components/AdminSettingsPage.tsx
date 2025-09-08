@@ -110,6 +110,11 @@ const AdminUserManagement = () => {
     confirm_password: '',
   });
 
+  // Error states
+  const [createErrors, setCreateErrors] = useState({});
+  const [editErrors, setEditErrors] = useState({});
+  const [passwordErrors, setPasswordErrors] = useState({});
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -162,13 +167,16 @@ const AdminUserManagement = () => {
   };
 
   const handleCreateUser = async () => {
-    try {
-      // Validate passwords match
-      if (createForm.password !== createForm.confirm_password) {
-        alert('Passwords do not match');
-        return;
-      }
+    // Clear previous errors
+    setCreateErrors({});
 
+    // Validate passwords match
+    if (createForm.password !== createForm.confirm_password) {
+      setCreateErrors({ confirm_password: 'Passwords do not match' });
+      return;
+    }
+
+    try {
       console.log('Creating user:', createForm);
 
       await createUser(createForm);
@@ -186,41 +194,36 @@ const AdminUserManagement = () => {
       });
       setCreateModalOpen(false);
 
-      alert('User created successfully!');
       await refetchData();
     } catch (error) {
       console.error('Error creating user:', error);
 
       // Extract detailed error messages
-      let errorMessage = 'Error creating user';
+      const newErrors = {};
 
       if (error.response && error.response.data) {
         const errorData = error.response.data;
-        const errorMessages = [];
 
         // Handle different error formats
         Object.keys(errorData).forEach((field) => {
           const fieldErrors = errorData[field];
           if (Array.isArray(fieldErrors)) {
-            fieldErrors.forEach((msg) => {
-              errorMessages.push(`${field}: ${msg}`);
-            });
+            newErrors[field] = fieldErrors.join(', ');
           } else if (typeof fieldErrors === 'string') {
-            errorMessages.push(`${field}: ${fieldErrors}`);
+            newErrors[field] = fieldErrors;
           }
         });
-
-        if (errorMessages.length > 0) {
-          errorMessage = `Error creating user:\n\n${errorMessages.join('\n')}`;
-        }
       }
 
-      alert(errorMessage);
+      setCreateErrors(newErrors);
     }
   };
 
   const handleEditUser = async () => {
     if (!selectedUser) return;
+
+    // Clear previous errors
+    setEditErrors({});
 
     try {
       console.log('Updating user:', selectedUser.id, editForm);
@@ -230,36 +233,28 @@ const AdminUserManagement = () => {
       setEditModalOpen(false);
       setSelectedUser(null);
 
-      alert('User updated successfully!');
       await refetchData();
     } catch (error) {
-      console.error('Error creating user:', error);
+      console.error('Error updating user:', error);
 
       // Extract detailed error messages
-      let errorMessage = 'Error creating user';
+      const newErrors = {};
 
       if (error.response && error.response.data) {
         const errorData = error.response.data;
-        const errorMessages = [];
 
         // Handle different error formats
         Object.keys(errorData).forEach((field) => {
           const fieldErrors = errorData[field];
           if (Array.isArray(fieldErrors)) {
-            fieldErrors.forEach((msg) => {
-              errorMessages.push(`${field}: ${msg}`);
-            });
+            newErrors[field] = fieldErrors.join(', ');
           } else if (typeof fieldErrors === 'string') {
-            errorMessages.push(`${field}: ${fieldErrors}`);
+            newErrors[field] = fieldErrors;
           }
         });
-
-        if (errorMessages.length > 0) {
-          errorMessage = `Error editing user:\n\n${errorMessages.join('\n')}`;
-        }
       }
 
-      alert(errorMessage);
+      setEditErrors(newErrors);
     }
   };
 
@@ -271,13 +266,12 @@ const AdminUserManagement = () => {
 
       await deleteUser(userId);
 
-      alert('User deleted successfully!');
       await refetchData();
     } catch (error) {
-      console.error('Error creating user:', error);
+      console.error('Error deleting user:', error);
 
       // Extract detailed error messages
-      let errorMessage = 'Error creating user';
+      let errorMessage = 'Error deleting user';
 
       if (error.response && error.response.data) {
         const errorData = error.response.data;
@@ -300,7 +294,7 @@ const AdminUserManagement = () => {
         }
       }
 
-      alert(errorMessage);
+      console.error(errorMessage);
     }
   };
 
@@ -371,13 +365,12 @@ const AdminUserManagement = () => {
 
       await toggleUserActive(userId);
 
-      alert('User status updated successfully!');
       await refetchData();
     } catch (error) {
-      console.error('Error creating user:', error);
+      console.error('Error toggling user active status:', error);
 
       // Extract detailed error messages
-      let errorMessage = 'Error creating user';
+      let errorMessage = 'Error updating user status';
 
       if (error.response && error.response.data) {
         const errorData = error.response.data;
@@ -402,7 +395,7 @@ const AdminUserManagement = () => {
         }
       }
 
-      alert(errorMessage);
+      console.error(errorMessage);
     }
   };
 
@@ -412,13 +405,12 @@ const AdminUserManagement = () => {
 
       await toggleUserStaff(userId);
 
-      alert('User staff privileges updated successfully!');
       await refetchData();
     } catch (error) {
-      console.error('Error creating user:', error);
+      console.error('Error toggling staff status:', error);
 
       // Extract detailed error messages
-      let errorMessage = 'Error creating user';
+      let errorMessage = 'Error updating staff privileges';
 
       if (error.response && error.response.data) {
         const errorData = error.response.data;
@@ -437,21 +429,24 @@ const AdminUserManagement = () => {
         });
 
         if (errorMessages.length > 0) {
-          errorMessage = `Error updating staff previleges:\n\n${errorMessages.join(
+          errorMessage = `Error updating staff privileges:\n\n${errorMessages.join(
             '\n'
           )}`;
         }
       }
 
-      alert(errorMessage);
+      console.error(errorMessage);
     }
   };
 
   const handleSetPassword = async () => {
     if (!selectedUser) return;
 
+    // Clear previous errors
+    setPasswordErrors({});
+
     if (passwordForm.new_password !== passwordForm.confirm_password) {
-      alert('Passwords do not match');
+      setPasswordErrors({ confirm_password: 'Passwords do not match' });
       return;
     }
 
@@ -467,38 +462,27 @@ const AdminUserManagement = () => {
       setPasswordForm({ new_password: '', confirm_password: '' });
       setPasswordModalOpen(false);
       setSelectedUser(null);
-
-      alert('Password updated successfully!');
     } catch (error) {
-      console.error('Error creating user:', error);
+      console.error('Error setting password:', error);
 
       // Extract detailed error messages
-      let errorMessage = 'Error creating user';
+      const newErrors = {};
 
       if (error.response && error.response.data) {
         const errorData = error.response.data;
-        const errorMessages = [];
 
         // Handle different error formats
         Object.keys(errorData).forEach((field) => {
           const fieldErrors = errorData[field];
           if (Array.isArray(fieldErrors)) {
-            fieldErrors.forEach((msg) => {
-              errorMessages.push(`${field}: ${msg}`);
-            });
+            newErrors[field] = fieldErrors.join(', ');
           } else if (typeof fieldErrors === 'string') {
-            errorMessages.push(`${field}: ${fieldErrors}`);
+            newErrors[field] = fieldErrors;
           }
         });
-
-        if (errorMessages.length > 0) {
-          errorMessage = `Error updating password:\n\n${errorMessages.join(
-            '\n'
-          )}`;
-        }
       }
 
-      alert(errorMessage);
+      setPasswordErrors(newErrors);
     }
   };
 
@@ -522,6 +506,7 @@ const AdminUserManagement = () => {
 
   const openPasswordModal = (user: User) => {
     setSelectedUser(user);
+    setPasswordErrors({});
     setPasswordModalOpen(true);
   };
 
@@ -557,7 +542,12 @@ const AdminUserManagement = () => {
         <CardHeader>
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <CardTitle>Users</CardTitle>
-            <Dialog open={createModalOpen} onOpenChange={setCreateModalOpen}>
+            <Dialog open={createModalOpen} onOpenChange={(open) => {
+              setCreateModalOpen(open);
+              if (open) {
+                setCreateErrors({});
+              }
+            }}>
               <DialogTrigger asChild>
                 <Button>
                   <UserPlus className="h-4 w-4 mr-2" />
@@ -584,6 +574,9 @@ const AdminUserManagement = () => {
                           })
                         }
                       />
+                      {createErrors.username && (
+                        <p className="text-sm text-red-600 mt-1">{createErrors.username}</p>
+                      )}
                     </div>
                     <div>
                       <Label htmlFor="email">
@@ -600,6 +593,9 @@ const AdminUserManagement = () => {
                           })
                         }
                       />
+                      {createErrors.email && (
+                        <p className="text-sm text-red-600 mt-1">{createErrors.email}</p>
+                      )}
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-4">
@@ -615,6 +611,9 @@ const AdminUserManagement = () => {
                           })
                         }
                       />
+                      {createErrors.first_name && (
+                        <p className="text-sm text-red-600 mt-1">{createErrors.first_name}</p>
+                      )}
                     </div>
                     <div>
                       <Label htmlFor="last_name">Last Name</Label>
@@ -628,6 +627,9 @@ const AdminUserManagement = () => {
                           })
                         }
                       />
+                      {createErrors.last_name && (
+                        <p className="text-sm text-red-600 mt-1">{createErrors.last_name}</p>
+                      )}
                     </div>
                   </div>
                   <div>
@@ -646,6 +648,9 @@ const AdminUserManagement = () => {
                         })
                       }
                     />
+                    {createErrors.password && (
+                      <p className="text-sm text-red-600 mt-1">{createErrors.password}</p>
+                    )}
                   </div>
                   <div>
                     <Label htmlFor="confirm_password">
@@ -663,6 +668,9 @@ const AdminUserManagement = () => {
                         })
                       }
                     />
+                    {createErrors.confirm_password && (
+                      <p className="text-sm text-red-600 mt-1">{createErrors.confirm_password}</p>
+                    )}
                   </div>
                 </div>
                 <div className="flex justify-end space-x-2">
@@ -812,7 +820,12 @@ const AdminUserManagement = () => {
       </Card>
 
       {/* Edit User Modal */}
-      <Dialog open={editModalOpen} onOpenChange={setEditModalOpen}>
+      <Dialog open={editModalOpen} onOpenChange={(open) => {
+        setEditModalOpen(open);
+        if (open) {
+          setEditErrors({});
+        }
+      }}>
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Edit User</DialogTitle>
@@ -828,6 +841,9 @@ const AdminUserManagement = () => {
                     setEditForm({ ...editForm, username: e.target.value })
                   }
                 />
+                {editErrors.username && (
+                  <p className="text-sm text-red-600 mt-1">{editErrors.username}</p>
+                )}
               </div>
               <div>
                 <Label htmlFor="edit_email">Email</Label>
@@ -839,6 +855,9 @@ const AdminUserManagement = () => {
                     setEditForm({ ...editForm, email: e.target.value })
                   }
                 />
+                {editErrors.email && (
+                  <p className="text-sm text-red-600 mt-1">{editErrors.email}</p>
+                )}
               </div>
             </div>
             <div className="grid grid-cols-2 gap-4">
@@ -851,6 +870,9 @@ const AdminUserManagement = () => {
                     setEditForm({ ...editForm, first_name: e.target.value })
                   }
                 />
+                {editErrors.first_name && (
+                  <p className="text-sm text-red-600 mt-1">{editErrors.first_name}</p>
+                )}
               </div>
               <div>
                 <Label htmlFor="edit_last_name">Last Name</Label>
@@ -861,6 +883,9 @@ const AdminUserManagement = () => {
                     setEditForm({ ...editForm, last_name: e.target.value })
                   }
                 />
+                {editErrors.last_name && (
+                  <p className="text-sm text-red-600 mt-1">{editErrors.last_name}</p>
+                )}
               </div>
             </div>
             {/* <div>
@@ -872,6 +897,9 @@ const AdminUserManagement = () => {
                   setEditForm({ ...editForm, groups: e.target.value })
                 }
               />
+              {editErrors.groups && (
+                <p className="text-sm text-red-600 mt-1">{editErrors.groups}</p>
+              )}
             </div> */}
           </div>
           <div className="flex justify-end space-x-2">
@@ -1003,6 +1031,9 @@ const AdminUserManagement = () => {
                     })
                   }
                 />
+                {passwordErrors.new_password && (
+                  <p className="text-sm text-red-600 mt-1">{passwordErrors.new_password}</p>
+                )}
               </div>
               <div>
                 <Label htmlFor="confirm_password">Confirm Password</Label>
@@ -1018,6 +1049,9 @@ const AdminUserManagement = () => {
                     })
                   }
                 />
+                {passwordErrors.confirm_password && (
+                  <p className="text-sm text-red-600 mt-1">{passwordErrors.confirm_password}</p>
+                )}
               </div>
             </div>
           )}

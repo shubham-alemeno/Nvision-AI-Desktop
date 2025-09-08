@@ -3,7 +3,6 @@ import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { RotateCcw } from 'lucide-react';
 import { useAppMode } from '../contexts/appModeContext';
-import { baseURL } from '../../constants';
 import { getPanelStats } from '@/services/api';
 
 interface DefectStat {
