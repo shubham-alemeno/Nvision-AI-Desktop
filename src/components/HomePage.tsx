@@ -42,7 +42,7 @@ function HomePage({
             <div className="text-xl font-semibold">{pageTitle}</div>
           </header>
           <div className="flex-1 p-4 md:p-6 overflow-auto">
-            <div className="max-w-3xl mx-auto space-y-6">{children}</div>
+            <div className="max-w-7xl mx-auto space-y-6">{children}</div>
           </div>
         </SidebarInset>
       </SidebarProvider>

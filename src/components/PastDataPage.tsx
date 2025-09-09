@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { Label } from '@/components/ui/label';
-import { Input } from '@/components/ui/input';
-import { getPastTasks } from '@/services/api';
-import { Search, Download } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { useAppMode } from '../contexts/appModeContext';
+import React, { useState, useEffect } from "react";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { getPastTasks } from "@/services/api";
+import { Search, Download } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { useAppMode } from "../contexts/appModeContext";
 
 function PastDataPage() {
   const [pastTasks, setPastTasks] = useState([]);
@@ -16,16 +16,16 @@ function PastDataPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [nextUrl, setNextUrl] = useState(null);
   const [previousUrl, setPreviousUrl] = useState(null);
-  const [fromDate, setFromDate] = useState('');
-  const [toDate, setToDate] = useState('');
-  const [ppidSearch, setPpidSearch] = useState('');
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+  const [ppidSearch, setPpidSearch] = useState("");
   const [groupFilter, setGroupFilter] = useState(true); // Changed default to true
   const { isTestMode } = useAppMode();
 
   const fetchPastTasks = async (page = 1, overrides = {}) => {
     try {
       setLoading(true);
-      console.log('Fetching page:', page);
+      console.log("Fetching page:", page);
 
       const params = {
         page,
@@ -33,12 +33,12 @@ function PastDataPage() {
         to_date: toDate || undefined,
         ppid: ppidSearch || undefined,
         group: groupFilter,
-        test_type: isTestMode ? 'test' : 'production',
+        test_type: isTestMode ? "test" : "production",
         ...overrides, // allow reset to inject clean params
       };
 
       const data = await getPastTasks(params);
-      console.log('API Response:', data);
+      console.log("API Response:", data);
 
       if (data.results && data.results.tasks) {
         setPastTasks(data.results.tasks);
@@ -53,8 +53,8 @@ function PastDataPage() {
       setNextUrl(data.next);
       setPreviousUrl(data.previous);
     } catch (error) {
-      console.error('Error fetching past tasks:', error);
-      setError('Failed to load past tasks');
+      console.error("Error fetching past tasks:", error);
+      setError("Failed to load past tasks");
     } finally {
       setLoading(false);
     }
@@ -63,7 +63,7 @@ function PastDataPage() {
   // Export to Excel functionality
   const exportToExcel = () => {
     if (pastTasks.length === 0) {
-      alert('No data to export');
+      alert("No data to export");
       return;
     }
 
@@ -72,8 +72,8 @@ function PastDataPage() {
       // Format predictions
       const predictions = formatDefects(task.Prediction);
 
-      // Format corrections with status
-      const corrections = formatCorrectionsForExport(
+      // Get categorized corrections
+      const corrections = getCategorizedCorrections(
         task.Prediction,
         task.Correction
       );
@@ -81,76 +81,89 @@ function PastDataPage() {
       return {
         PPID: task.PPID,
         Timestamp: formatTimestamp(task.Timestamp),
+        // 'True Defects': formatDefects(task.TrueDefects), // Commented out for now
         Predictions: predictions,
-        Corrections: corrections,
-        'Created By': task.Created_By || 'N/A',
-        // Status: task.Status,
-        // 'Test Type': task.Test_Type,
+        "Correctly Identified (TP)":
+          corrections.correctlyIdentified.join(", ") || "-",
+        "Wrongly Identified (FP)":
+          corrections.wronglyIdentified.join(", ") || "-",
+        "Missed out Defect (FN)":
+          corrections.missedOutDefects.join(", ") || "-",
+        "TBD (TN)": corrections.tbd.join(", ") || "-",
+        "Created By": task.Created_By || "N/A",
       };
     });
 
     // Create CSV content
-    const headers = Object.keys(exportData[0]).join(',');
+    const headers = Object.keys(exportData[0]).join(",");
     const csvContent = [
       headers,
       ...exportData.map((row) =>
         Object.values(row)
           .map((value) => `"${String(value).replace(/"/g, '""')}"`)
-          .join(',')
+          .join(",")
       ),
-    ].join('\n');
+    ].join("\n");
 
     // Download file
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const link = document.createElement('a');
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const link = document.createElement("a");
     const url = URL.createObjectURL(blob);
-    link.setAttribute('href', url);
+    link.setAttribute("href", url);
     link.setAttribute(
-      'download',
-      `past_data_${new Date().toISOString().split('T')[0]}.csv`
+      "download",
+      `past_data_${new Date().toISOString().split("T")[0]}.csv`
     );
-    link.style.visibility = 'hidden';
+    link.style.visibility = "hidden";
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
 
-  // Helper function to format corrections for export
-  const formatCorrectionsForExport = (predictions, corrections) => {
-    if (!predictions && !corrections) return 'N/A';
+  // Helper function to get categorized corrections
+  const getCategorizedCorrections = (predictions, corrections) => {
+    const result = {
+      correctlyIdentified: [], // TP
+      wronglyIdentified: [], // FP
+      missedOutDefects: [], // FN
+      tbd: [], // TN
+    };
 
-    const items = Object.keys({
-      ...predictions,
-      ...corrections,
-    })
-      .map((key) => {
-        const defectName = key.replace('def_', '').replace(/_/g, ' ');
-        const prettyName =
-          defectName.charAt(0).toUpperCase() + defectName.slice(1);
+    if (!predictions && !corrections) return result;
 
-        const predicted = predictions?.[key] === true;
-        const correction = corrections?.[key];
+    // Get all unique defect keys
+    const allKeys = new Set([
+      ...Object.keys(predictions || {}),
+      ...Object.keys(corrections || {}),
+    ]);
 
-        // True Positive
-        if (predicted && correction !== 'False Positive') {
-          return `${prettyName} (TP)`;
-        }
+    allKeys.forEach((key) => {
+      const defectName = key.replace("def_", "").replace(/_/g, " ");
+      const prettyName =
+        defectName.charAt(0).toUpperCase() + defectName.slice(1);
 
-        // False Positive
-        if (predicted && correction === 'False Positive') {
-          return `${prettyName} (FP)`;
-        }
+      const predicted = predictions?.[key] === true;
+      const correction = corrections?.[key];
 
-        // False Negative
-        if (!predicted && correction === 'False Negative') {
-          return `${prettyName} (FN)`;
-        }
+      // True Positive - correctly identified
+      if (predicted && correction !== "False Positive") {
+        result.correctlyIdentified.push(prettyName);
+      }
+      // False Positive - wrongly identified
+      else if (predicted && correction === "False Positive") {
+        result.wronglyIdentified.push(prettyName);
+      }
+      // False Negative - missed out defects
+      else if (!predicted && correction === "False Negative") {
+        result.missedOutDefects.push(prettyName);
+      }
+      // True Negative - TBD (not predicted and no correction, or explicitly marked as TN)
+      else if (!predicted && (!correction || correction === "True Negative")) {
+        result.tbd.push(prettyName);
+      }
+    });
 
-        return null;
-      })
-      .filter(Boolean);
-
-    return items.length > 0 ? items.join(', ') : 'None';
+    return result;
   };
 
   // Modified useEffect and search function
@@ -173,9 +186,9 @@ function PastDataPage() {
   }, [currentPage]);
 
   const handleReset = () => {
-    setFromDate('');
-    setToDate('');
-    setPpidSearch('');
+    setFromDate("");
+    setToDate("");
+    setPpidSearch("");
     setGroupFilter(true); // Reset to default (whole group)
 
     // Call API directly with cleared filters (ignores stale state issue)
@@ -184,106 +197,122 @@ function PastDataPage() {
       to_date: undefined,
       ppid: undefined,
       group: true, // Default to whole group
-      test_type: isTestMode ? 'test' : 'production',
+      test_type: isTestMode ? "test" : "production",
     });
   };
 
   const handleNextPage = () => {
     if (nextUrl) {
       setCurrentPage((prev) => prev + 1);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      window.scrollTo({ top: 0, behavior: "smooth" });
     }
   };
 
   const handlePreviousPage = () => {
     if (previousUrl) {
       setCurrentPage((prev) => prev - 1);
-      window.scrollTo({ top: 0, behavior: 'smooth' });
+      window.scrollTo({ top: 0, behavior: "smooth" });
     }
   };
 
+  // Updated formatTimestamp function to use DD/MM/YYYY format
   const formatTimestamp = (timestamp) => {
-    return new Date(timestamp).toLocaleString();
+    const date = new Date(timestamp);
+    const day = date.getDate().toString().padStart(2, "0");
+    const month = (date.getMonth() + 1).toString().padStart(2, "0");
+    const year = date.getFullYear();
+
+    let hours = date.getHours();
+    const minutes = date.getMinutes().toString().padStart(2, "0");
+    const seconds = date.getSeconds().toString().padStart(2, "0");
+
+    // Convert to 12-hour format
+    const ampm = hours >= 12 ? "PM" : "AM";
+    hours = hours % 12 || 12; // convert 0 -> 12
+
+    return `${day}/${month}/${year} ${hours}:${minutes}:${seconds} ${ampm}`;
   };
 
   const formatDefects = (defects) => {
-    if (!defects) return 'N/A';
+    if (!defects) return "N/A";
 
     const activeDefects = Object.entries(defects)
       .filter(([key, value]) => value === true)
-      .map(([key]) => key.replace('def_', '').replace(/_/g, ' '))
+      .map(([key]) => key.replace("def_", "").replace(/_/g, " "))
       .map((defect) => defect.charAt(0).toUpperCase() + defect.slice(1));
 
-    return activeDefects.length > 0 ? activeDefects.join(', ') : 'None';
+    return activeDefects.length > 0 ? activeDefects.join(", ") : "None";
   };
 
-  const renderDefectsWithCorrections = (predictions, corrections) => {
-    if (!predictions && !corrections)
-      return <span style={{ color: 'green' }}>N/A</span>;
+  // Updated function to render predictions with each defect on a new line
+  const renderPredictions = (predictions) => {
+    if (!predictions) return <span className="text-gray-500">N/A</span>;
 
-    const items = Object.keys({
-      ...predictions,
-      ...corrections,
-    })
+    const items = Object.keys(predictions)
       .map((key) => {
-        const defectName = key.replace('def_', '').replace(/_/g, ' ');
+        const defectName = key.replace("def_", "").replace(/_/g, " ");
         const prettyName =
           defectName.charAt(0).toUpperCase() + defectName.slice(1);
 
-        const predicted = predictions?.[key] === true;
-        const correction = corrections?.[key];
+        const predicted = predictions[key] === true;
 
-        // Case 1: True Positive → Green
-        if (predicted && correction !== 'False Positive') {
-          return (
-            <span key={key} className="text-green-600 font-medium">
-              {prettyName}
-            </span>
-          );
+        if (predicted) {
+          return prettyName;
         }
-
-        // Case 2: False Positive → Green + Strikethrough
-        if (predicted && correction === 'False Positive') {
-          return (
-            <span key={key} className="text-green-600 line-through font-medium">
-              {prettyName}
-            </span>
-          );
-        }
-
-        // Case 3: False Negative → Blue
-        if (!predicted && correction === 'False Negative') {
-          return (
-            <span key={key} className="text-blue-600 font-medium">
-              {prettyName}
-            </span>
-          );
-        }
-
         return null;
       })
-      .filter(Boolean); // remove nulls
+      .filter(Boolean);
 
-    // Join spans with commas
     return items.length > 0 ? (
-      items.map((item, idx) => (
-        <React.Fragment key={idx}>
-          {item}
-          {idx < items.length - 1 && (
-            <span className="whitespace-pre text-green-600 font-medium">
-              ,{' '}
-            </span>
-          )}
-        </React.Fragment>
-      ))
+      <div className="space-y-1">
+        {items.map((item, idx) => (
+          <div key={idx} className="text-black font-medium">
+            {item}
+          </div>
+        ))}
+      </div>
     ) : (
-      <span className="text-green-600 font-medium">None</span>
+      <span className="text-gray-500">None</span>
+    );
+  };
+
+  // New function to render true defects (commented out for now)
+  const renderTrueDefects = (trueDefects) => {
+    // Commented out since we don't have this data yet
+    // if (!trueDefects) return <span className="text-gray-500">N/A</span>;
+
+    // const items = Object.keys(trueDefects)
+    //   .filter(key => trueDefects[key] === true)
+    //   .map(key => {
+    //     const defectName = key.replace('def_', '').replace(/_/g, ' ');
+    //     return defectName.charAt(0).toUpperCase() + defectName.slice(1);
+    //   });
+
+    // return items.length > 0 ? items.join(', ') : 'None';
+
+    return <span className="text-gray-500">N/A</span>;
+  };
+
+  // Updated function to render correction categories with each defect on a new line
+  const renderCorrectionCategory = (items) => {
+    if (!items || items.length === 0) {
+      return <span className="text-gray-500">-</span>;
+    }
+
+    return (
+      <div className="space-y-1">
+        {items.map((item, idx) => (
+          <div key={idx} className="text-black font-medium">
+            {item}
+          </div>
+        ))}
+      </div>
     );
   };
 
   if (loading) {
     return (
-      <div className="max-w-6xl mx-auto space-y-6 p-4">
+      <div className="max-w-full mx-auto space-y-6 p-4">
         <Card>
           <CardHeader>
             <CardTitle>Past Data</CardTitle>
@@ -300,7 +329,7 @@ function PastDataPage() {
 
   if (error) {
     return (
-      <div className="max-w-6xl mx-auto space-y-6 p-4">
+      <div className="max-w-full mx-auto space-y-6 p-4">
         <Card>
           <CardHeader>
             <CardTitle>Past Data</CardTitle>
@@ -316,7 +345,7 @@ function PastDataPage() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
+    <div className="max-w-full mx-auto space-y-6">
       <Card>
         <CardHeader>
           <CardTitle className="flex justify-between items-center">
@@ -343,7 +372,7 @@ function PastDataPage() {
           <div className="flex items-center gap-4 mb-6">
             <span className="font-semibold">App mode:</span>
             <span className="text-xs font-semibold px-2 py-1 rounded bg-gray-200 dark:bg-gray-700">
-              {isTestMode ? 'Test' : 'Production'}
+              {isTestMode ? "Test" : "Production"}
             </span>
           </div>
 
@@ -385,14 +414,14 @@ function PastDataPage() {
                   value={ppidSearch}
                   onChange={(e) => setPpidSearch(e.target.value)}
                   className="w-full"
-                  onKeyPress={(e) => e.key === 'Enter' && handleSearch()}
+                  onKeyPress={(e) => e.key === "Enter" && handleSearch()}
                 />
               </div>
               <div>
                 <Label className="block text-sm font-medium mb-1">Group</Label>
                 <select
                   value={groupFilter.toString()}
-                  onChange={(e) => setGroupFilter(e.target.value === 'true')}
+                  onChange={(e) => setGroupFilter(e.target.value === "true")}
                   className="w-full border border-gray-300 rounded-md p-2 h-10"
                 >
                   <option value="false">This Account</option>
@@ -409,7 +438,7 @@ function PastDataPage() {
                 className="h-10 flex items-center justify-center gap-2"
               >
                 <Search className="h-4 w-4" />
-                {loading ? 'Searching...' : 'Search'}
+                {loading ? "Searching..." : "Search"}
               </Button>
               <Button variant="outline" onClick={handleReset} className="h-10">
                 Reset
@@ -421,57 +450,99 @@ function PastDataPage() {
             <table className="min-w-full table-fixed border-collapse border border-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="border border-gray-200 px-4 py-3 text-left font-semibold text-sm w-[12%]">
+                  <th className="border border-gray-200 px-4 py-3 text-left font-semibold text-sm w-[8%]">
                     PPID
                   </th>
-                  <th className="border border-gray-200 px-4 py-3 text-left font-semibold text-sm w-[16%]">
+                  <th className="border border-gray-200 px-4 py-3 text-left font-semibold text-sm w-[10%]">
                     Timestamp
                   </th>
-                  <th className="border border-gray-200 px-4 py-3 text-left font-semibold text-sm w-[28%]">
+                  {/* Commented out True Defects column for now */}
+                  {/* <th className="border border-gray-200 px-4 py-3 text-left font-semibold text-sm w-[12%]">
+                    True defects
+                  </th> */}
+                  <th className="border border-gray-200 px-4 py-3 text-left font-semibold text-sm w-[12%]">
                     Predictions
                   </th>
-                  <th className="border border-gray-200 px-4 py-3 text-left font-semibold text-sm w-[28%]">
-                    Corrections
+                  <th className="border border-gray-200 px-4 py-3 text-left font-semibold text-sm w-[12%]">
+                    Correctly Identified (TP)
                   </th>
-                  <th className="border border-gray-200 px-4 py-3 text-left font-semibold text-sm w-[16%]">
+                  <th className="border border-gray-200 px-4 py-3 text-left font-semibold text-sm w-[12%]">
+                    Wrongly Identified (FP)
+                  </th>
+                  <th className="border border-gray-200 px-4 py-3 text-left font-semibold text-sm w-[12%]">
+                    Missed out Defect (FN)
+                  </th>
+                  <th className="border border-gray-200 px-4 py-3 text-left font-semibold text-sm w-[12%]">
+                    TBD (TN)
+                  </th>
+                  <th className="border border-gray-200 px-4 py-3 text-left font-semibold text-sm w-[10%]">
                     Created By
                   </th>
                 </tr>
               </thead>
               <tbody>
                 {pastTasks.length > 0 ? (
-                  pastTasks.map((task, idx) => (
-                    <tr key={task.PPID || idx} className="hover:bg-gray-50">
-                      <td className="border border-gray-200 px-4 py-3 text-sm font-mono">
-                        {task.PPID}
-                      </td>
-                      <td className="border border-gray-200 px-4 py-3 text-sm">
-                        {formatTimestamp(task.Timestamp)}
-                      </td>
-                      <td className="border border-gray-200 px-4 py-3 text-sm align-top">
-                        <div className="break-words">
-                          <span className="text-green-600 font-medium">
-                            {formatDefects(task.Prediction)}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="border border-gray-200 px-4 py-3 text-sm align-top">
-                        <div className="break-words">
-                          {renderDefectsWithCorrections(
-                            task.Prediction,
-                            task.Correction
-                          )}
-                        </div>
-                      </td>
-                      <td className="border border-gray-200 px-4 py-3 text-sm">
-                        {task.Created_By || 'N/A'}
-                      </td>
-                    </tr>
-                  ))
+                  pastTasks.map((task, idx) => {
+                    const corrections = getCategorizedCorrections(
+                      task.Prediction,
+                      task.Correction
+                    );
+
+                    return (
+                      <tr key={task.PPID || idx} className="hover:bg-gray-50">
+                        <td className="border border-gray-200 px-4 py-3 text-sm font-mono">
+                          {task.PPID}
+                        </td>
+                        <td className="border border-gray-200 px-4 py-3 text-sm">
+                          {formatTimestamp(task.Timestamp)}
+                        </td>
+                        {/* Commented out True Defects column */}
+                        {/* <td className="border border-gray-200 px-4 py-3 text-sm align-top">
+                          <div className="break-words">
+                            {renderTrueDefects(task.TrueDefects)}
+                          </div>
+                        </td> */}
+                        <td className="border border-gray-200 px-4 py-3 text-sm align-top">
+                          <div className="break-words">
+                            {renderPredictions(task.Prediction)}
+                          </div>
+                        </td>
+                        <td className="border border-gray-200 px-4 py-3 text-sm align-top">
+                          <div className="break-words">
+                            {renderCorrectionCategory(
+                              corrections.correctlyIdentified
+                            )}
+                          </div>
+                        </td>
+                        <td className="border border-gray-200 px-4 py-3 text-sm align-top">
+                          <div className="break-words">
+                            {renderCorrectionCategory(
+                              corrections.wronglyIdentified
+                            )}
+                          </div>
+                        </td>
+                        <td className="border border-gray-200 px-4 py-3 text-sm align-top">
+                          <div className="break-words">
+                            {renderCorrectionCategory(
+                              corrections.missedOutDefects
+                            )}
+                          </div>
+                        </td>
+                        <td className="border border-gray-200 px-4 py-3 text-sm align-top">
+                          <div className="break-words">
+                            {renderCorrectionCategory(corrections.tbd)}
+                          </div>
+                        </td>
+                        <td className="border border-gray-200 px-4 py-3 text-sm">
+                          {task.Created_By || "N/A"}
+                        </td>
+                      </tr>
+                    );
+                  })
                 ) : (
                   <tr>
                     <td
-                      colSpan="5"
+                      colSpan="7" // Updated colspan since we have 7 columns now (8 when True Defects is uncommented)
                       className="text-center py-8 text-gray-500 border border-gray-200"
                     >
                       No past tasks found
