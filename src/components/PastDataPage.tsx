@@ -2,8 +2,8 @@ import React, { useState, useEffect } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { getPastTasks } from "@/services/api";
-import { Search, Download } from "lucide-react";
+import { getPastTasks, ApiError } from "@/services/api";
+import { Search, Download, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAppMode } from "../contexts/appModeContext";
 
@@ -53,11 +53,30 @@ function PastDataPage() {
       setNextUrl(data.next);
       setPreviousUrl(data.previous);
     } catch (error) {
-      console.error("Error fetching past tasks:", error);
-      setError("Failed to load past tasks");
+      const apiError = error as ApiError;
+      console.error("Error fetching past tasks:", apiError);
+
+      let errorMessage = "Failed to load past tasks";
+
+      if (apiError.type === "network") {
+        errorMessage =
+          "Network error. Please check your connection and try again.";
+      } else if (apiError.type === "server") {
+        errorMessage = "Server error. Please try again later.";
+      } else if (apiError.type === "authentication") {
+        errorMessage = "Authentication error. Please log in again.";
+      } else if (apiError.type === "validation") {
+        errorMessage = "Invalid search parameters. Please check your filters.";
+      }
+
+      setError(errorMessage);
     } finally {
       setLoading(false);
     }
+  };
+
+  const handleRetry = () => {
+    fetchPastTasks();
   };
 
   // Export to Excel functionality
@@ -332,11 +351,28 @@ function PastDataPage() {
       <div className="max-w-full mx-auto space-y-6 p-4">
         <Card>
           <CardHeader>
-            <CardTitle>Past Data</CardTitle>
+            <CardTitle>Defect Analysis</CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="flex justify-center items-center py-8">
-              <div className="text-red-500">{error}</div>
+            <div className="flex flex-col justify-center items-center py-8 space-y-4">
+              <div className="text-red-500 text-center">{error}</div>
+              <Button
+                onClick={handleRetry}
+                disabled={loading}
+                className="flex items-center space-x-2"
+              >
+                {loading ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    <span>Retrying...</span>
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="w-4 h-4" />
+                    <span>Try Again</span>
+                  </>
+                )}
+              </Button>
             </div>
           </CardContent>
         </Card>

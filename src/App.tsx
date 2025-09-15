@@ -583,63 +583,272 @@ function App() {
     // Add more as needed
   };
 
-  const startPrediction = async () => {
-    setIsPredicting(true);
-    setPredictedDefects(null);
-    setPredictionError(null);
-    pollCountRef.current = 0;
+  // const startPrediction = async () => {
+  //   setIsPredicting(true);
+  //   setPredictedDefects(null);
+  //   setPredictionError(null);
+  //   pollCountRef.current = 0;
 
-    try {
-      const token = localStorage.getItem('sentinel_dash_token');
-      if (!token) {
-        setIsPredicting(false);
-        setPredictedDefects({
-          error: 'No authentication token found. Please log in again.',
-        });
-        return;
-      }
+  //   try {
+  //     const token = localStorage.getItem('sentinel_dash_token');
+  //     if (!token) {
+  //       setIsPredicting(false);
+  //       setPredictedDefects({
+  //         error: 'No authentication token found. Please log in again.',
+  //       });
+  //       return;
+  //     }
 
-      // Prepare panel_images array as in defectchecker
-      const panel_images = uploadedImageUrls.map((url, idx) => ({
-        panel: ppid,
-        image_url: url,
-        base_pattern: idx + 1,
-      }));
+  //     // Prepare panel_images array as in defectchecker
+  //     const panel_images = uploadedImageUrls.map((url, idx) => ({
+  //       panel: ppid,
+  //       image_url: url,
+  //       base_pattern: idx + 1,
+  //     }));
 
-      const payload = {
-        ppid,
-        panel_images,
-        test_type: isTestMode
-          ? ('test' as 'test')
-          : ('production' as 'production'),
-        inference: true,
-      };
+  //     const payload = {
+  //       ppid,
+  //       panel_images,
+  //       test_type: isTestMode
+  //         ? ('test' as 'test')
+  //         : ('production' as 'production'),
+  //       inference: true,
+  //     };
 
-      const data = await createDisplayPanel(payload);
-      const task_uuid = data.tasks?.[0]?.task_uuid;
-      if (!task_uuid) throw new Error('No task_uuid returned');
+  //     const data = await createDisplayPanel(payload);
+  //     const task_uuid = data.tasks?.[0]?.task_uuid;
+  //     if (!task_uuid) throw new Error('No task_uuid returned');
 
-      // Poll for status
-      setTaskid(task_uuid);
-      pollPredictionStatus(task_uuid);
-    } catch (err) {
-      setIsPredicting(false);
-      const errorDetail = err.response?.data?.detail || err.message || 'Prediction failed';
-      setPredictedDefects({ error: errorDetail });
-      setPredictionError(errorDetail);
-      Sentry.captureException(err, {
-        tags: {
-          location: 'startPrediction',
-          operation: 'prediction_start',
-        },
-        extra: {
-          ppid: ppid,
-          isTestMode: isTestMode,
-          imagesCount: uploadedImageUrls.filter((url) => url !== null).length,
-        },
-      });
-    }
+  //     // Poll for status
+  //     setTaskid(task_uuid);
+  //     pollPredictionStatus(task_uuid);
+  //   } catch (err) {
+  //     setIsPredicting(false);
+  //     const errorDetail = err.response?.data?.detail || err.message || 'Prediction failed';
+  //     setPredictedDefects({ error: errorDetail });
+  //     setPredictionError(errorDetail);
+  //     Sentry.captureException(err, {
+  //       tags: {
+  //         location: 'startPrediction',
+  //         operation: 'prediction_start',
+  //       },
+  //       extra: {
+  //         ppid: ppid,
+  //         isTestMode: isTestMode,
+  //         imagesCount: uploadedImageUrls.filter((url) => url !== null).length,
+  //       },
+  //     });
+  //   }
+  // };
+  
+//   const startPrediction = async () => {
+//   setIsPredicting(true);
+//   setPredictedDefects(null);
+//   setPredictionError(null);
+//   pollCountRef.current = 0;
+//   try {
+//     const token = localStorage.getItem('sentinel_dash_token');
+//     if (!token) {
+//       setIsPredicting(false);
+//       setPredictedDefects({
+//         error: 'No authentication token found. Please log in again.',
+//       });
+//       return;
+//     }
+//     // Prepare panel_images array as in defectchecker
+//     const panel_images = uploadedImageUrls.map((url, idx) => ({
+//       panel: ppid,
+//       image_url: url,
+//       base_pattern: idx + 1,
+//     }));
+//     const payload = {
+//       ppid,
+//       panel_images,
+//       test_type: isTestMode
+//         ? ('test' as 'test')
+//         : ('production' as 'production'),
+//       inference: true,
+//     };
+//     const data = await createDisplayPanel(payload);
+//     const task_uuid = data.tasks?.[0]?.task_uuid;
+//     if (!task_uuid) throw new Error('No task_uuid returned');
+//     // Poll for status
+//     setTaskid(task_uuid);
+//     pollPredictionStatus(task_uuid);
+//   } catch (err) {
+//     setIsPredicting(false);
+//     const errorDetail = err.response?.data?.detail || err.message || 'Prediction failed';
+//     setPredictedDefects({ error: errorDetail });
+//     setPredictionError(errorDetail);
+//     Sentry.captureException(err, {
+//       tags: {
+//         location: 'startPrediction',
+//         operation: 'prediction_start',
+//       },
+//       extra: {
+//         ppid: ppid,
+//         isTestMode: isTestMode,
+//         imagesCount: uploadedImageUrls.filter((url) => url !== null).length,
+//       },
+//     });
+//   }
+// };
+
+// const retryPrediction = async () => {
+//   setIsPredicting(true);
+//   setPredictedDefects(null);
+//   setPredictionError(null);
+//   pollCountRef.current = 0;
+//   try {
+//     if (!ppid) {
+//       setIsPredicting(false);
+//       setPredictionError(
+//         'No Panel ID available for retry. Please start prediction again.'
+//       );
+//       return;
+//     }
+
+//     // First, try to retry the existing display panel
+//     try {
+//       const retryResponse = await retryDisplayPanel(ppid);
+//       const latestTask = getLatestTask(retryResponse);
+//       if (!latestTask || !latestTask.task_uuid) {
+//         setIsPredicting(false);
+//         setPredictionError(
+//           'No valid task returned from retry. Please try again.'
+//         );
+//         return;
+//       }
+//       // Update task ID and start polling with the latest task UUID
+//       setTaskid(latestTask.task_uuid);
+//       pollPredictionStatus(latestTask.task_uuid);
+//     } catch (retryError) {
+//       // Check if the error is due to DisplayPanel not found
+//       const errorMessage = retryError.response?.data?.error || 
+//                           retryError.response?.data?.detail || 
+//                           retryError.message || '';
+      
+//       const isDisplayPanelNotFound = 
+//         errorMessage.includes('DisplayPanel') && 
+//         errorMessage.includes('not found');
+
+//       if (isDisplayPanelNotFound) {
+//         console.log('DisplayPanel not found, creating new panel...');
+        
+//         // Fallback: Create a new display panel (same as startPrediction)
+//         const token = localStorage.getItem('sentinel_dash_token');
+//         if (!token) {
+//           setIsPredicting(false);
+//           setPredictionError('No authentication token found. Please log in again.');
+//           return;
+//         }
+
+//         // Prepare panel_images array
+//         const panel_images = uploadedImageUrls.map((url, idx) => ({
+//           panel: ppid,
+//           image_url: url,
+//           base_pattern: idx + 1,
+//         }));
+
+//         const payload = {
+//           ppid,
+//           panel_images,
+//           test_type: isTestMode
+//             ? ('test' as 'test')
+//             : ('production' as 'production'),
+//           inference: true,
+//         };
+
+//         const data = await createDisplayPanel(payload);
+//         const task_uuid = data.tasks?.[0]?.task_uuid;
+//         if (!task_uuid) throw new Error('No task_uuid returned from new panel creation');
+
+//         // Poll for status with new task
+//         setTaskid(task_uuid);
+//         pollPredictionStatus(task_uuid);
+//       } else {
+//         // For other errors, rethrow
+//         throw retryError;
+//       }
+//     }
+//   } catch (error) {
+//     setIsPredicting(false);
+//     const errorDetail = error.response?.data?.detail || 
+//                        error.response?.data?.error || 
+//                        error.message || 
+//                        'Retry failed';
+//     setPredictedDefects({ error: errorDetail });
+//     setPredictionError(errorDetail);
+//     Sentry.captureException(error, {
+//       tags: {
+//         location: 'retryPrediction',
+//         operation: 'prediction_retry',
+//       },
+//       extra: {
+//         ppid: ppid,
+//         errorStatus: error.response?.status,
+//         errorType: error.response?.data?.error ? 'display_panel_not_found' : 'other_error',
+//       },
+//     });
+//   }
+// };
+
+// You might also want to create a helper function to reduce code duplication
+
+const createDisplayPanelWithImages = async (ppid: string, uploadedImageUrls: (string | null)[], isTestMode: boolean) => {
+  const token = localStorage.getItem('sentinel_dash_token');
+  if (!token) {
+    throw new Error('No authentication token found. Please log in again.');
+  }
+
+  const panel_images = uploadedImageUrls.map((url, idx) => ({
+    panel: ppid,
+    image_url: url,
+    base_pattern: idx + 1,
+  }));
+
+  const payload = {
+    ppid,
+    panel_images,
+    test_type: isTestMode ? ('test' as 'test') : ('production' as 'production'),
+    inference: true,
   };
+
+  return await createDisplayPanel(payload);
+};
+
+// Refactored version using the helper function:
+const startPredictionRefactored = async () => {
+  setIsPredicting(true);
+  setPredictedDefects(null);
+  setPredictionError(null);
+  pollCountRef.current = 0;
+  try {
+    const data = await createDisplayPanelWithImages(ppid, uploadedImageUrls, isTestMode);
+    const task_uuid = data.tasks?.[0]?.task_uuid;
+    if (!task_uuid) throw new Error('No task_uuid returned');
+    
+    setTaskid(task_uuid);
+    pollPredictionStatus(task_uuid);
+  } catch (err) {
+    setIsPredicting(false);
+    const errorDetail = err.response?.data?.detail || err.message || 'Prediction failed';
+    setPredictedDefects({ error: errorDetail });
+    setPredictionError(errorDetail);
+    Sentry.captureException(err, {
+      tags: {
+        location: 'startPrediction',
+        operation: 'prediction_start',
+      },
+      extra: {
+        ppid: ppid,
+        isTestMode: isTestMode,
+        imagesCount: uploadedImageUrls.filter((url) => url !== null).length,
+      },
+    });
+  }
+};
+
   const pollPredictionStatus = async (task_uuid) => {
     try {
       const token = localStorage.getItem('sentinel_dash_token');
@@ -808,54 +1017,141 @@ function App() {
     setActivePage('defect-checker');
   };
 
-  const retryPrediction = async () => {
-    setIsPredicting(true);
-    setPredictedDefects(null);
-    setPredictionError(null);
-    pollCountRef.current = 0;
+  // const retryPrediction = async () => {
+  //   setIsPredicting(true);
+  //   setPredictedDefects(null);
+  //   setPredictionError(null);
+  //   pollCountRef.current = 0;
 
-    try {
-      if (!ppid) {
-        setIsPredicting(false);
-        setPredictionError(
-          'No Panel ID available for retry. Please start prediction again.'
-        );
-        return;
-      }
+  //   try {
+  //     if (!ppid) {
+  //       setIsPredicting(false);
+  //       setPredictionError(
+  //         'No Panel ID available for retry. Please start prediction again.'
+  //       );
+  //       return;
+  //     }
 
-      const retryResponse = await retryDisplayPanel(ppid);
-      const latestTask = getLatestTask(retryResponse);
+  //     const retryResponse = await retryDisplayPanel(ppid);
+  //     const latestTask = getLatestTask(retryResponse);
 
-      if (!latestTask || !latestTask.task_uuid) {
-        setIsPredicting(false);
-        setPredictionError(
-          'No valid task returned from retry. Please try again.'
-        );
-        return;
-      }
+  //     if (!latestTask || !latestTask.task_uuid) {
+  //       setIsPredicting(false);
+  //       setPredictionError(
+  //         'No valid task returned from retry. Please try again.'
+  //       );
+  //       return;
+  //     }
 
-      // Update task ID and start polling with the latest task UUID
-      setTaskid(latestTask.task_uuid);
-      pollPredictionStatus(latestTask.task_uuid);
-    } catch (error) {
-      setIsPredicting(false);
-      const errorDetail = error.response?.data?.detail || error.message || 'Retry failed';
-      setPredictedDefects({ error: errorDetail });
-      setPredictionError(errorDetail);
-      Sentry.captureException(error, {
-        tags: {
-          location: 'retryPrediction',
-          operation: 'prediction_retry',
-        },
-        extra: {
-          ppid: ppid,
-          errorStatus: error.response?.status,
-        },
-      });
-    }
-  };
+  //     // Update task ID and start polling with the latest task UUID
+  //     setTaskid(latestTask.task_uuid);
+  //     pollPredictionStatus(latestTask.task_uuid);
+  //   } catch (error) {
+  //     setIsPredicting(false);
+  //     const errorDetail = error.response?.data?.detail || error.message || 'Retry failed';
+  //     setPredictedDefects({ error: errorDetail });
+  //     setPredictionError(errorDetail);
+  //     Sentry.captureException(error, {
+  //       tags: {
+  //         location: 'retryPrediction',
+  //         operation: 'prediction_retry',
+  //       },
+  //       extra: {
+  //         ppid: ppid,
+  //         errorStatus: error.response?.status,
+  //       },
+  //     });
+  //   }
+  // };
 
   // Render the correct subpage/component
+  
+const retryPredictionRefactored = async () => {
+  setIsPredicting(true);
+  setPredictedDefects(null);
+  setPredictionError(null);
+  pollCountRef.current = 0;
+  
+  try {
+    if (!ppid) {
+      setIsPredicting(false);
+      setPredictionError('No Panel ID available for retry. Please start prediction again.');
+      return;
+    }
+
+    try {
+      // First attempt: retry existing panel
+      const retryResponse = await retryDisplayPanel(ppid);
+      const latestTask = getLatestTask(retryResponse);
+      if (!latestTask || !latestTask.task_uuid) {
+        setIsPredicting(false);
+        setPredictionError('No valid task returned from retry. Please try again.');
+        return;
+      }
+      
+      setTaskid(latestTask.task_uuid);
+      pollPredictionStatus(latestTask.task_uuid);
+    } catch (retryError) {
+      console.log('Retry error:', retryError);
+      
+      // Check if it's a 404 error (DisplayPanel not found)
+      // Your apiCallWithErrorHandling is wrapping the original error
+      const is404Error = retryError.status === 404 || 
+                         retryError.response?.status === 404 ||
+                         (retryError.message && retryError.message.includes('Resource not found'));
+      
+      // Additional check for the specific DisplayPanel not found case
+      const errorMessage = retryError.response?.data?.error || 
+                          retryError.response?.data?.detail || 
+                          retryError.message || '';
+      
+      const isDisplayPanelNotFound = is404Error || 
+                                   (errorMessage.includes('DisplayPanel') && errorMessage.includes('not found'));
+
+      if (isDisplayPanelNotFound) {
+        console.log('DisplayPanel not found (404), creating new panel...');
+        
+        try {
+          // Fallback: create new panel
+          const data = await createDisplayPanelWithImages(ppid, uploadedImageUrls, isTestMode);
+          const task_uuid = data.tasks?.[0]?.task_uuid;
+          if (!task_uuid) throw new Error('No task_uuid returned from new panel creation');
+
+          setTaskid(task_uuid);
+          pollPredictionStatus(task_uuid);
+        } catch (createError) {
+          console.error('Failed to create new panel after 404:', createError);
+          throw createError;
+        }
+      } else {
+        // For other errors, rethrow
+        throw retryError;
+      }
+    }
+  } catch (error) {
+    console.error('Final retry error:', error);
+    setIsPredicting(false);
+    const errorDetail = error.response?.data?.detail || 
+                       error.response?.data?.error || 
+                       error.message || 
+                       'Retry failed';
+    setPredictedDefects({ error: errorDetail });
+    setPredictionError(errorDetail);
+    Sentry.captureException(error, {
+      tags: {
+        location: 'retryPrediction',
+        operation: 'prediction_retry',
+      },
+      extra: {
+        ppid: ppid,
+        errorStatus: error.response?.status || error.status,
+        errorType: (error.status === 404 || error.response?.status === 404) ? 'display_panel_not_found' : 'other_error',
+        originalError: error.message,
+      },
+    });
+  }
+};
+  
   const renderActivePage = () => {
     switch (activePage) {
       case 'data-collection':
@@ -1014,7 +1310,7 @@ function App() {
                       onApprove={async () => {
                         if (routineType === 'defect-checker') {
                           setActivePage('predicted-defects');
-                          await startPrediction();
+                          await startPredictionRefactored();
                         } else {
                           approveImages();
                         }
@@ -1047,7 +1343,7 @@ function App() {
                       : 'Error'
                   }
                   message={predictedDefects.message || predictedDefects.error}
-                  onRetry={retryPrediction}
+                  onRetry={retryPredictionRefactored}
                   onGoHome={resetAndGoBack}
                 />
               ) : predictedDefects && !predictedDefects.error ? (

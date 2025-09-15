@@ -144,55 +144,11 @@ export function LoginPage({
     };
   };
 
-  // // Input validation
-  // const validateInputs = (): LoginError | null => {
-  //   if (!username.trim()) {
-  //     return {
-  //       type: 'validation',
-  //       message: 'Username is required.',
-  //       retryable: false
-  //     };
-  //   }
-
-  //   if (username.trim().length < 3) {
-  //     return {
-  //       type: 'validation',
-  //       message: 'Username must be at least 3 characters long.',
-  //       retryable: false
-  //     };
-  //   }
-
-  //   if (!password) {
-  //     return {
-  //       type: 'validation',
-  //       message: 'Password is required.',
-  //       retryable: false
-  //     };
-  //   }
-
-  //   if (password.length < 6) {
-  //     return {
-  //       type: 'validation',
-  //       message: 'Password must be at least 6 characters long.',
-  //       retryable: false
-  //     };
-  //   }
-
-  //   return null;
-  // };
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
     // Clear previous errors
     setError(null);
-
-  // Client-side validation
-    // const validationError = validateInputs();
-    // if (validationError) {
-    //   setError(validationError);
-    //   return;
-    // }
 
     setIsLoading(true);
 

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { X, RotateCcw } from 'lucide-react';
-import { submitFeedback } from '@/services/api';
+import { submitFeedback, ApiError } from '@/services/api';
 
 function PredictedDefectsPage({
   defects,
@@ -30,7 +30,7 @@ function PredictedDefectsPage({
   const [corrections, setCorrections] = useState({});
   const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
   const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
-  console.log(defects);
+
   const handleMarkIncorrect = (defectKey) => {
     setCorrections((prev) => ({
       ...prev,
@@ -92,7 +92,20 @@ function PredictedDefectsPage({
       setFeedbackSubmitted(true);
       setCorrections({}); // Clear corrections after successful submission
     } catch (error) {
-      console.error('Failed to submit feedback:', error);
+      const apiError = error as ApiError;
+      console.error('Failed to submit feedback:', apiError);
+      
+      let errorMessage = 'Failed to submit feedback. Please try again.';
+      
+      if (apiError.type === 'network') {
+        errorMessage = 'Network error. Please check your connection and try again.';
+      } else if (apiError.type === 'server') {
+        errorMessage = 'Server error. Please try again later.';
+      } else if (apiError.type === 'validation') {
+        errorMessage = 'Invalid feedback data. Please check your corrections.';
+      }
+      
+      alert(errorMessage);
     } finally {
       setIsSubmittingFeedback(false);
     }

@@ -31,6 +31,7 @@ import {
   UserCheck,
   Shield,
   UserX,
+  RefreshCw,
 } from 'lucide-react';
 import {
   createUser,
@@ -41,6 +42,7 @@ import {
   toggleUserActive,
   toggleUserStaff,
   updateUser,
+  ApiError,
 } from '@/services/api';
 
 interface User {
@@ -111,9 +113,22 @@ const AdminUserManagement = () => {
   });
 
   // Error states
-  const [createErrors, setCreateErrors] = useState({});
-  const [editErrors, setEditErrors] = useState({});
-  const [passwordErrors, setPasswordErrors] = useState({});
+  interface FormErrors {
+    username?: string;
+    email?: string;
+    first_name?: string;
+    last_name?: string;
+    password?: string;
+    confirm_password?: string;
+    groups?: string;
+    general?: string;
+  }
+
+  const [createErrors, setCreateErrors] = useState<FormErrors>({});
+  const [editErrors, setEditErrors] = useState<FormErrors>({});
+  const [passwordErrors, setPasswordErrors] = useState<FormErrors>({});
+  const [error, setError] = useState(null);
+
 
   useEffect(() => {
     const fetchData = async () => {
@@ -125,7 +140,19 @@ const AdminUserManagement = () => {
         setUsers(userData);
         setStats(statsData);
       } catch (error) {
-        console.error('Error fetching data:', error);
+        const apiError = error as ApiError;
+        console.error('Error fetching data:', apiError);
+        let errorMessage = "Failed to load past tasks";
+      
+      if (apiError.type === 'network') {
+        errorMessage = "Network error. Please check your connection and try again.";
+      } else if (apiError.type === 'server') {
+        errorMessage = "Server error. Please try again later.";
+      } else if (apiError.type === 'authentication') {
+        errorMessage = "Authentication error. Please log in again.";
+      } 
+      
+      setError(errorMessage);
       } finally {
         setLoading(false);
       }
@@ -133,6 +160,37 @@ const AdminUserManagement = () => {
 
     fetchData();
   }, []);
+
+      const handleRetry = () => {
+      const fetchData = async () => {
+        setLoading(true);
+        setError(null);
+        try {
+          const [userData, statsData] = await Promise.all([
+          getUsers(),
+          getUserStats(),
+        ]);
+        setUsers(userData);
+        setStats(statsData);
+        } catch (error) {
+          const apiError = error as ApiError;
+          console.error("Error fetching defects:", error);
+          let errorMessage = "Failed to load past tasks";
+          if (apiError.type === "network") {
+            errorMessage =
+              "Network error. Please check your connection and try again.";
+          } else if (apiError.type === "server") {
+            errorMessage = "Server error. Please try again later.";
+          } else if (apiError.type === "authentication") {
+            errorMessage = "Authentication error. Please log in again.";
+          }
+          setError(errorMessage);
+        } finally {
+          setLoading(false);
+        }
+      };
+      fetchData();
+    };
 
   // const filteredUsers = users?.filter((user) => {
   //   const matchesSearch =
@@ -160,7 +218,9 @@ const AdminUserManagement = () => {
       setUsers(userData);
       setStats(statsData);
     } catch (error) {
-      console.error('Error refetching data:', error);
+      const apiError = error as ApiError;
+      console.error('Error refetching data:', apiError);
+      // You could add user-facing error handling here if needed
     } finally {
       setLoading(false);
     }
@@ -196,23 +256,31 @@ const AdminUserManagement = () => {
 
       await refetchData();
     } catch (error) {
-      console.error('Error creating user:', error);
+      const apiError = error as ApiError;
+      console.error('Error creating user:', apiError);
 
       // Extract detailed error messages
-      const newErrors = {};
+      const newErrors: FormErrors = {};
 
-      if (error.response && error.response.data) {
-        const errorData = error.response.data;
-
-        // Handle different error formats
-        Object.keys(errorData).forEach((field) => {
-          const fieldErrors = errorData[field];
-          if (Array.isArray(fieldErrors)) {
-            newErrors[field] = fieldErrors.join(', ');
-          } else if (typeof fieldErrors === 'string') {
-            newErrors[field] = fieldErrors;
-          }
-        });
+      if (apiError.type === 'validation') {
+        // Handle validation errors from the API
+        if (apiError.originalError?.response?.data) {
+          const errorData = apiError.originalError.response.data;
+          Object.keys(errorData).forEach((field) => {
+            const fieldErrors = errorData[field];
+            if (Array.isArray(fieldErrors)) {
+              newErrors[field] = fieldErrors.join(', ');
+            } else if (typeof fieldErrors === 'string') {
+              newErrors[field] = fieldErrors;
+            }
+          });
+        }
+      } else if (apiError.type === 'network') {
+        newErrors.general = 'Network error. Please check your connection and try again.';
+      } else if (apiError.type === 'server') {
+        newErrors.general = 'Server error. Please try again later.';
+      } else {
+        newErrors.general = 'An unexpected error occurred. Please try again.';
       }
 
       setCreateErrors(newErrors);
@@ -235,23 +303,31 @@ const AdminUserManagement = () => {
 
       await refetchData();
     } catch (error) {
-      console.error('Error updating user:', error);
+      const apiError = error as ApiError;
+      console.error('Error updating user:', apiError);
 
       // Extract detailed error messages
-      const newErrors = {};
+      const newErrors: FormErrors = {};
 
-      if (error.response && error.response.data) {
-        const errorData = error.response.data;
-
-        // Handle different error formats
-        Object.keys(errorData).forEach((field) => {
-          const fieldErrors = errorData[field];
-          if (Array.isArray(fieldErrors)) {
-            newErrors[field] = fieldErrors.join(', ');
-          } else if (typeof fieldErrors === 'string') {
-            newErrors[field] = fieldErrors;
-          }
-        });
+      if (apiError.type === 'validation') {
+        // Handle validation errors from the API
+        if (apiError.originalError?.response?.data) {
+          const errorData = apiError.originalError.response.data;
+          Object.keys(errorData).forEach((field) => {
+            const fieldErrors = errorData[field];
+            if (Array.isArray(fieldErrors)) {
+              newErrors[field] = fieldErrors.join(', ');
+            } else if (typeof fieldErrors === 'string') {
+              newErrors[field] = fieldErrors;
+            }
+          });
+        }
+      } else if (apiError.type === 'network') {
+        newErrors.general = 'Network error. Please check your connection and try again.';
+      } else if (apiError.type === 'server') {
+        newErrors.general = 'Server error. Please try again later.';
+      } else {
+        newErrors.general = 'An unexpected error occurred. Please try again.';
       }
 
       setEditErrors(newErrors);
@@ -268,33 +344,41 @@ const AdminUserManagement = () => {
 
       await refetchData();
     } catch (error) {
-      console.error('Error deleting user:', error);
+      const apiError = error as ApiError;
+      console.error('Error deleting user:', apiError);
 
-      // Extract detailed error messages
       let errorMessage = 'Error deleting user';
 
-      if (error.response && error.response.data) {
-        const errorData = error.response.data;
-        const errorMessages = [];
+      if (apiError.type === 'validation') {
+        // Handle validation errors from the API
+        if (apiError.originalError?.response?.data) {
+          const errorData = apiError.originalError.response.data;
+          const errorMessages = [];
+          Object.keys(errorData).forEach((field) => {
+            const fieldErrors = errorData[field];
+            if (Array.isArray(fieldErrors)) {
+              fieldErrors.forEach((msg) => {
+                errorMessages.push(`${field}: ${msg}`);
+              });
+            } else if (typeof fieldErrors === 'string') {
+              errorMessages.push(`${field}: ${fieldErrors}`);
+            }
+          });
 
-        // Handle different error formats
-        Object.keys(errorData).forEach((field) => {
-          const fieldErrors = errorData[field];
-          if (Array.isArray(fieldErrors)) {
-            fieldErrors.forEach((msg) => {
-              errorMessages.push(`${field}: ${msg}`);
-            });
-          } else if (typeof fieldErrors === 'string') {
-            errorMessages.push(`${field}: ${fieldErrors}`);
+          if (errorMessages.length > 0) {
+            errorMessage = `Error deleting user:\n\n${errorMessages.join('\n')}`;
           }
-        });
-
-        if (errorMessages.length > 0) {
-          errorMessage = `Error deleting user:\n\n${errorMessages.join('\n')}`;
         }
+      } else if (apiError.type === 'network') {
+        errorMessage = 'Network error. Please check your connection and try again.';
+      } else if (apiError.type === 'server') {
+        errorMessage = 'Server error. Please try again later.';
+      } else {
+        errorMessage = 'An unexpected error occurred. Please try again.';
       }
 
       console.error(errorMessage);
+      alert(errorMessage);
     }
   };
 
@@ -313,7 +397,9 @@ const AdminUserManagement = () => {
       const response = await getUsers(params);
       setUsers(response.results || response); // Handle both paginated and non-paginated responses
     } catch (error) {
-      console.error('Failed to fetch users:', error);
+      const apiError = error as ApiError;
+      console.error('Failed to fetch users:', apiError);
+      // You could add user-facing error handling here if needed
     } finally {
       setLoading(false);
     }
@@ -333,7 +419,9 @@ const AdminUserManagement = () => {
       const response = await getUsers(params);
       setUsers(response.results || response); // Handle both paginated and non-paginated responses
     } catch (error) {
-      console.error('Failed to fetch users:', error);
+      const apiError = error as ApiError;
+      console.error('Failed to fetch users:', apiError);
+      // You could add user-facing error handling here if needed
     } finally {
       setLoading(false);
     }
@@ -353,7 +441,7 @@ const AdminUserManagement = () => {
   //   setPage(1);
   // }, [searchTerm, filterActive, filterStaff]);
 
-  const handleKeyPress = (e) => {
+  const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter') {
       handleSearch();
     }
@@ -367,35 +455,41 @@ const AdminUserManagement = () => {
 
       await refetchData();
     } catch (error) {
-      console.error('Error toggling user active status:', error);
+      const apiError = error as ApiError;
+      console.error('Error toggling user active status:', apiError);
 
-      // Extract detailed error messages
       let errorMessage = 'Error updating user status';
 
-      if (error.response && error.response.data) {
-        const errorData = error.response.data;
-        const errorMessages = [];
+      if (apiError.type === 'validation') {
+        // Handle validation errors from the API
+        if (apiError.originalError?.response?.data) {
+          const errorData = apiError.originalError.response.data;
+          const errorMessages = [];
+          Object.keys(errorData).forEach((field) => {
+            const fieldErrors = errorData[field];
+            if (Array.isArray(fieldErrors)) {
+              fieldErrors.forEach((msg) => {
+                errorMessages.push(`${field}: ${msg}`);
+              });
+            } else if (typeof fieldErrors === 'string') {
+              errorMessages.push(`${field}: ${fieldErrors}`);
+            }
+          });
 
-        // Handle different error formats
-        Object.keys(errorData).forEach((field) => {
-          const fieldErrors = errorData[field];
-          if (Array.isArray(fieldErrors)) {
-            fieldErrors.forEach((msg) => {
-              errorMessages.push(`${field}: ${msg}`);
-            });
-          } else if (typeof fieldErrors === 'string') {
-            errorMessages.push(`${field}: ${fieldErrors}`);
+          if (errorMessages.length > 0) {
+            errorMessage = `Error updating user status:\n\n${errorMessages.join('\n')}`;
           }
-        });
-
-        if (errorMessages.length > 0) {
-          errorMessage = `Error updating user status:\n\n${errorMessages.join(
-            '\n'
-          )}`;
         }
+      } else if (apiError.type === 'network') {
+        errorMessage = 'Network error. Please check your connection and try again.';
+      } else if (apiError.type === 'server') {
+        errorMessage = 'Server error. Please try again later.';
+      } else {
+        errorMessage = 'An unexpected error occurred. Please try again.';
       }
 
       console.error(errorMessage);
+      alert(errorMessage);
     }
   };
 
@@ -407,35 +501,41 @@ const AdminUserManagement = () => {
 
       await refetchData();
     } catch (error) {
-      console.error('Error toggling staff status:', error);
+      const apiError = error as ApiError;
+      console.error('Error toggling staff status:', apiError);
 
-      // Extract detailed error messages
       let errorMessage = 'Error updating staff privileges';
 
-      if (error.response && error.response.data) {
-        const errorData = error.response.data;
-        const errorMessages = [];
+      if (apiError.type === 'validation') {
+        // Handle validation errors from the API
+        if (apiError.originalError?.response?.data) {
+          const errorData = apiError.originalError.response.data;
+          const errorMessages = [];
+          Object.keys(errorData).forEach((field) => {
+            const fieldErrors = errorData[field];
+            if (Array.isArray(fieldErrors)) {
+              fieldErrors.forEach((msg) => {
+                errorMessages.push(`${field}: ${msg}`);
+              });
+            } else if (typeof fieldErrors === 'string') {
+              errorMessages.push(`${field}: ${fieldErrors}`);
+            }
+          });
 
-        // Handle different error formats
-        Object.keys(errorData).forEach((field) => {
-          const fieldErrors = errorData[field];
-          if (Array.isArray(fieldErrors)) {
-            fieldErrors.forEach((msg) => {
-              errorMessages.push(`${field}: ${msg}`);
-            });
-          } else if (typeof fieldErrors === 'string') {
-            errorMessages.push(`${field}: ${fieldErrors}`);
+          if (errorMessages.length > 0) {
+            errorMessage = `Error updating staff privileges:\n\n${errorMessages.join('\n')}`;
           }
-        });
-
-        if (errorMessages.length > 0) {
-          errorMessage = `Error updating staff privileges:\n\n${errorMessages.join(
-            '\n'
-          )}`;
         }
+      } else if (apiError.type === 'network') {
+        errorMessage = 'Network error. Please check your connection and try again.';
+      } else if (apiError.type === 'server') {
+        errorMessage = 'Server error. Please try again later.';
+      } else {
+        errorMessage = 'An unexpected error occurred. Please try again.';
       }
 
       console.error(errorMessage);
+      alert(errorMessage);
     }
   };
 
@@ -463,23 +563,31 @@ const AdminUserManagement = () => {
       setPasswordModalOpen(false);
       setSelectedUser(null);
     } catch (error) {
-      console.error('Error setting password:', error);
+      const apiError = error as ApiError;
+      console.error('Error setting password:', apiError);
 
       // Extract detailed error messages
-      const newErrors = {};
+      const newErrors: FormErrors = {};
 
-      if (error.response && error.response.data) {
-        const errorData = error.response.data;
-
-        // Handle different error formats
-        Object.keys(errorData).forEach((field) => {
-          const fieldErrors = errorData[field];
-          if (Array.isArray(fieldErrors)) {
-            newErrors[field] = fieldErrors.join(', ');
-          } else if (typeof fieldErrors === 'string') {
-            newErrors[field] = fieldErrors;
-          }
-        });
+      if (apiError.type === 'validation') {
+        // Handle validation errors from the API
+        if (apiError.originalError?.response?.data) {
+          const errorData = apiError.originalError.response.data;
+          Object.keys(errorData).forEach((field) => {
+            const fieldErrors = errorData[field];
+            if (Array.isArray(fieldErrors)) {
+              newErrors[field] = fieldErrors.join(', ');
+            } else if (typeof fieldErrors === 'string') {
+              newErrors[field] = fieldErrors;
+            }
+          });
+        }
+      } else if (apiError.type === 'network') {
+        newErrors.general = 'Network error. Please check your connection and try again.';
+      } else if (apiError.type === 'server') {
+        newErrors.general = 'Server error. Please try again later.';
+      } else {
+        newErrors.general = 'An unexpected error occurred. Please try again.';
       }
 
       setPasswordErrors(newErrors);
@@ -519,6 +627,39 @@ const AdminUserManagement = () => {
     );
   }
 
+if (error) {
+    return (
+      <div className="max-w-full mx-auto space-y-6 p-4">
+        <Card>
+          <CardHeader>
+            <CardTitle>Defect Analysis</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col justify-center items-center py-8 space-y-4">
+              <div className="text-red-500 text-center">{error}</div>
+              <Button 
+                onClick={handleRetry}
+                disabled={loading}
+                className="flex items-center space-x-2"
+              >
+                {loading ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    <span>Retrying...</span>
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="w-4 h-4" />
+                    <span>Try Again</span>
+                  </>
+                )}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
+  }
   return (
     <div className="space-y-6">
       {/* Stats Cards */}

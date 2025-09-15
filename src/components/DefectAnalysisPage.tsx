@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react';
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { createDisplayPanel, getDefects } from '@/services/api';
+import React, { useState, useEffect } from "react";
+import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { createDisplayPanel, getDefects, ApiError } from "@/services/api";
+import { RefreshCw } from "lucide-react";
 
 interface DefectAnalysisPageProps {
   ppid: string;
@@ -34,6 +35,7 @@ function DefectAnalysisPage({
   const [selectedFaults, setSelectedFaults] = useState<Record<number, string>>(
     {}
   );
+  const [error, setError] = useState(null);
 
   // State for handling submission status
   const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -59,7 +61,21 @@ function DefectAnalysisPage({
         const data = await getDefects();
         setDefects(data);
       } catch (error) {
-        console.error('Error fetching defects:', error);
+        const apiError = error as ApiError;
+
+        console.error("Error fetching defects:", error);
+        let errorMessage = "Failed to load past tasks";
+
+        if (apiError.type === "network") {
+          errorMessage =
+            "Network error. Please check your connection and try again.";
+        } else if (apiError.type === "server") {
+          errorMessage = "Server error. Please try again later.";
+        } else if (apiError.type === "authentication") {
+          errorMessage = "Authentication error. Please log in again.";
+        }
+
+        setError(errorMessage);
       } finally {
         setLoading(false);
       }
@@ -150,31 +166,110 @@ function DefectAnalysisPage({
         ppid: ppid,
         defects: selectedDefectIds,
         panel_images: panel_images,
-      test_type: isTestMode ? "test" as "test" : "production" as "production",
+        test_type: isTestMode
+          ? ("test" as "test")
+          : ("production" as "production"),
       };
-      console.log('isTestMode:', isTestMode);
-      console.log('Payload:', payload);
+      console.log("isTestMode:", isTestMode);
+      console.log("Payload:", payload);
 
       await createDisplayPanel(payload);
 
       setShowSuccessModal(true);
-    setApiSubmissionFailed(false);
+      setApiSubmissionFailed(false);
     } catch (error) {
-      console.error('Error submitting data:', error);
-      setApiSubmissionFailed(true);
+      console.error("Error submitting data:", error);
+      // Set appropriate error state based on error type
+      if (error.type === "network") {
+        setApiSubmissionFailed(true);
+        // Network errors might be retryable
+      } else if (error.type === "authentication") {
+        setApiSubmissionFailed(true);
+        // Authentication errors require re-login
+      } else if (error.type === "server") {
+        setApiSubmissionFailed(true);
+        // Server errors might be temporary
+      } else if (error.type === "validation") {
+        setApiSubmissionFailed(true);
+        // Validation errors might need user input correction
+      } else {
+        setApiSubmissionFailed(true);
+        // Unknown errors
+      }
     } finally {
       setSubmitting(false);
       setRetryingApiSubmission(false);
     }
   };
 
+    const handleRetry = () => {
+    const fetchDefects = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const data = await getDefects();
+        setDefects(data);
+      } catch (error) {
+        const apiError = error as ApiError;
+        console.error("Error fetching defects:", error);
+        let errorMessage = "Failed to load past tasks";
+        if (apiError.type === "network") {
+          errorMessage =
+            "Network error. Please check your connection and try again.";
+        } else if (apiError.type === "server") {
+          errorMessage = "Server error. Please try again later.";
+        } else if (apiError.type === "authentication") {
+          errorMessage = "Authentication error. Please log in again.";
+        }
+        setError(errorMessage);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchDefects();
+  };
+
   const selectedCount = Object.keys(selectedFaults).filter((key) => {
     const val = selectedFaults[parseInt(key)];
-    return val && val.length > 0 && val !== '16';
+    return val && val.length > 0 && val !== "16";
   }).length;
 
   if (loading) {
     return <div className="p-4 text-center">Loading defect data...</div>;
+  }
+
+if (error) {
+    return (
+      <div className="max-w-full mx-auto space-y-6 p-4">
+        <Card>
+          <CardHeader>
+            <CardTitle>Defect Analysis</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col justify-center items-center py-8 space-y-4">
+              <div className="text-red-500 text-center">{error}</div>
+              <Button 
+                onClick={handleRetry}
+                disabled={loading}
+                className="flex items-center space-x-2"
+              >
+                {loading ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    <span>Retrying...</span>
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="w-4 h-4" />
+                    <span>Try Again</span>
+                  </>
+                )}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
 
   return (
@@ -211,7 +306,7 @@ function DefectAnalysisPage({
                   <td className="border border-gray-300 p-3">
                     <select
                       className="w-full p-2 border border-black rounded"
-                      value={selectedFaults[rowId] || '16'}
+                      value={selectedFaults[rowId] || "16"}
                       onChange={(e) => setFault(rowId, e.target.value)}
                       disabled={isUploading || submitting}
                     >
@@ -289,12 +384,12 @@ function DefectAnalysisPage({
               }
               className={`mt-2 ${
                 (submitting && !apiSubmissionFailed) || retryingUploads
-                  ? 'bg-gray-400'
+                  ? "bg-gray-400"
                   : apiSubmissionFailed
-                  ? 'bg-red-600 hover:bg-red-700'
+                  ? "bg-red-600 hover:bg-red-700"
                   : hasUploadFailures && showUploadFailure
-                  ? 'bg-orange-600 hover:bg-orange-700'
-                  : 'bg-primary hover:bg-primary/90'
+                  ? "bg-orange-600 hover:bg-orange-700"
+                  : "bg-primary hover:bg-primary/90"
               } text-white rounded px-6 py-3 transition-colors`}
             >
               {submitting && !retryingApiSubmission ? (
@@ -369,7 +464,7 @@ function DefectAnalysisPage({
                       d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
                     ></path>
                   </svg>
-                  Reuploading...{' '}
+                  Reuploading...{" "}
                   {uploadedImageUrls.filter((url) => url !== null).length}/
                   {totalUploads} images uploaded
                 </div>

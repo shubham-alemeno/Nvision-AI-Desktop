@@ -116,9 +116,17 @@ const DefectCheckerPage: React.FC<DefectCheckerPageProps> = ({
           'defect-checker'
         );
       } catch (error) {
-        const errorDetail = error.response?.data?.detail ||
-                           (error instanceof Error ? error.message : 'An unknown error occurred');
-        setSubmitError(errorDetail);
+        if (error.type === 'network') {
+          setSubmitError('Network error: Please check your internet connection and try again.');
+        } else if (error.type === 'authentication') {
+          setSubmitError('Authentication error: Please log in again.');
+        } else if (error.type === 'server') {
+          setSubmitError('Server error: Please try again later.');
+        } else if (error.type === 'validation') {
+          setSubmitError(`Validation error: ${error.message}`);
+        } else {
+          setSubmitError(error.message || 'An unknown error occurred');
+        }
       } finally {
         setSubmitLoading(false);
       }
@@ -175,6 +183,23 @@ const DefectCheckerPage: React.FC<DefectCheckerPageProps> = ({
               {submitLoading ? 'Processing...' : 'Start Defect Cheker Routine'}
             </Button>
           </form>
+          {submitError && (
+            <div className="mb-4 p-4 bg-red-100 border border-red-300 rounded-lg text-red-800">
+              <div className="flex items-center justify-between">
+                <div>
+                  <strong>Submission Error:</strong> {submitError}
+                </div>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setSubmitError(null)}
+                  className="text-red-800 hover:text-red-900 hover:bg-red-200"
+                >
+                  Dismiss
+                </Button>
+              </div>
+            </div>
+          )}
           {cameraError && (
             <div className="mb-4 p-4 bg-red-100 border border-red-300 rounded-lg text-red-800">
               <div className="flex items-center justify-between">
