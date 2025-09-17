@@ -129,7 +129,6 @@ const AdminUserManagement = () => {
   const [passwordErrors, setPasswordErrors] = useState<FormErrors>({});
   const [error, setError] = useState(null);
 
-
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -142,17 +141,18 @@ const AdminUserManagement = () => {
       } catch (error) {
         const apiError = error as ApiError;
         console.error('Error fetching data:', apiError);
-        let errorMessage = "Failed to load past tasks";
-      
-      if (apiError.type === 'network') {
-        errorMessage = "Network error. Please check your connection and try again.";
-      } else if (apiError.type === 'server') {
-        errorMessage = "Server error. Please try again later.";
-      } else if (apiError.type === 'authentication') {
-        errorMessage = "Authentication error. Please log in again.";
-      } 
-      
-      setError(errorMessage);
+        let errorMessage = 'Failed to load past tasks';
+
+        if (apiError.type === 'network') {
+          errorMessage =
+            'Network error. Please check your connection and try again.';
+        } else if (apiError.type === 'server') {
+          errorMessage = 'Server error. Please try again later.';
+        } else if (apiError.type === 'authentication') {
+          errorMessage = 'Authentication error. Please log in again.';
+        }
+
+        setError(errorMessage);
       } finally {
         setLoading(false);
       }
@@ -161,36 +161,36 @@ const AdminUserManagement = () => {
     fetchData();
   }, []);
 
-      const handleRetry = () => {
-      const fetchData = async () => {
-        setLoading(true);
-        setError(null);
-        try {
-          const [userData, statsData] = await Promise.all([
+  const handleRetry = () => {
+    const fetchData = async () => {
+      setLoading(true);
+      setError(null);
+      try {
+        const [userData, statsData] = await Promise.all([
           getUsers(),
           getUserStats(),
         ]);
         setUsers(userData);
         setStats(statsData);
-        } catch (error) {
-          const apiError = error as ApiError;
-          console.error("Error fetching defects:", error);
-          let errorMessage = "Failed to load past tasks";
-          if (apiError.type === "network") {
-            errorMessage =
-              "Network error. Please check your connection and try again.";
-          } else if (apiError.type === "server") {
-            errorMessage = "Server error. Please try again later.";
-          } else if (apiError.type === "authentication") {
-            errorMessage = "Authentication error. Please log in again.";
-          }
-          setError(errorMessage);
-        } finally {
-          setLoading(false);
+      } catch (error) {
+        const apiError = error as ApiError;
+        console.error('Error fetching defects:', error);
+        let errorMessage = 'Failed to load past tasks';
+        if (apiError.type === 'network') {
+          errorMessage =
+            'Network error. Please check your connection and try again.';
+        } else if (apiError.type === 'server') {
+          errorMessage = 'Server error. Please try again later.';
+        } else if (apiError.type === 'authentication') {
+          errorMessage = 'Authentication error. Please log in again.';
         }
-      };
-      fetchData();
+        setError(errorMessage);
+      } finally {
+        setLoading(false);
+      }
     };
+    fetchData();
+  };
 
   // const filteredUsers = users?.filter((user) => {
   //   const matchesSearch =
@@ -276,7 +276,8 @@ const AdminUserManagement = () => {
           });
         }
       } else if (apiError.type === 'network') {
-        newErrors.general = 'Network error. Please check your connection and try again.';
+        newErrors.general =
+          'Network error. Please check your connection and try again.';
       } else if (apiError.type === 'server') {
         newErrors.general = 'Server error. Please try again later.';
       } else {
@@ -323,7 +324,8 @@ const AdminUserManagement = () => {
           });
         }
       } else if (apiError.type === 'network') {
-        newErrors.general = 'Network error. Please check your connection and try again.';
+        newErrors.general =
+          'Network error. Please check your connection and try again.';
       } else if (apiError.type === 'server') {
         newErrors.general = 'Server error. Please try again later.';
       } else {
@@ -366,11 +368,14 @@ const AdminUserManagement = () => {
           });
 
           if (errorMessages.length > 0) {
-            errorMessage = `Error deleting user:\n\n${errorMessages.join('\n')}`;
+            errorMessage = `Error deleting user:\n\n${errorMessages.join(
+              '\n'
+            )}`;
           }
         }
       } else if (apiError.type === 'network') {
-        errorMessage = 'Network error. Please check your connection and try again.';
+        errorMessage =
+          'Network error. Please check your connection and try again.';
       } else if (apiError.type === 'server') {
         errorMessage = 'Server error. Please try again later.';
       } else {
@@ -477,11 +482,14 @@ const AdminUserManagement = () => {
           });
 
           if (errorMessages.length > 0) {
-            errorMessage = `Error updating user status:\n\n${errorMessages.join('\n')}`;
+            errorMessage = `Error updating user status:\n\n${errorMessages.join(
+              '\n'
+            )}`;
           }
         }
       } else if (apiError.type === 'network') {
-        errorMessage = 'Network error. Please check your connection and try again.';
+        errorMessage =
+          'Network error. Please check your connection and try again.';
       } else if (apiError.type === 'server') {
         errorMessage = 'Server error. Please try again later.';
       } else {
@@ -523,11 +531,14 @@ const AdminUserManagement = () => {
           });
 
           if (errorMessages.length > 0) {
-            errorMessage = `Error updating staff privileges:\n\n${errorMessages.join('\n')}`;
+            errorMessage = `Error updating staff privileges:\n\n${errorMessages.join(
+              '\n'
+            )}`;
           }
         }
       } else if (apiError.type === 'network') {
-        errorMessage = 'Network error. Please check your connection and try again.';
+        errorMessage =
+          'Network error. Please check your connection and try again.';
       } else if (apiError.type === 'server') {
         errorMessage = 'Server error. Please try again later.';
       } else {
@@ -583,7 +594,8 @@ const AdminUserManagement = () => {
           });
         }
       } else if (apiError.type === 'network') {
-        newErrors.general = 'Network error. Please check your connection and try again.';
+        newErrors.general =
+          'Network error. Please check your connection and try again.';
       } else if (apiError.type === 'server') {
         newErrors.general = 'Server error. Please try again later.';
       } else {
@@ -593,7 +605,7 @@ const AdminUserManagement = () => {
       setPasswordErrors(newErrors);
     }
   };
-
+  console.log(passwordErrors);
   const openEditModal = (user: User) => {
     setSelectedUser(user);
     setEditForm({
@@ -627,7 +639,7 @@ const AdminUserManagement = () => {
     );
   }
 
-if (error) {
+  if (error) {
     return (
       <div className="max-w-full mx-auto space-y-6 p-4">
         <Card>
@@ -637,7 +649,7 @@ if (error) {
           <CardContent>
             <div className="flex flex-col justify-center items-center py-8 space-y-4">
               <div className="text-red-500 text-center">{error}</div>
-              <Button 
+              <Button
                 onClick={handleRetry}
                 disabled={loading}
                 className="flex items-center space-x-2"
@@ -683,12 +695,15 @@ if (error) {
         <CardHeader>
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <CardTitle>Users</CardTitle>
-            <Dialog open={createModalOpen} onOpenChange={(open) => {
-              setCreateModalOpen(open);
-              if (open) {
-                setCreateErrors({});
-              }
-            }}>
+            <Dialog
+              open={createModalOpen}
+              onOpenChange={(open) => {
+                setCreateModalOpen(open);
+                if (open) {
+                  setCreateErrors({});
+                }
+              }}
+            >
               <DialogTrigger asChild>
                 <Button>
                   <UserPlus className="h-4 w-4 mr-2" />
@@ -716,7 +731,9 @@ if (error) {
                         }
                       />
                       {createErrors.username && (
-                        <p className="text-sm text-red-600 mt-1">{createErrors.username}</p>
+                        <p className="text-sm text-red-600 mt-1">
+                          {createErrors.username}
+                        </p>
                       )}
                     </div>
                     <div>
@@ -735,7 +752,9 @@ if (error) {
                         }
                       />
                       {createErrors.email && (
-                        <p className="text-sm text-red-600 mt-1">{createErrors.email}</p>
+                        <p className="text-sm text-red-600 mt-1">
+                          {createErrors.email}
+                        </p>
                       )}
                     </div>
                   </div>
@@ -753,7 +772,9 @@ if (error) {
                         }
                       />
                       {createErrors.first_name && (
-                        <p className="text-sm text-red-600 mt-1">{createErrors.first_name}</p>
+                        <p className="text-sm text-red-600 mt-1">
+                          {createErrors.first_name}
+                        </p>
                       )}
                     </div>
                     <div>
@@ -769,7 +790,9 @@ if (error) {
                         }
                       />
                       {createErrors.last_name && (
-                        <p className="text-sm text-red-600 mt-1">{createErrors.last_name}</p>
+                        <p className="text-sm text-red-600 mt-1">
+                          {createErrors.last_name}
+                        </p>
                       )}
                     </div>
                   </div>
@@ -790,7 +813,9 @@ if (error) {
                       }
                     />
                     {createErrors.password && (
-                      <p className="text-sm text-red-600 mt-1">{createErrors.password}</p>
+                      <p className="text-sm text-red-600 mt-1">
+                        {createErrors.password}
+                      </p>
                     )}
                   </div>
                   <div>
@@ -810,7 +835,9 @@ if (error) {
                       }
                     />
                     {createErrors.confirm_password && (
-                      <p className="text-sm text-red-600 mt-1">{createErrors.confirm_password}</p>
+                      <p className="text-sm text-red-600 mt-1">
+                        {createErrors.confirm_password}
+                      </p>
                     )}
                   </div>
                 </div>
@@ -961,12 +988,15 @@ if (error) {
       </Card>
 
       {/* Edit User Modal */}
-      <Dialog open={editModalOpen} onOpenChange={(open) => {
-        setEditModalOpen(open);
-        if (open) {
-          setEditErrors({});
-        }
-      }}>
+      <Dialog
+        open={editModalOpen}
+        onOpenChange={(open) => {
+          setEditModalOpen(open);
+          if (open) {
+            setEditErrors({});
+          }
+        }}
+      >
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle>Edit User</DialogTitle>
@@ -983,7 +1013,9 @@ if (error) {
                   }
                 />
                 {editErrors.username && (
-                  <p className="text-sm text-red-600 mt-1">{editErrors.username}</p>
+                  <p className="text-sm text-red-600 mt-1">
+                    {editErrors.username}
+                  </p>
                 )}
               </div>
               <div>
@@ -997,7 +1029,9 @@ if (error) {
                   }
                 />
                 {editErrors.email && (
-                  <p className="text-sm text-red-600 mt-1">{editErrors.email}</p>
+                  <p className="text-sm text-red-600 mt-1">
+                    {editErrors.email}
+                  </p>
                 )}
               </div>
             </div>
@@ -1012,7 +1046,9 @@ if (error) {
                   }
                 />
                 {editErrors.first_name && (
-                  <p className="text-sm text-red-600 mt-1">{editErrors.first_name}</p>
+                  <p className="text-sm text-red-600 mt-1">
+                    {editErrors.first_name}
+                  </p>
                 )}
               </div>
               <div>
@@ -1025,7 +1061,9 @@ if (error) {
                   }
                 />
                 {editErrors.last_name && (
-                  <p className="text-sm text-red-600 mt-1">{editErrors.last_name}</p>
+                  <p className="text-sm text-red-600 mt-1">
+                    {editErrors.last_name}
+                  </p>
                 )}
               </div>
             </div>
@@ -1173,7 +1211,9 @@ if (error) {
                   }
                 />
                 {passwordErrors.new_password && (
-                  <p className="text-sm text-red-600 mt-1">{passwordErrors.new_password}</p>
+                  <p className="text-sm text-red-600 mt-1">
+                    {passwordErrors.new_password}
+                  </p>
                 )}
               </div>
               <div>
@@ -1191,9 +1231,14 @@ if (error) {
                   }
                 />
                 {passwordErrors.confirm_password && (
-                  <p className="text-sm text-red-600 mt-1">{passwordErrors.confirm_password}</p>
+                  <p className="text-sm text-red-600 mt-1">
+                    {passwordErrors.confirm_password}
+                  </p>
                 )}
               </div>
+              {passwordErrors.error && (
+                <p className="text-sm text-red-600">{passwordErrors.error}</p>
+              )}
             </div>
           )}
           <div className="flex justify-end space-x-2">

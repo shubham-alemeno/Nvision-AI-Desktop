@@ -9,6 +9,7 @@ export interface ApiError {
   retryable: boolean;
   status?: number;
   originalError?: any;
+  details?: any; // Optional details property for field errors
 }
 
 // Enhanced error classification for consistent error handling
@@ -17,8 +18,9 @@ export const classifyError = (error: any): ApiError => {
   if (!navigator.onLine) {
     return {
       type: 'network',
-      message: 'No internet connection. Please check your network and try again.',
-      retryable: true
+      message:
+        'No internet connection. Please check your network and try again.',
+      retryable: true,
     };
   }
 
@@ -26,7 +28,7 @@ export const classifyError = (error: any): ApiError => {
     return {
       type: 'network',
       message: 'Network error. Please check your connection and try again.',
-      retryable: true
+      retryable: true,
     };
   }
 
@@ -36,28 +38,34 @@ export const classifyError = (error: any): ApiError => {
     const detail = error.response.data?.detail;
 
     switch (status) {
-      case 400:
+      case 400: {
         if (detail?.includes('credentials')) {
           return {
             type: 'authentication',
-            message: 'Invalid credentials. Please check your input and try again.',
+            message:
+              'Invalid credentials. Please check your input and try again.',
             retryable: false,
-            status
+            status,
+            originalError: error, // keep original
           };
         }
+
         return {
           type: 'validation',
           message: 'Please check your input and try again.',
           retryable: false,
-          status
+          status,
+          details: error.response.data, // 🔥 Preserve the actual field errors
+          originalError: error,
         };
+      }
 
       case 401:
         return {
           type: 'authentication',
           message: 'Authentication failed. Please verify your credentials.',
           retryable: false,
-          status
+          status,
         };
 
       case 403:
@@ -65,31 +73,34 @@ export const classifyError = (error: any): ApiError => {
           type: 'authentication',
           message: 'Access denied. Please contact support if this persists.',
           retryable: false,
-          status
+          status,
         };
 
       case 404:
         return {
           type: 'server',
-          message: 'Resource not found. Please check the request and try again.',
+          message:
+            'Resource not found. Please check the request and try again.',
           retryable: false,
-          status
+          status,
         };
 
       case 423:
         return {
           type: 'authentication',
-          message: 'Account is temporarily locked. Please try again later or contact support.',
+          message:
+            'Account is temporarily locked. Please try again later or contact support.',
           retryable: true,
-          status
+          status,
         };
 
       case 429:
         return {
           type: 'server',
-          message: 'Too many requests. Please wait a few minutes before trying again.',
+          message:
+            'Too many requests. Please wait a few minutes before trying again.',
           retryable: true,
-          status
+          status,
         };
 
       case 500:
@@ -98,9 +109,10 @@ export const classifyError = (error: any): ApiError => {
       case 504:
         return {
           type: 'server',
-          message: 'Server is temporarily unavailable. Please try again in a few moments.',
+          message:
+            'Server is temporarily unavailable. Please try again in a few moments.',
           retryable: true,
-          status
+          status,
         };
 
       default:
@@ -108,7 +120,7 @@ export const classifyError = (error: any): ApiError => {
           type: 'unknown',
           message: `An error occurred (${status}). Please try again or contact support.`,
           retryable: true,
-          status
+          status,
         };
     }
   }
@@ -118,7 +130,7 @@ export const classifyError = (error: any): ApiError => {
     return {
       type: 'network',
       message: 'Request timed out. Please check your connection and try again.',
-      retryable: true
+      retryable: true,
     };
   }
 
@@ -127,16 +139,20 @@ export const classifyError = (error: any): ApiError => {
     type: 'unknown',
     message: error.message || 'An unexpected error occurred. Please try again.',
     retryable: true,
-    originalError: error
+    originalError: error,
   };
 };
 
 // Enhanced Sentry logging with error classification
-export const logErrorToSentry = (error: any, classifiedError: ApiError, context: {
-  location: string;
-  operation: string;
-  extra?: Record<string, any>;
-}) => {
+export const logErrorToSentry = (
+  error: any,
+  classifiedError: ApiError,
+  context: {
+    location: string;
+    operation: string;
+    extra?: Record<string, any>;
+  }
+) => {
   Sentry.captureException(error, {
     tags: {
       location: context.location,
@@ -250,69 +266,74 @@ api.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
-    
+
     // Check for expired access token - handle multiple error formats
-    const isTokenExpired = 
+    const isTokenExpired =
       error.response?.data?.code === 'token_not_valid' ||
       error.response?.data?.error === 'Token error: Token is expired' ||
       error.response?.status === 401;
-    
+
     if (isTokenExpired && !originalRequest._retry) {
       originalRequest._retry = true;
-      
+
       if (!isRefreshing) {
         isRefreshing = true;
         try {
           const refreshToken = getRefreshToken();
-          
+
           if (!refreshToken) {
             console.log('No refresh token found, logging out user');
             isRefreshing = false;
             performLogout();
             return Promise.reject(error);
           }
-          
+
           const response = await axios.post(
             `${currentEnvironment.baseUrl}/login/refresh/`,
             {
               refresh: refreshToken,
             }
           );
-          
+
           const { access, refresh } = response.data;
-          
+
           // Save new tokens
           localStorage.setItem('sentinel_dash_token', access);
           localStorage.setItem('sentinel_dash_refresh', refresh);
-          
+
           // Update the original request with new token
           originalRequest.headers.Authorization = `Bearer ${access}`;
-          
+
           onRefreshed(access);
           isRefreshing = false;
-          
+
           return api(originalRequest); // Retry original request
         } catch (refreshError) {
           console.error('Refresh token failed:', refreshError);
           isRefreshing = false;
-          
+
           // Check if refresh also failed with token_not_valid or expired
-          const isRefreshTokenExpired = 
+          const isRefreshTokenExpired =
             refreshError.response?.data?.code === 'token_not_valid' ||
-            refreshError.response?.data?.error === 'Token error: Token is expired' ||
+            refreshError.response?.data?.error ===
+              'Token error: Token is expired' ||
             refreshError.response?.status === 401;
-            
+
           if (isRefreshTokenExpired) {
-            console.log('Refresh token is also invalid/expired, logging out user');
+            console.log(
+              'Refresh token is also invalid/expired, logging out user'
+            );
           } else {
-            console.log('Refresh token request failed for other reason, logging out user');
+            console.log(
+              'Refresh token request failed for other reason, logging out user'
+            );
           }
-          
+
           performLogout();
           return Promise.reject(refreshError);
         }
       }
-      
+
       // If already refreshing, wait for the refresh to complete
       return new Promise((resolve) => {
         subscribeTokenRefresh((newToken) => {
@@ -321,7 +342,7 @@ api.interceptors.response.use(
         });
       });
     }
-    
+
     return Promise.reject(error);
   }
 );
@@ -374,14 +395,17 @@ export const initializeAPI = async () => {
 // Authentication
 export const login = async (username: string, password: string) => {
   return apiCallWithErrorHandling(
-    () => api.post('/login/', {
-      username,
-      password,
-    }).then(response => response.data),
+    () =>
+      api
+        .post('/login/', {
+          username,
+          password,
+        })
+        .then((response) => response.data),
     {
       location: 'login',
       operation: 'authentication',
-      extra: { username }
+      extra: { username },
     }
   );
 };
@@ -389,13 +413,16 @@ export const login = async (username: string, password: string) => {
 // get user data from token
 export const getUserFromToken = async (accessToken: string) => {
   return apiCallWithErrorHandling(
-    () => api.post('/data/users/get_user_from_token/', {
-      access_token: accessToken,
-    }).then(response => response.data),
+    () =>
+      api
+        .post('/data/users/get_user_from_token/', {
+          access_token: accessToken,
+        })
+        .then((response) => response.data),
     {
       location: 'getUserFromToken',
       operation: 'authentication',
-      extra: { accessToken: accessToken ? 'present' : 'missing' }
+      extra: { accessToken: accessToken ? 'present' : 'missing' },
     }
   );
 };
@@ -403,14 +430,14 @@ export const getUserFromToken = async (accessToken: string) => {
 // Display Panel
 export const checkDisplayPanel = async (ppid: string) => {
   return apiCallWithErrorHandling(
-    () => api.post(
-      '/data/display-panel/check_display_panel/',
-      { ppid }
-    ).then(response => response.data),
+    () =>
+      api
+        .post('/data/display-panel/check_display_panel/', { ppid })
+        .then((response) => response.data),
     {
       location: 'checkDisplayPanel',
       operation: 'display_panel_check',
-      extra: { ppid }
+      extra: { ppid },
     }
   );
 };
@@ -427,7 +454,8 @@ export const createDisplayPanel = async (data: {
   inference?: boolean;
 }) => {
   return apiCallWithErrorHandling(
-    () => api.post('/data/display-panel/', data).then(response => response.data),
+    () =>
+      api.post('/data/display-panel/', data).then((response) => response.data),
     {
       location: 'createDisplayPanel',
       operation: 'display_panel_creation',
@@ -436,29 +464,35 @@ export const createDisplayPanel = async (data: {
         test_type: data.test_type,
         defects_count: data.defects?.length || 0,
         images_count: data.panel_images?.length || 0,
-      }
+      },
     }
   );
 };
 
 export const getTaskStatus = async (taskUuid: string) => {
   return apiCallWithErrorHandling(
-    () => api.get(`/data/task/${taskUuid}/status/`).then(response => response.data),
+    () =>
+      api
+        .get(`/data/task/${taskUuid}/status/`)
+        .then((response) => response.data),
     {
       location: 'getTaskStatus',
       operation: 'task_status_check',
-      extra: { taskUuid }
+      extra: { taskUuid },
     }
   );
 };
 
 export const retryDisplayPanel = async (displayUuid: string) => {
   return apiCallWithErrorHandling(
-    () => api.post(`/data/display-panel/retry/${displayUuid}/`).then(response => response.data),
+    () =>
+      api
+        .post(`/data/display-panel/retry/${displayUuid}/`)
+        .then((response) => response.data),
     {
       location: 'retryDisplayPanel',
       operation: 'display_panel_retry',
-      extra: { displayUuid }
+      extra: { displayUuid },
     }
   );
 };
@@ -484,14 +518,17 @@ export const submitFeedback = async (
   feedback: Record<string, { feedback: boolean }>
 ) => {
   return apiCallWithErrorHandling(
-    () => api.post(`/data/task/${taskUuid}/feedback/`, { feedback }).then(response => response.data),
+    () =>
+      api
+        .post(`/data/task/${taskUuid}/feedback/`, { feedback })
+        .then((response) => response.data),
     {
       location: 'submitFeedback',
       operation: 'feedback_submission',
       extra: {
         taskUuid,
         feedbackCount: Object.keys(feedback).length,
-      }
+      },
     }
   );
 };
@@ -499,10 +536,10 @@ export const submitFeedback = async (
 // Defect Management
 export const getDefects = async () => {
   return apiCallWithErrorHandling(
-    () => api.get('/data/defect/').then(response => response.data),
+    () => api.get('/data/defect/').then((response) => response.data),
     {
       location: 'getDefects',
-      operation: 'defects_fetch'
+      operation: 'defects_fetch',
     }
   );
 };
@@ -525,24 +562,29 @@ export const getPastTasks = async (params: {
       if (params.to_date) queryParams.append('to_date', params.to_date);
       if (params.ppid) queryParams.append('ppid', params.ppid);
       if (params.test_type) queryParams.append('test_type', params.test_type);
-      
+
       queryParams.append('group', (params.group || false).toString());
-      
-      return api.get(`/data/taks/past_tasks/?${queryParams.toString()}`).then(response => response.data);
+
+      return api
+        .get(`/data/tasks/past_tasks/?${queryParams.toString()}`)
+        .then((response) => response.data);
     },
     {
       location: 'getPastTasks',
-      operation: 'past_tasks_fetch'
+      operation: 'past_tasks_fetch',
     }
   );
 };
 // Statistics
 export const getPanelStats = async () => {
   return apiCallWithErrorHandling(
-    () => api.get('/data/panel-image-search/stats/').then(response => response.data),
+    () =>
+      api
+        .get('/data/panel-image-search/stats/')
+        .then((response) => response.data),
     {
       location: 'getPanelStats',
-      operation: 'panel_stats_fetch'
+      operation: 'panel_stats_fetch',
     }
   );
 };
@@ -550,20 +592,26 @@ export const getPanelStats = async () => {
 // Inference Usage
 export const getInferenceUsage = async () => {
   return apiCallWithErrorHandling(
-    () => api.get('/data/inference-usage/my-usage/').then(response => response.data),
+    () =>
+      api
+        .get('/data/inference-usage/my-usage/')
+        .then((response) => response.data),
     {
       location: 'getInferenceUsage',
-      operation: 'inference_usage_fetch'
+      operation: 'inference_usage_fetch',
     }
   );
 };
 
 export const getGroupInferenceUsage = async () => {
   return apiCallWithErrorHandling(
-    () => api.get('/data/inference-usage/group-usage/').then(response => response.data),
+    () =>
+      api
+        .get('/data/inference-usage/group-usage/')
+        .then((response) => response.data),
     {
       location: 'getGroupInferenceUsage',
-      operation: 'group_inference_usage_fetch'
+      operation: 'group_inference_usage_fetch',
     }
   );
 };
@@ -590,11 +638,13 @@ export const getUsers = async (params?: {
       if (params?.page_size)
         queryParams.append('page_size', params.page_size.toString());
 
-      return api.get(`/data/users/?${queryParams.toString()}`).then(response => response.data);
+      return api
+        .get(`/data/users/?${queryParams.toString()}`)
+        .then((response) => response.data);
     },
     {
       location: 'getUsers',
-      operation: 'users_fetch'
+      operation: 'users_fetch',
     }
   );
 };
@@ -602,11 +652,11 @@ export const getUsers = async (params?: {
 // Get user details by ID
 export const getUserById = async (id: number) => {
   return apiCallWithErrorHandling(
-    () => api.get(`/data/users/${id}/`).then(response => response.data),
+    () => api.get(`/data/users/${id}/`).then((response) => response.data),
     {
       location: 'getUserById',
       operation: 'user_details_fetch',
-      extra: { user_id: id.toString() }
+      extra: { user_id: id.toString() },
     }
   );
 };
@@ -614,10 +664,10 @@ export const getUserById = async (id: number) => {
 // Create new user
 export const createUser = async (userData) => {
   return apiCallWithErrorHandling(
-    () => api.post('/data/users/', userData).then(response => response.data),
+    () => api.post('/data/users/', userData).then((response) => response.data),
     {
       location: 'createUser',
-      operation: 'user_create'
+      operation: 'user_create',
     }
   );
 };
@@ -625,11 +675,14 @@ export const createUser = async (userData) => {
 // Update user
 export const updateUser = async (id: number, userData) => {
   return apiCallWithErrorHandling(
-    () => api.patch(`/data/users/${id}/`, userData).then(response => response.data),
+    () =>
+      api
+        .patch(`/data/users/${id}/`, userData)
+        .then((response) => response.data),
     {
       location: 'updateUser',
       operation: 'user_update',
-      extra: { user_id: id.toString() }
+      extra: { user_id: id.toString() },
     }
   );
 };
@@ -637,11 +690,11 @@ export const updateUser = async (id: number, userData) => {
 // Delete user
 export const deleteUser = async (id: number) => {
   return apiCallWithErrorHandling(
-    () => api.delete(`/data/users/${id}/`).then(response => response.data),
+    () => api.delete(`/data/users/${id}/`).then((response) => response.data),
     {
       location: 'deleteUser',
       operation: 'user_delete',
-      extra: { user_id: id.toString() }
+      extra: { user_id: id.toString() },
     }
   );
 };
@@ -649,11 +702,14 @@ export const deleteUser = async (id: number) => {
 // Set user password
 export const setUserPassword = async (id: number, passwordData) => {
   return apiCallWithErrorHandling(
-    () => api.post(`/data/users/${id}/set_password/`, passwordData).then(response => response.data),
+    () =>
+      api
+        .post(`/data/users/${id}/set_password/`, passwordData)
+        .then((response) => response.data),
     {
       location: 'setUserPassword',
       operation: 'user_password_set',
-      extra: { user_id: id.toString() }
+      extra: { user_id: id.toString() },
     }
   );
 };
@@ -661,11 +717,14 @@ export const setUserPassword = async (id: number, passwordData) => {
 // Toggle user active status
 export const toggleUserActive = async (id: number) => {
   return apiCallWithErrorHandling(
-    () => api.post(`/data/users/${id}/toggle_active/`).then(response => response.data),
+    () =>
+      api
+        .post(`/data/users/${id}/toggle_active/`)
+        .then((response) => response.data),
     {
       location: 'toggleUserActive',
       operation: 'user_active_toggle',
-      extra: { user_id: id.toString() }
+      extra: { user_id: id.toString() },
     }
   );
 };
@@ -673,11 +732,14 @@ export const toggleUserActive = async (id: number) => {
 // Toggle user staff status
 export const toggleUserStaff = async (id: number) => {
   return apiCallWithErrorHandling(
-    () => api.post(`/data/users/${id}/toggle_staff/`).then(response => response.data),
+    () =>
+      api
+        .post(`/data/users/${id}/toggle_staff/`)
+        .then((response) => response.data),
     {
       location: 'toggleUserStaff',
       operation: 'user_staff_toggle',
-      extra: { user_id: id.toString() }
+      extra: { user_id: id.toString() },
     }
   );
 };
@@ -685,10 +747,10 @@ export const toggleUserStaff = async (id: number) => {
 // Get user statistics
 export const getUserStats = async () => {
   return apiCallWithErrorHandling(
-    () => api.get('/data/users/stats/').then(response => response.data),
+    () => api.get('/data/users/stats/').then((response) => response.data),
     {
       location: 'getUserStats',
-      operation: 'user_stats_fetch'
+      operation: 'user_stats_fetch',
     }
   );
 };

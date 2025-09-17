@@ -45,10 +45,20 @@ export function NavMain({
   // Helper to extract page key from url (e.g., '#pattern-EBC' => 'pattern-ebc')
   const getPageKey = (url: string) => url.replace(/^#/, '').toLowerCase();
 
-  const hasAdminPermissions = (userData: any): boolean => {
+
+const hasAdminPermissions = (userData: any): boolean => {
     if (!userData) return false;
-    return userData.is_active && (userData.is_staff || userData.is_superuser);
-  };
+    
+    // Check if user is active
+    if (!userData.is_active) return false;
+    
+    // Check if access_levels exists and has the required permissions
+    const accessLevels = userData.access_levels;
+    if (!accessLevels) return false;
+    
+    // User has admin permissions if they can both create users AND manage users via API
+    return accessLevels.can_create_users && accessLevels.can_manage_users_api;
+};
 
   // Filter navigation items based on permissions
   const getFilteredNavItems = () => {
