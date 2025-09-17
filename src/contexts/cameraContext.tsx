@@ -64,27 +64,15 @@ export const useCamera = () => {
   return context;
 };
 
-// Common resolution presets (ordered by preference)
+// Comprehensive resolution presets - ordered by common usage
 const RESOLUTION_PRESETS: CameraResolution[] = [
-  // 4K resolutions first (highest priority for professional cameras)
-  { width: 4096, height: 2160, label: "DCI 4K (4096x2160)" },
-  { width: 3840, height: 2160, label: "4K UHD (3840x2160)" },
-  // { width: 4096, height: 3072, label: 'HXGA (4096x3072)' },
-
-  // 2K and high-end resolutions
-  // { width: 3200, height: 2400, label: 'QUXGA (3200x2400)' },
-  // { width: 2560, height: 2048, label: 'QSXGA (2560x2048)' },
-  { width: 2560, height: 1440, label: "QHD (2560x1440)" },
-  // { width: 2048, height: 1536, label: 'QXGA (2048x1536)' },
-
-  // Standard HD resolutions
-  { width: 1920, height: 1080, label: "Full HD (1920x1080)" },
-  // { width: 1600, height: 1200, label: 'UXGA (1600x1200)' },
-  // { width: 1280, height: 1024, label: 'SXGA (1280x1024)' },
-  { width: 1280, height: 720, label: "HD (1280x720)" },
-  // { width: 1024, height: 768, label: 'XGA (1024x768)' },
-  // { width: 800, height: 600, label: 'SVGA (800x600)' },
-  // { width: 640, height: 480, label: 'VGA (640x480)' },
+  { width: 3840, height: 2160, label: "4K UHD (3840×2160)" },
+  { width: 2560, height: 1440, label: "QHD (2560×1440)" },
+  { width: 1920, height: 1080, label: "Full HD (1920×1080)" },
+  { width: 1280, height: 720, label: "HD (1280×720)" },
+  // { width: 854, height: 480, label: "FWVGA (854×480)" },
+  // { width: 640, height: 480, label: "VGA (640×480)" },
+  // { width: 320, height: 240, label: "QVGA (320×240)" },
 ];
 
 export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({
@@ -106,8 +94,7 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({
     CameraResolution[]
   >([]);
   const [selectedResolution, setSelectedResolution] =
-    useState<CameraResolution>(RESOLUTION_PRESETS[0]); // Start with Full HD as default
-  console.log(RESOLUTION_PRESETS[3]);
+    useState<CameraResolution>(RESOLUTION_PRESETS[2]); // Start with Full HD
   const [availableDevices, setAvailableDevices] = useState<CameraDevice[]>([]);
   const [selectedDevice, setSelectedDevice] = useState<CameraDevice | null>(
     null
@@ -117,15 +104,21 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({
   const getAvailableDevices = async (): Promise<CameraDevice[]> => {
     try {
       // Request permissions first to get proper device labels
-      await navigator.mediaDevices.getUserMedia({ video: true });
+      const permissionStream = await navigator.mediaDevices.getUserMedia({ 
+        video: true 
+      });
+      permissionStream.getTracks().forEach(track => track.stop());
 
       const devices = await navigator.mediaDevices.enumerateDevices();
       const videoDevices = devices.filter((d) => d.kind === "videoinput");
+      
+      // Filter out virtual cameras and screen capture devices
       const physicalCameras = videoDevices.filter(
         (device) =>
-          !device.label.includes("OBS") &&
-          !device.label.includes("Virtual") &&
-          !device.label.includes("Screen")
+          !device.label.toLowerCase().includes("obs") &&
+          !device.label.toLowerCase().includes("virtual") &&
+          !device.label.toLowerCase().includes("screen") &&
+          !device.label.toLowerCase().includes("capture")
       );
 
       return physicalCameras.map((device) => ({
@@ -135,34 +128,22 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({
       }));
     } catch (error) {
       console.error("Error getting available devices:", error);
-      setCameraError(
-        error instanceof Error
-          ? error.message
-          : "Failed to get available devices"
-      );
+      setCameraError("Failed to access camera devices. Please check permissions.");
       return [];
     }
   };
 
-  // Test a single resolution with improved logic
-  const testResolution = async (
+  // Simplified resolution testing - one at a time with proper cleanup
+  const testSingleResolution = async (
     deviceId: string,
-    preset: CameraResolution,
-    timeoutMs: number = 8000
-  ): Promise<{
-    supported: boolean;
-    actualResolution?: { width: number; height: number };
-  }> => {
-    return new Promise((resolve) => {
-      const timeout = setTimeout(() => {
-        console.log(
-          `Resolution ${preset.label} test timed out for device ${deviceId}`
-        );
-        resolve({ supported: false });
-      }, timeoutMs);
-
-      // Test with exact constraints first
-      const testConstraints = {
+    preset: CameraResolution
+  ): Promise<boolean> => {
+    let testStream: MediaStream | null = null;
+    
+    try {
+      console.log(`Testing ${preset.label} for device ${deviceId}`);
+      
+      const constraints = {
         video: {
           deviceId: { exact: deviceId },
           width: { exact: preset.width },
@@ -170,223 +151,126 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({
         },
       };
 
-      navigator.mediaDevices
-        .getUserMedia(testConstraints)
-        .then((testStream) => {
-          clearTimeout(timeout);
-          const track = testStream.getVideoTracks()[0];
-          const settings = track.getSettings();
+      // Set a reasonable timeout
+      const streamPromise = navigator.mediaDevices.getUserMedia(constraints);
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Timeout')), 5000)
+      );
 
-          console.log(
-            `Testing ${preset.label}: got ${settings.width}x${settings.height}`
-          );
-
-          // Check if we got exactly what we asked for or very close
-          const widthMatch = settings.width === preset.width;
-          const heightMatch = settings.height === preset.height;
-
-          // If exact match failed, check for close matches (within 5% tolerance)
-          const widthTolerance = preset.width * 0.05;
-          const heightTolerance = preset.height * 0.05;
-          const widthClose =
-            Math.abs((settings.width || 0) - preset.width) <= widthTolerance;
-          const heightClose =
-            Math.abs((settings.height || 0) - preset.height) <= heightTolerance;
-
-          const isSupported =
-            (widthMatch && heightMatch) || (widthClose && heightClose);
-
-          // Clean up test stream
-          testStream.getTracks().forEach((track) => track.stop());
-
-          console.log(
-            `Resolution ${preset.label} ${
-              isSupported ? "SUPPORTED" : "NOT SUPPORTED"
-            } for device ${deviceId}`
-          );
-
-          resolve({
-            supported: isSupported,
-            actualResolution: {
-              width: settings.width || preset.width,
-              height: settings.height || preset.height,
-            },
-          });
-        })
-        .catch((error) => {
-          clearTimeout(timeout);
-          console.log(
-            `Resolution ${preset.label} failed for device ${deviceId}:`,
-            error.message
-          );
-
-          // Try with ideal constraints as fallback
-          const fallbackConstraints = {
-            video: {
-              deviceId: { exact: deviceId },
-              width: { ideal: preset.width },
-              height: { ideal: preset.height },
-            },
-          };
-
-          navigator.mediaDevices
-            .getUserMedia(fallbackConstraints)
-            .then((fallbackStream) => {
-              const track = fallbackStream.getVideoTracks()[0];
-              const settings = track.getSettings();
-
-              // Clean up fallback stream
-              fallbackStream.getTracks().forEach((track) => track.stop());
-
-              // Check if the fallback gave us a reasonable resolution
-              const aspectRatio = preset.width / preset.height;
-              const actualAspectRatio =
-                (settings.width || 1) / (settings.height || 1);
-              const aspectRatioMatch =
-                Math.abs(aspectRatio - actualAspectRatio) < 0.1;
-
-              // If aspect ratio matches and resolution is in reasonable range, consider it supported
-              const sizeRatio =
-                ((settings.width || 0) * (settings.height || 0)) /
-                (preset.width * preset.height);
-              const sizeReasonable = sizeRatio >= 0.5 && sizeRatio <= 2.0; // Within 50%-200% of target
-
-              const fallbackSupported = aspectRatioMatch && sizeReasonable;
-
-              console.log(
-                `Fallback test for ${preset.label}: ${
-                  fallbackSupported ? "SUPPORTED" : "NOT SUPPORTED"
-                } (${settings.width}x${settings.height})`
-              );
-
-              resolve({
-                supported: fallbackSupported,
-                actualResolution: {
-                  width: settings.width || preset.width,
-                  height: settings.height || preset.height,
-                },
-              });
-            })
-            .catch(() => {
-              resolve({ supported: false });
-            });
-        });
-    });
+      testStream = await Promise.race([streamPromise, timeoutPromise]) as MediaStream;
+      
+      if (testStream) {
+        const track = testStream.getVideoTracks()[0];
+        const settings = track.getSettings();
+        
+        // Check if we got exactly what we asked for
+        const gotExact = settings.width === preset.width && 
+                        settings.height === preset.height;
+        
+        console.log(`${preset.label}: ${gotExact ? 'SUPPORTED' : 'NOT EXACT'} (got ${settings.width}×${settings.height})`);
+        
+        // Clean up immediately
+        testStream.getTracks().forEach(track => track.stop());
+        
+        return gotExact;
+      }
+      
+      return false;
+    } catch (error) {
+      console.log(`${preset.label}: FAILED (${error.message})`);
+      
+      // Clean up on error
+      if (testStream) {
+        testStream.getTracks().forEach(track => track.stop());
+      }
+      
+      return false;
+    }
   };
 
-  // Get available camera resolutions with improved detection
+  // Get available resolutions for a specific device - simplified and robust
   const getAvailableResolutions = async (
     deviceId?: string
   ): Promise<CameraResolution[]> => {
+    const targetDeviceId = deviceId || selectedDevice?.deviceId;
+    
+    if (!targetDeviceId) {
+      console.log("No device selected, returning default resolutions");
+      return [RESOLUTION_PRESETS[2], RESOLUTION_PRESETS[3]]; // Full HD and HD
+    }
+
+    console.log(`Getting available resolutions for device: ${targetDeviceId}`);
+    
     try {
-      const targetDeviceId = deviceId || selectedDevice?.deviceId;
-      if (!targetDeviceId) {
-        const devices = await getAvailableDevices();
-        if (devices.length === 0) return [RESOLUTION_PRESETS[3]]; // Return Full HD as fallback
-        return getAvailableResolutions(devices[0].deviceId);
-      }
-
-      console.log(`Testing resolutions for device ${targetDeviceId}...`);
-
-      // Test all resolutions in smaller batches to avoid overwhelming the system
-      // Get camera capabilities to optimize testing order
+      // First, get camera capabilities to understand limits
       let maxWidth = 4096;
-      let maxHeight = 3072;
-
+      let maxHeight = 2160;
+      
       try {
-        const tempStream = await navigator.mediaDevices.getUserMedia({
-          video: { deviceId: { exact: targetDeviceId } },
+        const capabilityStream = await navigator.mediaDevices.getUserMedia({
+          video: { deviceId: { exact: targetDeviceId } }
         });
-        const track = tempStream.getVideoTracks()[0];
+        const track = capabilityStream.getVideoTracks()[0];
         const capabilities = track.getCapabilities();
-        maxWidth = capabilities.width?.max || 4096;
-        maxHeight = capabilities.height?.max || 3072;
-        tempStream.getTracks().forEach((t) => t.stop());
-
-        console.log(`Camera max resolution: ${maxWidth}x${maxHeight}`);
-      } catch (error) {
+        console.log('capabilities', capabilities)
+        if (capabilities.width?.max) maxWidth = capabilities.width.max;
+        if (capabilities.height?.max) maxHeight = capabilities.height.max;
+        
+        capabilityStream.getTracks().forEach(track => track.stop());
+        
+        console.log(`Camera max capabilities: ${maxWidth}×${maxHeight}`);
+      } catch (capError) {
         console.log("Could not get capabilities, using defaults");
       }
 
-      // Filter presets to only test resolutions within camera capabilities
-      const filteredPresets = RESOLUTION_PRESETS.filter(
-        (preset) => preset.width <= maxWidth && preset.height <= maxHeight
+      // Filter presets to only test reasonable resolutions
+      const candidateResolutions = RESOLUTION_PRESETS.filter(
+        preset => preset.width <= maxWidth && preset.height <= maxHeight
       );
 
-      console.log(
-        `Testing ${filteredPresets.length} resolutions (filtered from ${RESOLUTION_PRESETS.length})`
-      );
-
-      const batchSize = 2; // Smaller batches for more reliable testing
       const supportedResolutions: CameraResolution[] = [];
-
-      for (let i = 0; i < filteredPresets.length; i += batchSize) {
-        const batch = filteredPresets.slice(i, i + batchSize);
-        // ... rest of the loop
-
-        const batchTests = batch.map((preset) => {
-          const is4K = preset.width >= 3840 || preset.height >= 2160;
-          const timeout = is4K ? 10000 : 8000; // Longer timeout for 4K
-
-          return testResolution(targetDeviceId, preset, timeout);
-        });
-
-        const batchResults = await Promise.allSettled(batchTests);
-
-        batchResults.forEach((result, batchIndex) => {
-          if (result.status === "fulfilled" && result.value.supported) {
-            supportedResolutions.push(batch[batchIndex]);
-          }
-        });
-
-        // Add a small delay between batches to prevent overwhelming the camera
-        if (i + batchSize < RESOLUTION_PRESETS.length) {
-          await new Promise((resolve) => setTimeout(resolve, 100));
+      
+      // Test resolutions one by one with delays to avoid overwhelming the camera
+      for (const preset of candidateResolutions) {
+        const isSupported = await testSingleResolution(targetDeviceId, preset);
+        
+        if (isSupported) {
+          supportedResolutions.push(preset);
         }
+        
+        // Small delay between tests to prevent camera conflicts
+        await new Promise(resolve => setTimeout(resolve, 200));
       }
 
-      // Ensure we always have at least one resolution available
+      // Ensure we always have at least one resolution
       if (supportedResolutions.length === 0) {
-        console.warn("No resolutions detected, adding fallback resolutions");
-        // Add common fallback resolutions
+        console.warn("No exact resolutions found, adding fallbacks");
         supportedResolutions.push(
-          RESOLUTION_PRESETS[3], // Full HD
-          RESOLUTION_PRESETS[4] // HD
-          // RESOLUTION_PRESETS[12] // VGA
+          RESOLUTION_PRESETS[2], // Full HD
+          RESOLUTION_PRESETS[3]  // HD
         );
       }
 
       // Sort by resolution (highest first)
-      supportedResolutions.sort(
-        (a, b) => b.width * b.height - a.width * a.height
-      );
-      console.log(supportedResolutions);
-      console.log(
-        `Found ${supportedResolutions.length} supported resolutions:`,
-        supportedResolutions.map((r) => r.label)
-      );
-
+      supportedResolutions.sort((a, b) => (b.width * b.height) - (a.width * a.height));
+      
+      console.log(`Found ${supportedResolutions.length} supported resolutions:`, 
+        supportedResolutions.map(r => r.label));
+      
       return supportedResolutions;
     } catch (error) {
-      console.error("Error getting available resolutions:", error);
-      setCameraError(
-        error instanceof Error
-          ? error.message
-          : "Failed to get available resolutions"
-      );
-      // Return fallback resolutions
+      console.error("Error testing resolutions:", error);
+      // Return safe fallback resolutions
       return [
-        RESOLUTION_PRESETS[3], // Full HD
-        RESOLUTION_PRESETS[4], // HD
-        // RESOLUTION_PRESETS[12] // VGA
+        RESOLUTION_PRESETS[2], // Full HD
+        RESOLUTION_PRESETS[3], // HD
+        RESOLUTION_PRESETS[5]  // VGA
       ];
     }
   };
 
-  // Setup camera stream with exact resolution constraints
-  const setupCameraWithExactResolution = async (
-    resolution: CameraResolution
-  ) => {
+  // Setup camera with specific resolution
+  const setupCameraStream = async (resolution: CameraResolution) => {
     setIsLoading(true);
     setIsCameraReady(false);
     setCameraError(null);
@@ -394,16 +278,9 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({
     const targetDeviceId = selectedDevice?.deviceId;
 
     try {
-      // if (!targetDeviceId) {
-      //   throw new Error('No camera device selected');
-      // }
+      console.log(`Setting up camera: ${resolution.label} on device ${targetDeviceId}`);
 
-      console.log(
-        `Setting up camera with resolution: ${resolution.width}x${resolution.height}`
-      );
-
-      // Try exact first, fall back to ideal if exact fails
-      let constraints: MediaStreamConstraints = {
+      const constraints: MediaStreamConstraints = {
         video: {
           deviceId: targetDeviceId ? { exact: targetDeviceId } : undefined,
           width: { exact: resolution.width },
@@ -411,32 +288,11 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({
         },
       };
 
-      let stream: MediaStream;
-
-      try {
-        stream = await navigator.mediaDevices.getUserMedia(constraints);
-      } catch (exactError) {
-        console.log(
-          `Exact constraints failed for ${resolution.label}, trying ideal:`,
-          exactError.message
-        );
-
-        // Fallback to ideal constraints
-        constraints = {
-          video: {
-            deviceId: targetDeviceId ? { exact: targetDeviceId } : undefined,
-            width: { ideal: resolution.width, max: resolution.width },
-            height: { ideal: resolution.height, max: resolution.height },
-          },
-        };
-
-        stream = await navigator.mediaDevices.getUserMedia(constraints);
-      }
-
-      // const stream = await navigator.mediaDevices.getUserMedia(constraints);
+      const stream = await navigator.mediaDevices.getUserMedia(constraints);
       streamRef.current = stream;
 
       if (videoRef.current) {
+        // Clear any existing event handlers
         videoRef.current.onloadedmetadata = null;
         videoRef.current.onplaying = null;
         videoRef.current.onerror = null;
@@ -445,50 +301,50 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({
         const videoTrack = stream.getVideoTracks()[0];
         videoTrackRef.current = videoTrack;
 
+        // Set up event handlers
         videoRef.current.onloadedmetadata = () => {
-          videoRef.current?.play();
+          videoRef.current?.play().catch(console.error);
         };
 
         videoRef.current.onplaying = () => {
-          const actualSettings = videoTrack.getSettings();
-          console.log(
-            `Camera started with resolution: ${actualSettings.width}x${actualSettings.height}`
-          );
+          const settings = videoTrack.getSettings();
+          console.log(`Camera active: ${settings.width}×${settings.height}`);
 
           setCameraResolution({
-            width: actualSettings.width || resolution.width,
-            height: actualSettings.height || resolution.height,
+            width: settings.width || resolution.width,
+            height: settings.height || resolution.height,
           });
 
           setIsLoading(false);
           setIsCameraReady(true);
         };
 
-        videoRef.current.onerror = (e) => {
+        videoRef.current.onerror = (error) => {
+          console.error("Video element error:", error);
           setIsLoading(false);
           setIsCameraReady(false);
-          console.error("Video element error:", e);
-          setCameraError("Video playback error");
+          setCameraError("Video playback failed");
         };
       }
     } catch (error) {
-      console.error("Error setting up camera:", error);
+      console.error("Error setting up camera stream:", error);
       setIsLoading(false);
       setIsCameraReady(false);
 
-      let errorMessage = "Failed to set up camera";
+      let errorMessage = "Failed to setup camera";
       if (error instanceof DOMException) {
-        // if (error.name === 'OverconstrainedError') {
-        //   errorMessage = 'The selected resolution is not supported by this camera';
-        // } else
-        if (error.name === "NotAllowedError") {
-          errorMessage = "Camera access denied";
-        } else if (error.name === "NotFoundError") {
-          errorMessage = "Camera not found";
-        } else {
-          errorMessage = `Camera error: ${
-            error?.message || "Camera error. Please refresh."
-          }`;
+        switch (error.name) {
+          case "NotAllowedError":
+            errorMessage = "Camera access denied. Please allow camera permissions.";
+            break;
+          case "NotFoundError":
+            errorMessage = "Camera not found. Please check camera connection.";
+            break;
+          case "OverconstrainedError":
+            errorMessage = "Selected resolution not supported by this camera.";
+            break;
+          default:
+            errorMessage = `Camera error: ${error.message}`;
         }
       } else if (error instanceof Error) {
         errorMessage = error.message;
@@ -499,20 +355,19 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   };
 
-  // Setup camera stream (initial setup)
+  // Main setup camera function
   const setupCamera = async (
     resolution?: CameraResolution,
     deviceId?: string
   ) => {
-    stopCamera();
-    setIsLoading(true);
-    setIsCameraReady(false);
-    setCameraError(null);
-
-    const targetResolution = resolution || selectedResolution;
-    const targetDeviceId = deviceId || selectedDevice?.deviceId;
-
     try {
+      // Stop any existing stream first
+      stopCamera();
+      
+      const targetResolution = resolution || selectedResolution;
+      const targetDeviceId = deviceId || selectedDevice?.deviceId;
+
+      // If no device is selected, get available devices first
       if (!targetDeviceId) {
         const devices = await getAvailableDevices();
         if (devices.length > 0) {
@@ -520,33 +375,14 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({
           setAvailableDevices(devices);
           return setupCamera(targetResolution, devices[0].deviceId);
         } else {
-          throw new Error("No camera devices found");
+          throw new Error("No camera devices available");
         }
       }
 
-      if (
-        !targetResolution ||
-        targetResolution.width <= 0 ||
-        targetResolution.height <= 0
-      ) {
-        console.log("Invalid resolution, using fallback");
-        await setupCameraWithExactResolution(RESOLUTION_PRESETS[3]); // Full HD fallback
-      } else {
-        await setupCameraWithExactResolution(targetResolution);
-      }
-
-      // await setupCameraWithExactResolution(targetResolution);
+      await setupCameraStream(targetResolution);
     } catch (error) {
-      console.error("Error in setupCamera:", error);
-
-      // Don't show OverconstrainedError during resolution testing
-      if (
-        error.name !== "OverconstrainedError" ||
-        availableResolutions.length > 0
-      ) {
-        setIsLoading(false);
-        setIsCameraReady(false);
-      }
+      console.error("Setup camera failed:", error);
+      // Error handling is done in setupCameraStream
     }
   };
 
@@ -554,157 +390,98 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({
   const setResolution = async (resolution: CameraResolution) => {
     try {
       console.log(`Switching to resolution: ${resolution.label}`);
-
-      stopCamera();
-
-      if (videoRef.current) {
-        videoRef.current.srcObject = null;
-      }
-
-      await new Promise((resolve) => setTimeout(resolve, 200));
-
       setSelectedResolution(resolution);
-      await setupCameraWithExactResolution(resolution);
+      
+      // Small delay to ensure clean transition
+      await new Promise(resolve => setTimeout(resolve, 100));
+      await setupCameraStream(resolution);
     } catch (error) {
-      console.error("Error setting resolution:", error);
-      setIsLoading(false);
-      setIsCameraReady(false);
-
-      const errorMessage =
-        error instanceof Error ? error.message : "Failed to set resolution";
+      console.error("Error changing resolution:", error);
+      const errorMessage = error instanceof Error ? error.message : "Failed to change resolution";
       setCameraError(errorMessage);
     }
   };
 
-  // Set device and restart camera
+  // Set device and get its available resolutions
   const setDevice = async (device: CameraDevice) => {
     try {
       setIsLoading(true);
       setCameraError(null);
-
       console.log(`Switching to device: ${device.label}`);
 
-      // Stop current camera first
+      // Stop current camera
       stopCamera();
-
       setSelectedDevice(device);
 
-      // Get fresh resolutions for the new device with retry logic
-      let resolutions: CameraResolution[] = [];
-      let retryCount = 0;
-      const maxRetries = 2;
-
-      while (resolutions.length === 0 && retryCount < maxRetries) {
-        if (retryCount > 0) {
-          console.log(
-            `Retrying resolution detection (attempt ${retryCount + 1})`
-          );
-          await new Promise((resolve) => setTimeout(resolve, 500));
-        }
-
-        resolutions = await getAvailableResolutions(device.deviceId);
-        retryCount++;
-      }
-
+      // Get available resolutions for this device
+      const resolutions = await getAvailableResolutions(device.deviceId);
       setAvailableResolutions(resolutions);
 
       // Check if current resolution is supported by new device
-      const isCurrentResolutionSupported = resolutions.some(
-        (res) =>
-          res.width === selectedResolution.width &&
-          res.height === selectedResolution.height
+      const isCurrentSupported = resolutions.some(
+        res => res.width === selectedResolution.width && res.height === selectedResolution.height
       );
 
-      const targetResolution = isCurrentResolutionSupported
-        ? selectedResolution
-        : resolutions[0];
-
-      if (!isCurrentResolutionSupported && resolutions.length > 0) {
+      // Use current resolution if supported, otherwise use the first available
+      const targetResolution = isCurrentSupported ? selectedResolution : resolutions[0];
+      
+      if (!isCurrentSupported) {
         setSelectedResolution(targetResolution);
       }
 
-      // Start camera with target resolution
+      // Setup camera with target resolution
       await setupCamera(targetResolution, device.deviceId);
     } catch (error) {
-      console.error("Error setting device:", error);
+      console.error("Error switching device:", error);
       setIsLoading(false);
-
-      const errorMessage =
-        error instanceof Error ? error.message : "Failed to set device";
-      setCameraError(errorMessage);
+      setCameraError(error instanceof Error ? error.message : "Failed to switch camera device");
     }
   };
 
-  // Initialize devices and resolutions on mount
+  // Initialize on mount
   useEffect(() => {
-    const initCamera = async () => {
+    const initializeCamera = async () => {
       console.log("Initializing camera system...");
       setIsLoading(true);
 
       try {
+        // Get available devices
         const devices = await getAvailableDevices();
         setAvailableDevices(devices);
 
         if (devices.length > 0) {
-          const deviceToUse = devices[0];
-          setSelectedDevice(deviceToUse);
+          const primaryDevice = devices[0];
+          setSelectedDevice(primaryDevice);
 
-          // Get resolutions with retry logic
-          // Get camera capabilities first to determine max resolution
-          const tempStream = await navigator.mediaDevices.getUserMedia({
-            video: { deviceId: { exact: deviceToUse.deviceId } },
-          });
-          const track = tempStream.getVideoTracks()[0];
-          const capabilities = track.getCapabilities();
-          tempStream.getTracks().forEach((t) => t.stop());
+          // Get available resolutions for the primary device
+          const resolutions = await getAvailableResolutions(primaryDevice.deviceId);
+          setAvailableResolutions(resolutions);
 
-          console.log("Camera capabilities:", capabilities);
+          // Select best starting resolution (prefer Full HD if available, otherwise highest)
+          const preferredResolution = resolutions.find(r => r.width === 1920 && r.height === 1080) || resolutions[0];
+          setSelectedResolution(preferredResolution);
 
-          // Find the best starting resolution based on capabilities
-          const maxWidth = capabilities.width?.max || 1920;
-          const maxHeight = capabilities.height?.max || 1080;
-
-          // Find the best preset that fits within camera capabilities
-          const suitablePreset = RESOLUTION_PRESETS.find(
-            (preset) => preset.width <= maxWidth && preset.height <= maxHeight
-          ) || {
-            width: Math.min(1920, maxWidth),
-            height: Math.min(1080, maxHeight),
-            label: "Auto",
-          };
-
-          setSelectedResolution(suitablePreset);
-          console.log(
-            `Starting with resolution: ${suitablePreset.label} (${suitablePreset.width}x${suitablePreset.height})`
-          );
-
-          // Test resolutions in background after initial setup
-          getAvailableResolutions(deviceToUse.deviceId).then((resolutions) => {
-            setAvailableResolutions(resolutions);
-            console.log("Background resolution testing complete");
-          });
+          console.log(`Initialized with device: ${primaryDevice.label}, resolution: ${preferredResolution.label}`);
+        } else {
+          setCameraError("No camera devices found");
         }
       } catch (error) {
-        console.error("Error during camera initialization:", error);
-        setCameraError(
-          error instanceof Error ? error.message : "Failed to initialize camera"
-        );
+        console.error("Camera initialization failed:", error);
+        setCameraError(error instanceof Error ? error.message : "Failed to initialize camera");
       } finally {
         setIsLoading(false);
       }
     };
 
-    initCamera();
+    initializeCamera();
   }, []);
 
   // Stop camera stream
   const stopCamera = () => {
-    console.log("Stopping camera stream...");
+    console.log("Stopping camera...");
 
     if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track: MediaStreamTrack) => {
-        track.stop();
-      });
+      streamRef.current.getTracks().forEach(track => track.stop());
       streamRef.current = null;
     }
 
@@ -723,91 +500,64 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({
     setCameraError(null);
   };
 
-  // Adjust camera settings
+  // Adjust camera settings (simplified)
   const adjustCameraSettings = async (settings: CameraSettings) => {
     const track = videoTrackRef.current;
-    if (!track) return;
+    if (!track) {
+      console.warn("No active video track for settings adjustment");
+      return;
+    }
 
     try {
       const capabilities = track.getCapabilities();
-      console.log("Camera capabilities:", capabilities);
-
       const applicableSettings: any = {};
 
-      if ("exposureMode" in capabilities && settings.exposureMode) {
-        applicableSettings.exposureMode = settings.exposureMode;
+      // Only apply settings that are supported
+      Object.entries(settings).forEach(([key, value]) => {
+        if (key in capabilities && value !== undefined) {
+          applicableSettings[key] = value;
+        }
+      });
+
+      if (Object.keys(applicableSettings).length > 0) {
+        await track.applyConstraints(applicableSettings);
+        console.log("Applied camera settings:", applicableSettings);
       }
-
-      if ("exposureTime" in capabilities && settings.exposureTime) {
-        applicableSettings.exposureTime = settings.exposureTime;
-      }
-
-      if (
-        "exposureCompensation" in capabilities &&
-        settings.exposureCompensation !== undefined
-      ) {
-        applicableSettings.exposureCompensation = settings.exposureCompensation;
-      }
-
-      if ("focusMode" in capabilities && settings.focusMode) {
-        applicableSettings.focusMode = settings.focusMode;
-      }
-
-      if ("brightness" in capabilities && settings.brightness !== undefined) {
-        applicableSettings.brightness = settings.brightness;
-      }
-
-      if ("contrast" in capabilities && settings.contrast !== undefined) {
-        applicableSettings.contrast = settings.contrast;
-      }
-
-      if (
-        "focusDistance" in capabilities &&
-        settings.focusDistance !== undefined
-      ) {
-        applicableSettings.focusDistance = settings.focusDistance;
-      }
-
-      await track.applyConstraints(applicableSettings);
-      console.log("Applied camera settings:", applicableSettings);
-
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      console.log("Settings applied, current settings:", track.getSettings());
     } catch (error) {
-      console.error("Error applying camera constraints:", error);
-
-      const errorMessage =
-        error instanceof Error
-          ? error.message
-          : "Failed to apply camera settings";
-      setCameraError(errorMessage);
+      console.error("Error applying camera settings:", error);
+      setCameraError(error instanceof Error ? error.message : "Failed to apply camera settings");
     }
   };
 
   // Capture image from video stream
   const captureImage = () => {
     if (!videoRef.current || !canvasRef.current || !isCameraReady) {
+      console.warn("Cannot capture image: camera not ready");
       return null;
     }
 
-    const canvas = canvasRef.current;
-    const context = canvas.getContext("2d");
+    try {
+      const canvas = canvasRef.current;
+      const context = canvas.getContext("2d");
+      const video = videoRef.current;
 
-    const videoWidth = videoRef.current.videoWidth;
-    const videoHeight = videoRef.current.videoHeight;
+      if (!context) {
+        console.error("Cannot get canvas context");
+        return null;
+      }
 
-    canvas.width = videoWidth;
-    canvas.height = videoHeight;
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
 
-    if (context) {
-      context.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+      context.drawImage(video, 0, 0, canvas.width, canvas.height);
       return canvas.toDataURL("image/png", 1.0);
+    } catch (error) {
+      console.error("Error capturing image:", error);
+      return null;
     }
-
-    return null;
   };
 
-  // Clean up on unmount
+  // Cleanup on unmount
   useEffect(() => {
     return () => {
       stopCamera();

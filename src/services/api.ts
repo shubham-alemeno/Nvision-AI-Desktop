@@ -566,7 +566,7 @@ export const getPastTasks = async (params: {
       queryParams.append('group', (params.group || false).toString());
 
       return api
-        .get(`/data/tasks/past_tasks/?${queryParams.toString()}`)
+        .get(`/data/task/past_tasks/?${queryParams.toString()}`)
         .then((response) => response.data);
     },
     {
