@@ -575,6 +575,36 @@ export const getPastTasks = async (params: {
     }
   );
 };
+
+// Alternative approach: Create a separate function specifically for export
+export const getPastTasksForExport = async (params: {
+  from_date?: string;
+  to_date?: string;
+  ppid?: string;
+  group?: boolean;
+  test_type?: string;
+}) => {
+  return apiCallWithErrorHandling(
+    () => {
+      const queryParams = new URLSearchParams();
+      // Intentionally exclude page parameter for unpaginated results
+      if (params.from_date) queryParams.append('from_date', params.from_date);
+      if (params.to_date) queryParams.append('to_date', params.to_date);
+      if (params.ppid) queryParams.append('ppid', params.ppid);
+      if (params.test_type) queryParams.append('test_type', params.test_type);
+      queryParams.append('group', (params.group || false).toString());
+      
+      return api
+        .get(`/data/task/past_tasks/?${queryParams.toString()}`)
+        .then((response) => response.data);
+    },
+    {
+      location: 'getPastTasksForExport',
+      operation: 'past_tasks_export_fetch',
+    }
+  );
+};
+
 // Statistics
 export const getPanelStats = async () => {
   return apiCallWithErrorHandling(

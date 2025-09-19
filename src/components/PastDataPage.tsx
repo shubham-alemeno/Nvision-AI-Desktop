@@ -2,8 +2,8 @@ import React, { useState, useEffect } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { getPastTasks, ApiError } from "@/services/api";
-import { Search, Download, RefreshCw } from "lucide-react";
+import { getPastTasks, ApiError, getPastTasksForExport } from "@/services/api";
+import { Search, Download, RefreshCw, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAppMode } from "../contexts/appModeContext";
 
@@ -20,6 +20,7 @@ function PastDataPage() {
   const [toDate, setToDate] = useState("");
   const [ppidSearch, setPpidSearch] = useState("");
   const [groupFilter, setGroupFilter] = useState(true); // Changed default to true
+  const [isExporting, setIsExporting] = useState(false);
   const { isTestMode } = useAppMode();
 
   const fetchPastTasks = async (page = 1, overrides = {}) => {
@@ -80,63 +81,138 @@ function PastDataPage() {
   };
 
   // Export to Excel functionality
-  const exportToExcel = () => {
-    if (pastTasks.length === 0) {
-      alert("No data to export");
-      return;
-    }
+  // const exportToExcel = () => {
+  //   if (pastTasks.length === 0) {
+  //     alert("No data to export");
+  //     return;
+  //   }
 
-    // Prepare data for Excel export
-    const exportData = pastTasks.map((task) => {
-      // Format predictions
-      const predictions = formatDefects(task.Prediction);
+  //   // Prepare data for Excel export
+  //   const exportData = pastTasks.map((task) => {
+  //     // Format predictions
+  //     const predictions = formatDefects(task.Prediction);
 
-      // Get categorized corrections
-      const corrections = getCategorizedCorrections(
-        task.Prediction,
-        task.Correction
+  //     // Get categorized corrections
+  //     const corrections = getCategorizedCorrections(
+  //       task.Prediction,
+  //       task.Correction
+  //     );
+
+  //     return {
+  //       PPID: task.PPID,
+  //       Timestamp: formatTimestamp(task.Timestamp),
+  //       // 'True Defects': formatDefects(task.TrueDefects), // Commented out for now
+  //       Predictions: predictions,
+  //       "Correctly Identified (TP)":
+  //         corrections.correctlyIdentified.join(", ") || "-",
+  //       "Wrongly Identified (FP)":
+  //         corrections.wronglyIdentified.join(", ") || "-",
+  //       "Missed out Defect (FN)":
+  //         corrections.missedOutDefects.join(", ") || "-",
+  //       "TN": corrections.tbd.join(", ") || "-",
+  //       "Created By": task.Created_By || "N/A",
+  //     };
+  //   });
+
+  //   // Create CSV content
+  //   const headers = Object.keys(exportData[0]).join(",");
+  //   const csvContent = [
+  //     headers,
+  //     ...exportData.map((row) =>
+  //       Object.values(row)
+  //         .map((value) => `"${String(value).replace(/"/g, '""')}"`)
+  //         .join(",")
+  //     ),
+  //   ].join("\n");
+
+  //   // Download file
+  //   const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+  //   const link = document.createElement("a");
+  //   const url = URL.createObjectURL(blob);
+  //   link.setAttribute("href", url);
+  //   link.setAttribute(
+  //     "download",
+  //     `past_data_${new Date().toISOString().split("T")[0]}.csv`
+  //   );
+  //   link.style.visibility = "hidden";
+  //   document.body.appendChild(link);
+  //   link.click();
+  //   document.body.removeChild(link);
+  // };
+
+  // Using the separate export function
+  const exportToExcel = async () => {
+    try {
+      setIsExporting(true); // Start loader
+
+      // Get all data without pagination for export
+      const allTasksResponse = await getPastTasksForExport({
+        from_date: fromDate || undefined,
+        to_date: toDate || undefined,
+        ppid: ppidSearch || undefined,
+        group: groupFilter,
+        test_type: isTestMode ? "test" : "production",
+      });
+
+      const allTasks = allTasksResponse.tasks || allTasksResponse;
+
+      if (!allTasks || allTasks.length === 0) {
+        alert("No data to export");
+        return;
+      }
+
+      console.log(allTasks);
+
+      // Rest of the export logic remains the same...
+      const exportData = allTasks.map((task) => {
+        const predictions = formatDefects(task.Prediction);
+        const corrections = getCategorizedCorrections(
+          task.Prediction,
+          task.Correction
+        );
+        return {
+          PPID: task.PPID,
+          Timestamp: formatTimestamp(task.Timestamp),
+          Predictions: predictions,
+          "Correctly Identified (TP)":
+            corrections.correctlyIdentified.join(", ") || "-",
+          "Wrongly Identified (FP)":
+            corrections.wronglyIdentified.join(", ") || "-",
+          "Missed out Defect (FN)":
+            corrections.missedOutDefects.join(", ") || "-",
+          TN: corrections.tbd.join(", ") || "-",
+          "Created By": task.Created_By || "N/A",
+        };
+      });
+
+      const headers = Object.keys(exportData[0]).join(",");
+      const csvContent = [
+        headers,
+        ...exportData.map((row) =>
+          Object.values(row)
+            .map((value) => `"${String(value).replace(/"/g, '""')}"`)
+            .join(",")
+        ),
+      ].join("\n");
+
+      const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+      const link = document.createElement("a");
+      const url = URL.createObjectURL(blob);
+      link.setAttribute("href", url);
+      link.setAttribute(
+        "download",
+        `past_data_${new Date().toISOString().split("T")[0]}.csv`
       );
-
-      return {
-        PPID: task.PPID,
-        Timestamp: formatTimestamp(task.Timestamp),
-        // 'True Defects': formatDefects(task.TrueDefects), // Commented out for now
-        Predictions: predictions,
-        "Correctly Identified (TP)":
-          corrections.correctlyIdentified.join(", ") || "-",
-        "Wrongly Identified (FP)":
-          corrections.wronglyIdentified.join(", ") || "-",
-        "Missed out Defect (FN)":
-          corrections.missedOutDefects.join(", ") || "-",
-        "TN": corrections.tbd.join(", ") || "-",
-        "Created By": task.Created_By || "N/A",
-      };
-    });
-
-    // Create CSV content
-    const headers = Object.keys(exportData[0]).join(",");
-    const csvContent = [
-      headers,
-      ...exportData.map((row) =>
-        Object.values(row)
-          .map((value) => `"${String(value).replace(/"/g, '""')}"`)
-          .join(",")
-      ),
-    ].join("\n");
-
-    // Download file
-    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
-    const link = document.createElement("a");
-    const url = URL.createObjectURL(blob);
-    link.setAttribute("href", url);
-    link.setAttribute(
-      "download",
-      `past_data_${new Date().toISOString().split("T")[0]}.csv`
-    );
-    link.style.visibility = "hidden";
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+      link.style.visibility = "hidden";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    } catch (error) {
+      console.error("Error exporting data:", error);
+      alert("Failed to export data. Please try again.");
+    } finally {
+      setIsExporting(false); // Stop loader regardless of success or failure
+    }
   };
 
   // Helper function to get categorized corrections
@@ -264,17 +340,51 @@ function PastDataPage() {
   };
 
   // Updated function to render predictions with each defect on a new line
+  // const renderPredictions = (predictions) => {
+  //   // Case 1: No prediction data available
+  //   if (!predictions) {
+  //     return <span className="text-gray-500">No Data</span>;
+  //   }
+
+  //   const items = Object.keys(predictions)
+  //     .map((key) => {
+  //       const defectName = key.replace("def_", "").replace(/_/g, " ");
+  //       const prettyName =
+  //         defectName.charAt(0).toUpperCase() + defectName.slice(1);
+  //       const predicted = predictions[key] === true;
+  //       if (predicted) {
+  //         return prettyName;
+  //       }
+  //       return null;
+  //     })
+  //     .filter(Boolean);
+
+  //   // Case 2: Predictions exist but no defects were predicted
+  //   return items.length > 0 ? (
+  //     <div className="space-y-1">
+  //       {items.map((item, idx) => (
+  //         <div key={idx} className="text-black font-medium">
+  //           {item}
+  //         </div>
+  //       ))}
+  //     </div>
+  //   ) : (
+  //     <span className="text-green-600 font-medium">No Defects</span>
+  //   );
+  // };
+
+  // Alternative: Use only one state
   const renderPredictions = (predictions) => {
-    if (!predictions) return <span className="text-gray-500">N/A</span>;
+    if (!predictions) {
+      return <span className="text-gray-500">-</span>;
+    }
 
     const items = Object.keys(predictions)
       .map((key) => {
         const defectName = key.replace("def_", "").replace(/_/g, " ");
         const prettyName =
           defectName.charAt(0).toUpperCase() + defectName.slice(1);
-
         const predicted = predictions[key] === true;
-
         if (predicted) {
           return prettyName;
         }
@@ -291,7 +401,7 @@ function PastDataPage() {
         ))}
       </div>
     ) : (
-      <span className="text-gray-500">None</span>
+      <span className="text-gray-500">-</span>
     );
   };
 
@@ -392,13 +502,20 @@ function PastDataPage() {
               </span>
               <Button
                 onClick={exportToExcel}
-                variant="outline"
-                size="sm"
-                disabled={pastTasks.length === 0}
+                disabled={isExporting}
                 className="flex items-center gap-2"
               >
-                <Download className="h-4 w-4" />
-                Export to Excel
+                {isExporting ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    Exporting...
+                  </>
+                ) : (
+                  <>
+                    <Download className="h-4 w-4" />
+                    Export to Excel
+                  </>
+                )}
               </Button>
             </div>
           </CardTitle>
