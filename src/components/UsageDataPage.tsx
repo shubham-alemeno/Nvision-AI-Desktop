@@ -178,7 +178,7 @@ const UsageDataPage = () => {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {inferenceUsage?.inference_count || 0}
+                  {inferenceUsage?.overview?.grand_total || 0}
                 </div>
               </CardContent>
             </Card>
@@ -191,7 +191,7 @@ const UsageDataPage = () => {
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold">
-                  {groupUsage[0]?.total_inferences || 0}
+                  {groupUsage[0]?.overview?.grand_total || 0}
                 </div>
               </CardContent>
             </Card>
