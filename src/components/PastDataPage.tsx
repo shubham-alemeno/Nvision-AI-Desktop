@@ -108,7 +108,7 @@ function PastDataPage() {
           corrections.wronglyIdentified.join(", ") || "-",
         "Missed out Defect (FN)":
           corrections.missedOutDefects.join(", ") || "-",
-        "TBD (TN)": corrections.tbd.join(", ") || "-",
+        "TN": corrections.tbd.join(", ") || "-",
         "Created By": task.Created_By || "N/A",
       };
     });
@@ -351,7 +351,7 @@ function PastDataPage() {
       <div className="max-w-full mx-auto space-y-6 p-4">
         <Card>
           <CardHeader>
-            <CardTitle>Defect Analysis</CardTitle>
+            <CardTitle>Past Data</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex flex-col justify-center items-center py-8 space-y-4">
@@ -509,7 +509,7 @@ function PastDataPage() {
                     Missed out Defect (FN)
                   </th>
                   <th className="border border-gray-200 px-4 py-3 text-left font-semibold text-sm w-[12%]">
-                    TBD (TN)
+                    TN
                   </th>
                   <th className="border border-gray-200 px-4 py-3 text-left font-semibold text-sm w-[10%]">
                     Created By

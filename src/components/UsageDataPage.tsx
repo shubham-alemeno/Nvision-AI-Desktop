@@ -45,7 +45,7 @@ const UsageDataPage = () => {
         const apiError = error as ApiError;
         console.error('Error fetching usage data:', apiError);
 
-        let errorMessage = "Failed to load past tasks";
+        let errorMessage = "Failed to load usage data";
       
       if (apiError.type === 'network') {
         errorMessage = "Network error. Please check your connection and try again.";
@@ -96,7 +96,7 @@ const UsageDataPage = () => {
       } catch (error) {
         const apiError = error as ApiError;
         console.error("Error fetching defects:", error);
-        let errorMessage = "Failed to load past tasks";
+        let errorMessage = "Failed to load usage data";
         if (apiError.type === "network") {
           errorMessage =
             "Network error. Please check your connection and try again.";
@@ -133,7 +133,7 @@ const UsageDataPage = () => {
       <div className="max-w-full mx-auto space-y-6 p-4">
         <Card>
           <CardHeader>
-            <CardTitle>Defect Analysis</CardTitle>
+            <CardTitle>Defect Checker Usage</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex flex-col justify-center items-center py-8 space-y-4">

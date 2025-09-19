@@ -1,16 +1,16 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
+import React, { useState, useEffect, useCallback } from "react";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
-} from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
+} from "@/components/ui/dialog";
+import { Label } from "@/components/ui/label";
 // import { Textarea } from '@/components/ui/textarea';
 import {
   Select,
@@ -18,8 +18,8 @@ import {
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from '@/components/ui/select';
-import { Switch } from '@/components/ui/switch';
+} from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
 import {
   Trash2,
   Edit,
@@ -32,7 +32,7 @@ import {
   Shield,
   UserX,
   RefreshCw,
-} from 'lucide-react';
+} from "lucide-react";
 import {
   createUser,
   deleteUser,
@@ -43,7 +43,8 @@ import {
   toggleUserStaff,
   updateUser,
   ApiError,
-} from '@/services/api';
+  createSupervisor,
+} from "@/services/api";
 
 interface User {
   id: number;
@@ -69,7 +70,7 @@ const AdminUserManagement = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [stats, setStats] = useState<UserStats | null>(null);
   const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
+  const [searchTerm, setSearchTerm] = useState("");
   const [filterActive, setFilterActive] = useState<boolean | undefined>(
     undefined
   );
@@ -86,30 +87,30 @@ const AdminUserManagement = () => {
 
   // Form states
   const [createForm, setCreateForm] = useState({
-    username: '',
-    email: '',
-    first_name: '',
-    last_name: '',
-    password: '',
-    confirm_password: '',
+    username: "",
+    email: "",
+    first_name: "",
+    last_name: "",
+    password: "",
+    confirm_password: "",
     is_active: true,
     is_staff: false,
-    groups: '',
+    groups: "",
   });
 
   const [editForm, setEditForm] = useState({
-    username: '',
-    email: '',
-    first_name: '',
-    last_name: '',
+    username: "",
+    email: "",
+    first_name: "",
+    last_name: "",
     is_active: true,
     is_staff: false,
-    groups: '',
+    groups: "",
   });
 
   const [passwordForm, setPasswordForm] = useState({
-    new_password: '',
-    confirm_password: '',
+    new_password: "",
+    confirm_password: "",
   });
 
   // Error states
@@ -140,16 +141,16 @@ const AdminUserManagement = () => {
         setStats(statsData);
       } catch (error) {
         const apiError = error as ApiError;
-        console.error('Error fetching data:', apiError);
-        let errorMessage = 'Failed to load past tasks';
+        console.error("Error fetching data:", apiError);
+        let errorMessage = "Failed to load user data";
 
-        if (apiError.type === 'network') {
+        if (apiError.type === "network") {
           errorMessage =
-            'Network error. Please check your connection and try again.';
-        } else if (apiError.type === 'server') {
-          errorMessage = 'Server error. Please try again later.';
-        } else if (apiError.type === 'authentication') {
-          errorMessage = 'Authentication error. Please log in again.';
+            "Network error. Please check your connection and try again.";
+        } else if (apiError.type === "server") {
+          errorMessage = "Server error. Please try again later.";
+        } else if (apiError.type === "authentication") {
+          errorMessage = "Authentication error. Please log in again.";
         }
 
         setError(errorMessage);
@@ -174,15 +175,15 @@ const AdminUserManagement = () => {
         setStats(statsData);
       } catch (error) {
         const apiError = error as ApiError;
-        console.error('Error fetching defects:', error);
-        let errorMessage = 'Failed to load past tasks';
-        if (apiError.type === 'network') {
+        console.error("Error fetching defects:", error);
+        let errorMessage = "Failed to load user data";
+        if (apiError.type === "network") {
           errorMessage =
-            'Network error. Please check your connection and try again.';
-        } else if (apiError.type === 'server') {
-          errorMessage = 'Server error. Please try again later.';
-        } else if (apiError.type === 'authentication') {
-          errorMessage = 'Authentication error. Please log in again.';
+            "Network error. Please check your connection and try again.";
+        } else if (apiError.type === "server") {
+          errorMessage = "Server error. Please try again later.";
+        } else if (apiError.type === "authentication") {
+          errorMessage = "Authentication error. Please log in again.";
         }
         setError(errorMessage);
       } finally {
@@ -219,7 +220,7 @@ const AdminUserManagement = () => {
       setStats(statsData);
     } catch (error) {
       const apiError = error as ApiError;
-      console.error('Error refetching data:', apiError);
+      console.error("Error refetching data:", apiError);
       // You could add user-facing error handling here if needed
     } finally {
       setLoading(false);
@@ -232,62 +233,84 @@ const AdminUserManagement = () => {
 
     // Validate passwords match
     if (createForm.password !== createForm.confirm_password) {
-      setCreateErrors({ confirm_password: 'Passwords do not match' });
+      setCreateErrors({ confirm_password: "Passwords do not match" });
       return;
     }
 
     try {
-      console.log('Creating user:', createForm);
+      console.log("Creating user:", createForm);
 
-      await createUser(createForm);
+      // Choose API call based on supervisor toggle
+      if (createForm.is_supervisor) {
+        await createSupervisor({
+          username: createForm.username,
+          email: createForm.email,
+          password: createForm.password,
+          confirm_password: createForm.confirm_password,
+          first_name: createForm.first_name,
+          last_name: createForm.last_name,
+          is_active: true,
+        });
+      } else {
+        await createUser(createForm);
+      }
 
       setCreateForm({
-        username: '',
-        email: '',
-        first_name: '',
-        last_name: '',
-        password: '',
-        confirm_password: '',
+        username: "",
+        email: "",
+        first_name: "",
+        last_name: "",
+        password: "",
+        confirm_password: "",
         is_active: true,
         is_staff: false,
-        groups: '',
+        groups: "",
+        is_supervisor: false, // Add this to your form state
       });
       setCreateModalOpen(false);
-
       await refetchData();
     } catch (error) {
       const apiError = error as ApiError;
-      console.error('Error creating user:', apiError);
+      console.error("Error creating user:", apiError);
 
       // Extract detailed error messages
       const newErrors: FormErrors = {};
-
-      if (apiError.type === 'validation') {
+      if (apiError.type === "validation") {
         // Handle validation errors from the API
         if (apiError.originalError?.response?.data) {
           const errorData = apiError.originalError.response.data;
           Object.keys(errorData).forEach((field) => {
             const fieldErrors = errorData[field];
             if (Array.isArray(fieldErrors)) {
-              newErrors[field] = fieldErrors.join(', ');
-            } else if (typeof fieldErrors === 'string') {
+              newErrors[field] = fieldErrors.join(", ");
+            } else if (typeof fieldErrors === "string") {
               newErrors[field] = fieldErrors;
             }
           });
         }
-      } else if (apiError.type === 'network') {
+      } else if (apiError.type === "network") {
         newErrors.general =
-          'Network error. Please check your connection and try again.';
-      } else if (apiError.type === 'server') {
-        newErrors.general = 'Server error. Please try again later.';
+          "Network error. Please check your connection and try again.";
+      } else if (apiError.type === "server") {
+        newErrors.general = "Server error. Please try again later.";
       } else {
-        newErrors.general = 'An unexpected error occurred. Please try again.';
+        // Handle unknown errors, network errors that come as 'unknown', and any other cases
+        if (
+          apiError.originalError?.code === "ERR_NETWORK" ||
+          apiError.message?.includes("Network Error") ||
+          apiError.type === "unknown"
+        ) {
+          newErrors.general =
+            "Network error. Please check your connection and try again.";
+        } else {
+          newErrors.general =
+            apiError.message ||
+            "An unexpected error occurred. Please try again.";
+        }
       }
-
       setCreateErrors(newErrors);
     }
   };
-
   const handleEditUser = async () => {
     if (!selectedUser) return;
 
@@ -295,7 +318,7 @@ const AdminUserManagement = () => {
     setEditErrors({});
 
     try {
-      console.log('Updating user:', selectedUser.id, editForm);
+      console.log("Updating user:", selectedUser.id, editForm);
 
       await updateUser(selectedUser.id, editForm);
 
@@ -305,31 +328,43 @@ const AdminUserManagement = () => {
       await refetchData();
     } catch (error) {
       const apiError = error as ApiError;
-      console.error('Error updating user:', apiError);
+      console.error("Error updating user:", apiError);
 
       // Extract detailed error messages
       const newErrors: FormErrors = {};
 
-      if (apiError.type === 'validation') {
+      if (apiError.type === "validation") {
         // Handle validation errors from the API
         if (apiError.originalError?.response?.data) {
           const errorData = apiError.originalError.response.data;
           Object.keys(errorData).forEach((field) => {
             const fieldErrors = errorData[field];
             if (Array.isArray(fieldErrors)) {
-              newErrors[field] = fieldErrors.join(', ');
-            } else if (typeof fieldErrors === 'string') {
+              newErrors[field] = fieldErrors.join(", ");
+            } else if (typeof fieldErrors === "string") {
               newErrors[field] = fieldErrors;
             }
           });
         }
-      } else if (apiError.type === 'network') {
+      } else if (apiError.type === "network") {
         newErrors.general =
-          'Network error. Please check your connection and try again.';
-      } else if (apiError.type === 'server') {
-        newErrors.general = 'Server error. Please try again later.';
+          "Network error. Please check your connection and try again.";
+      } else if (apiError.type === "server") {
+        newErrors.general = "Server error. Please try again later.";
       } else {
-        newErrors.general = 'An unexpected error occurred. Please try again.';
+        // Handle unknown errors, network errors that come as 'unknown', and any other cases
+        if (
+          apiError.originalError?.code === "ERR_NETWORK" ||
+          apiError.message?.includes("Network Error") ||
+          apiError.type === "unknown"
+        ) {
+          newErrors.general =
+            "Network error. Please check your connection and try again.";
+        } else {
+          newErrors.general =
+            apiError.message ||
+            "An unexpected error occurred. Please try again.";
+        }
       }
 
       setEditErrors(newErrors);
@@ -337,21 +372,21 @@ const AdminUserManagement = () => {
   };
 
   const handleDeleteUser = async (userId: number) => {
-    if (!confirm('Are you sure you want to delete this user?')) return;
+    if (!confirm("Are you sure you want to delete this user?")) return;
 
     try {
-      console.log('Deleting user:', userId);
+      console.log("Deleting user:", userId);
 
       await deleteUser(userId);
 
       await refetchData();
     } catch (error) {
       const apiError = error as ApiError;
-      console.error('Error deleting user:', apiError);
+      console.error("Error deleting user:", apiError);
 
-      let errorMessage = 'Error deleting user';
+      let errorMessage = "Error deleting user";
 
-      if (apiError.type === 'validation') {
+      if (apiError.type === "validation") {
         // Handle validation errors from the API
         if (apiError.originalError?.response?.data) {
           const errorData = apiError.originalError.response.data;
@@ -362,24 +397,24 @@ const AdminUserManagement = () => {
               fieldErrors.forEach((msg) => {
                 errorMessages.push(`${field}: ${msg}`);
               });
-            } else if (typeof fieldErrors === 'string') {
+            } else if (typeof fieldErrors === "string") {
               errorMessages.push(`${field}: ${fieldErrors}`);
             }
           });
 
           if (errorMessages.length > 0) {
             errorMessage = `Error deleting user:\n\n${errorMessages.join(
-              '\n'
+              "\n"
             )}`;
           }
         }
-      } else if (apiError.type === 'network') {
+      } else if (apiError.type === "network") {
         errorMessage =
-          'Network error. Please check your connection and try again.';
-      } else if (apiError.type === 'server') {
-        errorMessage = 'Server error. Please try again later.';
+          "Network error. Please check your connection and try again.";
+      } else if (apiError.type === "server") {
+        errorMessage = "Server error. Please try again later.";
       } else {
-        errorMessage = 'An unexpected error occurred. Please try again.';
+        errorMessage = "An unexpected error occurred. Please try again.";
       }
 
       console.error(errorMessage);
@@ -403,7 +438,7 @@ const AdminUserManagement = () => {
       setUsers(response.results || response); // Handle both paginated and non-paginated responses
     } catch (error) {
       const apiError = error as ApiError;
-      console.error('Failed to fetch users:', apiError);
+      console.error("Failed to fetch users:", apiError);
       // You could add user-facing error handling here if needed
     } finally {
       setLoading(false);
@@ -425,7 +460,7 @@ const AdminUserManagement = () => {
       setUsers(response.results || response); // Handle both paginated and non-paginated responses
     } catch (error) {
       const apiError = error as ApiError;
-      console.error('Failed to fetch users:', apiError);
+      console.error("Failed to fetch users:", apiError);
       // You could add user-facing error handling here if needed
     } finally {
       setLoading(false);
@@ -447,25 +482,25 @@ const AdminUserManagement = () => {
   // }, [searchTerm, filterActive, filterStaff]);
 
   const handleKeyPress = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter') {
+    if (e.key === "Enter") {
       handleSearch();
     }
   };
 
   const handleToggleActive = async (userId: number) => {
     try {
-      console.log('Toggling active status for user:', userId);
+      console.log("Toggling active status for user:", userId);
 
       await toggleUserActive(userId);
 
       await refetchData();
     } catch (error) {
       const apiError = error as ApiError;
-      console.error('Error toggling user active status:', apiError);
+      console.error("Error toggling user active status:", apiError);
 
-      let errorMessage = 'Error updating user status';
+      let errorMessage = "Error updating user status";
 
-      if (apiError.type === 'validation') {
+      if (apiError.type === "validation") {
         // Handle validation errors from the API
         if (apiError.originalError?.response?.data) {
           const errorData = apiError.originalError.response.data;
@@ -476,24 +511,24 @@ const AdminUserManagement = () => {
               fieldErrors.forEach((msg) => {
                 errorMessages.push(`${field}: ${msg}`);
               });
-            } else if (typeof fieldErrors === 'string') {
+            } else if (typeof fieldErrors === "string") {
               errorMessages.push(`${field}: ${fieldErrors}`);
             }
           });
 
           if (errorMessages.length > 0) {
             errorMessage = `Error updating user status:\n\n${errorMessages.join(
-              '\n'
+              "\n"
             )}`;
           }
         }
-      } else if (apiError.type === 'network') {
+      } else if (apiError.type === "network") {
         errorMessage =
-          'Network error. Please check your connection and try again.';
-      } else if (apiError.type === 'server') {
-        errorMessage = 'Server error. Please try again later.';
+          "Network error. Please check your connection and try again.";
+      } else if (apiError.type === "server") {
+        errorMessage = "Server error. Please try again later.";
       } else {
-        errorMessage = 'An unexpected error occurred. Please try again.';
+        errorMessage = "An unexpected error occurred. Please try again.";
       }
 
       console.error(errorMessage);
@@ -503,18 +538,18 @@ const AdminUserManagement = () => {
 
   const handleToggleStaff = async (userId: number) => {
     try {
-      console.log('Toggling staff status for user:', userId);
+      console.log("Toggling staff status for user:", userId);
 
       await toggleUserStaff(userId);
 
       await refetchData();
     } catch (error) {
       const apiError = error as ApiError;
-      console.error('Error toggling staff status:', apiError);
+      console.error("Error toggling staff status:", apiError);
 
-      let errorMessage = 'Error updating staff privileges';
+      let errorMessage = "Error updating staff privileges";
 
-      if (apiError.type === 'validation') {
+      if (apiError.type === "validation") {
         // Handle validation errors from the API
         if (apiError.originalError?.response?.data) {
           const errorData = apiError.originalError.response.data;
@@ -525,24 +560,24 @@ const AdminUserManagement = () => {
               fieldErrors.forEach((msg) => {
                 errorMessages.push(`${field}: ${msg}`);
               });
-            } else if (typeof fieldErrors === 'string') {
+            } else if (typeof fieldErrors === "string") {
               errorMessages.push(`${field}: ${fieldErrors}`);
             }
           });
 
           if (errorMessages.length > 0) {
             errorMessage = `Error updating staff privileges:\n\n${errorMessages.join(
-              '\n'
+              "\n"
             )}`;
           }
         }
-      } else if (apiError.type === 'network') {
+      } else if (apiError.type === "network") {
         errorMessage =
-          'Network error. Please check your connection and try again.';
-      } else if (apiError.type === 'server') {
-        errorMessage = 'Server error. Please try again later.';
+          "Network error. Please check your connection and try again.";
+      } else if (apiError.type === "server") {
+        errorMessage = "Server error. Please try again later.";
       } else {
-        errorMessage = 'An unexpected error occurred. Please try again.';
+        errorMessage = "An unexpected error occurred. Please try again.";
       }
 
       console.error(errorMessage);
@@ -557,12 +592,12 @@ const AdminUserManagement = () => {
     setPasswordErrors({});
 
     if (passwordForm.new_password !== passwordForm.confirm_password) {
-      setPasswordErrors({ confirm_password: 'Passwords do not match' });
+      setPasswordErrors({ confirm_password: "Passwords do not match" });
       return;
     }
 
     try {
-      console.log('Setting password for user:', selectedUser.id);
+      console.log("Setting password for user:", selectedUser.id);
 
       // Call real API
       await setUserPassword(selectedUser.id, {
@@ -570,36 +605,36 @@ const AdminUserManagement = () => {
         confirm_password: passwordForm.confirm_password,
       });
 
-      setPasswordForm({ new_password: '', confirm_password: '' });
+      setPasswordForm({ new_password: "", confirm_password: "" });
       setPasswordModalOpen(false);
       setSelectedUser(null);
     } catch (error) {
       const apiError = error as ApiError;
-      console.error('Error setting password:', apiError);
+      console.error("Error setting password:", apiError);
 
       // Extract detailed error messages
       const newErrors: FormErrors = {};
 
-      if (apiError.type === 'validation') {
+      if (apiError.type === "validation") {
         // Handle validation errors from the API
         if (apiError.originalError?.response?.data) {
           const errorData = apiError.originalError.response.data;
           Object.keys(errorData).forEach((field) => {
             const fieldErrors = errorData[field];
             if (Array.isArray(fieldErrors)) {
-              newErrors[field] = fieldErrors.join(', ');
-            } else if (typeof fieldErrors === 'string') {
+              newErrors[field] = fieldErrors.join(", ");
+            } else if (typeof fieldErrors === "string") {
               newErrors[field] = fieldErrors;
             }
           });
         }
-      } else if (apiError.type === 'network') {
+      } else if (apiError.type === "network") {
         newErrors.general =
-          'Network error. Please check your connection and try again.';
-      } else if (apiError.type === 'server') {
-        newErrors.general = 'Server error. Please try again later.';
+          "Network error. Please check your connection and try again.";
+      } else if (apiError.type === "server") {
+        newErrors.general = "Server error. Please try again later.";
       } else {
-        newErrors.general = 'An unexpected error occurred. Please try again.';
+        newErrors.general = "An unexpected error occurred. Please try again.";
       }
 
       setPasswordErrors(newErrors);
@@ -644,7 +679,7 @@ const AdminUserManagement = () => {
       <div className="max-w-full mx-auto space-y-6 p-4">
         <Card>
           <CardHeader>
-            <CardTitle>Defect Analysis</CardTitle>
+            <CardTitle>User Management</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex flex-col justify-center items-center py-8 space-y-4">
@@ -715,6 +750,29 @@ const AdminUserManagement = () => {
                   <DialogTitle>Create New User</DialogTitle>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
+                  {createErrors.general && (
+                    <div className="bg-red-50 border border-red-200 rounded-md p-3">
+                      <p className="text-sm text-red-600">
+                        {createErrors.general}
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Supervisor Toggle */}
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      id="supervisor"
+                      checked={createForm.is_supervisor || false}
+                      onCheckedChange={(checked) =>
+                        setCreateForm({
+                          ...createForm,
+                          is_supervisor: checked,
+                        })
+                      }
+                    />
+                    <Label htmlFor="supervisor">Supervisor</Label>
+                  </div>
+
                   <div className="grid grid-cols-2 gap-4">
                     <div>
                       <Label htmlFor="username">
@@ -848,7 +906,11 @@ const AdminUserManagement = () => {
                   >
                     Cancel
                   </Button>
-                  <Button onClick={handleCreateUser}>Create User</Button>
+                  <Button onClick={handleCreateUser}>
+                    {createForm.is_supervisor
+                      ? "Create Supervisor"
+                      : "Create User"}
+                  </Button>
                 </div>
               </DialogContent>
             </Dialog>
@@ -909,8 +971,8 @@ const AdminUserManagement = () => {
                       {/* <td className="p-3 text-sm">{user.email}</td> */}
                       <td className="p-3">
                         <div className="flex gap-1">
-                          {user.is_superuser ? (
-                            <Badge variant="destructive">Admin</Badge>
+                          {user.access_levels.can_manage_users_api ? (
+                            <Badge variant="destructive">Supervisor</Badge>
                           ) : (
                             <Badge variant="secondary">User</Badge>
                           )}
@@ -1002,6 +1064,11 @@ const AdminUserManagement = () => {
             <DialogTitle>Edit User</DialogTitle>
           </DialogHeader>
           <div className="grid gap-4 py-4">
+            {editErrors.general && (
+              <div className="bg-red-50 border border-red-200 rounded-md p-3">
+                <p className="text-sm text-red-600">{editErrors.general}</p>
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <Label htmlFor="edit_username">Username</Label>
@@ -1117,13 +1184,13 @@ const AdminUserManagement = () => {
                   <Label className="text-sm font-medium text-muted-foreground">
                     First Name
                   </Label>
-                  <p className="text-sm">{selectedUser.first_name || 'N/A'}</p>
+                  <p className="text-sm">{selectedUser.first_name || "N/A"}</p>
                 </div>
                 <div>
                   <Label className="text-sm font-medium text-muted-foreground">
                     Last Name
                   </Label>
-                  <p className="text-sm">{selectedUser.last_name || 'N/A'}</p>
+                  <p className="text-sm">{selectedUser.last_name || "N/A"}</p>
                 </div>
               </div>
               <div>
@@ -1132,9 +1199,9 @@ const AdminUserManagement = () => {
                 </Label>
                 <div className="flex gap-2 mt-1">
                   <Badge
-                    variant={selectedUser.is_active ? 'default' : 'secondary'}
+                    variant={selectedUser.is_active ? "default" : "secondary"}
                   >
-                    {selectedUser.is_active ? 'Active' : 'Inactive'}
+                    {selectedUser.is_active ? "Active" : "Inactive"}
                   </Badge>
                   {selectedUser.is_superuser && (
                     <Badge variant="destructive">Superuser</Badge>
@@ -1150,8 +1217,8 @@ const AdminUserManagement = () => {
                 </Label>
                 <p className="text-sm">
                   {selectedUser?.groups?.length > 0
-                    ? selectedUser?.groups.join(', ')
-                    : 'None'}
+                    ? selectedUser?.groups.join(", ")
+                    : "None"}
                 </p>
               </div>
               <div className="grid grid-cols-2 gap-4">

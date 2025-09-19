@@ -64,7 +64,7 @@ function DefectAnalysisPage({
         const apiError = error as ApiError;
 
         console.error("Error fetching defects:", error);
-        let errorMessage = "Failed to load past tasks";
+        let errorMessage = "Failed to load defects";
 
         if (apiError.type === "network") {
           errorMessage =
@@ -212,7 +212,7 @@ function DefectAnalysisPage({
       } catch (error) {
         const apiError = error as ApiError;
         console.error("Error fetching defects:", error);
-        let errorMessage = "Failed to load past tasks";
+        let errorMessage = "Failed to load defects";
         if (apiError.type === "network") {
           errorMessage =
             "Network error. Please check your connection and try again.";

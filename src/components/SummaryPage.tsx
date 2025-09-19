@@ -93,7 +93,7 @@ const SummaryPage: React.FC = () => {
       <div className="max-w-full mx-auto space-y-6 p-4">
         <Card>
           <CardHeader>
-            <CardTitle>Defect Analysis</CardTitle>
+            <CardTitle>Statistics</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="flex flex-col justify-center items-center py-8 space-y-4">

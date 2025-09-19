@@ -672,6 +672,17 @@ export const createUser = async (userData) => {
   );
 };
 
+// Create new supervisor
+export const createSupervisor = async (userData) => {
+  return apiCallWithErrorHandling(
+    () => api.post('/users/create_supervisor/', userData).then((response) => response.data),
+    {
+      location: 'createSupervisor',
+      operation: 'supervisor_create',
+    }
+  );
+};
+
 // Update user
 export const updateUser = async (id: number, userData) => {
   return apiCallWithErrorHandling(
