@@ -119,12 +119,17 @@ function ImageCaptureProcess({
 
   useEffect(() => {
     if (isCameraReady && currentImageIndex < testImagesCount && !isCompleted) {
+      // Log when pattern becomes visible
+      const patternName = testPatterns[currentImageIndex].name;
+      console.log(`[${new Date().toISOString()}] Pattern "${patternName}" displayed at index ${currentImageIndex}`);
+      
       // adjustPatternCameraSettings(testPatterns[currentImageIndex].name);
       adjustPatternCameraSettings(currentImageIndex);
       // Give time to display the test pattern, then capture the webcam image
       const captureTimer = setTimeout(() => {
+        console.log(`[${new Date().toISOString()}] Starting image capture for pattern "${patternName}" after 2.5s delay`);
         processCurrentImage();
-      }, 2000);
+      }, 2500);
 
       return () => {
         clearTimeout(captureTimer);
@@ -173,10 +178,15 @@ function ImageCaptureProcess({
   const processCurrentImage = () => {
     if (!isCameraReady) return;
 
+    const patternName = testPatterns[currentImageIndex].name;
+    console.log(`[${new Date().toISOString()}] Capturing image for pattern "${patternName}"`);
+
     // Capture image using the context's method
     const imageData = captureImage();
 
     if (imageData) {
+      console.log(`[${new Date().toISOString()}] Image captured successfully for pattern "${patternName}"`);
+      
       // Store the current index to use in the background upload
       const imageIndex = currentImageIndex;
 
@@ -196,6 +206,8 @@ function ImageCaptureProcess({
           console.error('Error during upload:', error)
         );
       }, 0);
+    } else {
+      console.error(`[${new Date().toISOString()}] Failed to capture image for pattern "${patternName}"`);
     }
   };
 
