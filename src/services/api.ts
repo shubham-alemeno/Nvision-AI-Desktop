@@ -452,6 +452,7 @@ export const createDisplayPanel = async (data: {
   }>;
   test_type: 'test' | 'production';
   inference?: boolean;
+  qa?: boolean;
 }) => {
   return apiCallWithErrorHandling(
     () =>

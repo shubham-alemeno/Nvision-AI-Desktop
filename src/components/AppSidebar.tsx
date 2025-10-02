@@ -1,4 +1,4 @@
-import { BookOpen, Bot, Gpu, Settings2, SquareTerminal } from 'lucide-react';
+import { BookOpen, Bot, CheckCheck, CheckCircle, CheckIcon, CheckLine, CheckSquare, Gpu, History, NotepadText, Settings2, SquareTerminal } from 'lucide-react';
 import React from 'react';
 import {
   Sidebar,
@@ -47,9 +47,15 @@ const data = {
       items: [],
     },
     {
+      title: 'NFT Checker',
+      url: '#nft-checker',
+      icon: Bot,
+      items: [],
+    },
+    {
       title: 'Past Data',
       url: '#past-data',
-      icon: Bot,
+      icon: History,
       items: [],
     },
     {
