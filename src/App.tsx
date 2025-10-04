@@ -44,8 +44,8 @@ import { EnvironmentIndicator } from "./hooks/useEnvironment";
 import DefectConfiguration from "./components/DefectConfiguration";
 import AdminUserManagement from "./components/AdminSettingsPage";
 import packageInfo from "../package.json";
-import NFTCheckerPage from "./components/NFTChecker";
-import NftDefectsPage from "./components/NftDefectsPage";
+import NTFCheckerPage from "./components/NTFChecker";
+import NftDefectsPage from "./components/NtfDefectsPage";
 
 declare global {
   interface Window {
@@ -202,7 +202,7 @@ function App() {
     () => localStorage.getItem("sentinel_dash_username") || ""
   );
   const [routineType, setRoutineType] = useState<
-    "data-collection" | "defect-checker" | "nft-checker"
+    "data-collection" | "defect-checker" | "ntf-checker"
   >("defect-checker");
   const [predictedDefects, setPredictedDefects] = useState(null); // for real API result
   const [isPredicting, setIsPredicting] = useState(false);
@@ -447,8 +447,8 @@ function App() {
     // Set routine type based on the routine parameter
     if (routine === "data-collection") {
       setRoutineType("data-collection");
-    } else if (routine === "nft-checker") {
-      setRoutineType("nft-checker");
+    } else if (routine === "ntf-checker") {
+      setRoutineType("ntf-checker");
     } else {
       setRoutineType("defect-checker");
     }
@@ -586,7 +586,7 @@ function App() {
   // Map activePage to page title
   const pageTitles = {
     "defect-checker": "Defect Checker",
-    "nft-checker": "NFT Checker",
+    "ntf-checker": "NTF Checker",
     "data-collection": "Data Collection",
     summary: "Data Collection Summary",
     "pattern-ebc": "Pattern EBC Settings",
@@ -594,7 +594,7 @@ function App() {
     "defect-analysis": "Defect Analysis",
     "past-data": "Past Data",
     "predicted-defects": "Predicted Defects",
-    "nft-defects": "NFT Defects",
+    "ntf-defects": "NTF Defects",
     "usage-data": "Defect Checker Usage",
     "select-defects": "Select Defects",
     "admin-settings": "Admin Settings",
@@ -1250,7 +1250,7 @@ function App() {
     pollCountRef.current = 0;
     setTaskid(null);
 
-    setActivePage("nft-checker");
+    setActivePage("ntf-checker");
   };
 
   // const retryPrediction = async () => {
@@ -1524,8 +1524,8 @@ function App() {
         return <DataCollectionPage onStartDefectChecker={startDefectChecker} />;
       case "defect-checker":
         return <DefectCheckerPage onStartDefectChecker={startDefectChecker} />;
-      case "nft-checker":
-        return <NFTCheckerPage onStartDefectChecker={startDefectChecker} />;
+      case "ntf-checker":
+        return <NTFCheckerPage onStartDefectChecker={startDefectChecker} />;
       case "summary":
         return <SummaryPage />;
       case "pattern-ebc":
@@ -1668,7 +1668,7 @@ function App() {
                       ? "Data Collection Review Page"
                       : routineType === "defect-checker"
                       ? "Defect Checker Review Page"
-                      : "NFT Checker Review Page"}
+                      : "NTF Checker Review Page"}
                   </div>
                 </header>
                 <div className="flex justify-center items-center min-h-screen bg-gray-100">
@@ -1680,8 +1680,8 @@ function App() {
                         if (routineType === "defect-checker") {
                           setActivePage("predicted-defects");
                           await startPredictionRefactored();
-                        } else if (routineType === "nft-checker") {
-                          setActivePage("nft-defects");
+                        } else if (routineType === "ntf-checker") {
+                          setActivePage("ntf-defects");
                           await startNftChecker();
                         } else {
                           approveImages();
@@ -1779,7 +1779,7 @@ function App() {
                   </div>
                 </div>
               </>
-            ) : activePage === "nft-defects" ? (
+            ) : activePage === "ntf-defects" ? (
               isPredicting ? (
                 <div className="flex flex-col items-center justify-center min-h-[300px]">
                   <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mb-4"></div>
@@ -1803,7 +1803,7 @@ function App() {
                   message={predictedDefects.message || predictedDefects.error}
                   onRetry={retryNftChecker} // Changed from startNftChecker to retryNftChecker
                   onGoHome={resetNftAndGoBack}
-                  homeButtonText="Go to NFT Checker Home"
+                  homeButtonText="Go to NTF Checker Home"
                 />
               ) : predictedDefects && !predictedDefects.error ? (
                 <>

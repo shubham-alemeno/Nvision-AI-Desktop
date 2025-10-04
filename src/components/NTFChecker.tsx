@@ -7,7 +7,7 @@ import { useAppMode } from '../contexts/appModeContext';
 import { checkDisplayPanel } from '@/services/api';
 import CameraControls from './CameraControls';
 
-interface NFTCheckerPageProps {
+interface NTFCheckerPageProps {
   onStartDefectChecker: (
     ppid: string,
     isTestMode: boolean,
@@ -23,7 +23,7 @@ const defaultLiveSettings = {
   focusDistance: 40,
 };
 
-const NFTCheckerPage: React.FC<NFTCheckerPageProps> = ({
+const NTFCheckerPage: React.FC<NTFCheckerPageProps> = ({
   onStartDefectChecker,
 }) => {
   const { isTestMode } = useAppMode();
@@ -113,7 +113,7 @@ const NFTCheckerPage: React.FC<NFTCheckerPageProps> = ({
           finalPpid,
           isTestMode,
           focusDistance,
-          'nft-checker'
+          'ntf-checker'
         );
       } catch (error) {
         if (error.type === 'network') {
@@ -159,7 +159,7 @@ const NFTCheckerPage: React.FC<NFTCheckerPageProps> = ({
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
-            <CardTitle>NFT Checker Routine</CardTitle>
+            <CardTitle>NTF Checker Routine</CardTitle>
             <Button
               variant="ghost"
               size="icon"
@@ -351,4 +351,4 @@ const NFTCheckerPage: React.FC<NFTCheckerPageProps> = ({
   );
 };
 
-export default NFTCheckerPage;
+export default NTFCheckerPage;

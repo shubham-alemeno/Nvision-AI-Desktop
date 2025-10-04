@@ -47,8 +47,8 @@ const data = {
       items: [],
     },
     {
-      title: 'NFT Checker',
-      url: '#nft-checker',
+      title: 'NTF Checker',
+      url: '#ntf-checker',
       icon: Bot,
       items: [],
     },
