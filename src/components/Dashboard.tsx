@@ -2,7 +2,7 @@ import React, { useState, useEffect } from "react";
 import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
-import { getLiveAccuracy, ApiError } from "@/services/api";
+import { getLiveAccuracy, getHealthCheck, ApiError } from "@/services/api";
 import { Search, RefreshCw, Activity } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAppMode } from "../contexts/appModeContext";
@@ -47,8 +47,27 @@ function Dashboard() {
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
   const [groupFilter, setGroupFilter] = useState(true);
-  const [serverHealthy, setServerHealthy] = useState(true); // Placeholder for server health
+  const [serverHealthy, setServerHealthy] = useState(true);
+  const [healthScore, setHealthScore] = useState<number | null>(null);
   const { isTestMode } = useAppMode();
+
+  const fetchHealthStatus = async () => {
+    try {
+      const data = await getHealthCheck();
+      console.log("Health Status:", data);
+
+      if (data.status === "success" && data.health_score !== undefined) {
+        setHealthScore(data.health_score);
+        // Consider server healthy if health score is above 50%
+        setServerHealthy(data.health_score > 50);
+      }
+    } catch (error) {
+      const apiError = error as ApiError;
+      console.error("Error fetching health status:", apiError);
+      setServerHealthy(false);
+      setHealthScore(null);
+    }
+  };
 
   const fetchAccuracyData = async () => {
     try {
@@ -70,9 +89,6 @@ function Dashboard() {
       const data = await getLiveAccuracy(params);
       console.log("Accuracy Data:", data);
       setAccuracyData(data);
-
-      // Placeholder: Assume server is healthy if we got data
-      setServerHealthy(true);
     } catch (error) {
       const apiError = error as ApiError;
       console.error("Error fetching accuracy data:", apiError);
@@ -82,10 +98,8 @@ function Dashboard() {
       if (apiError.type === "network") {
         errorMessage =
           "Network error. Please check your connection and try again.";
-        setServerHealthy(false);
       } else if (apiError.type === "server") {
         errorMessage = "Server error. Please try again later.";
-        setServerHealthy(false);
       } else if (apiError.type === "authentication") {
         errorMessage = "Authentication error. Please log in again.";
       } else if (apiError.type === "validation") {
@@ -116,6 +130,14 @@ function Dashboard() {
 
   useEffect(() => {
     fetchAccuracyData();
+    fetchHealthStatus();
+
+    // Refresh health status every 60 seconds
+    const healthInterval = setInterval(() => {
+      fetchHealthStatus();
+    }, 60000);
+
+    return () => clearInterval(healthInterval);
   }, [isTestMode]);
 
   const formatPercentage = (value: number) => {
@@ -180,7 +202,7 @@ function Dashboard() {
           <CardTitle className="flex justify-between items-center">
             <span>Dashboard</span>
             {/* Server Health Status */}
-            {/* <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2">
               <Activity
                 className={`h-5 w-5 ${
                   serverHealthy ? "text-green-500" : "text-red-500"
@@ -191,9 +213,13 @@ function Dashboard() {
                   serverHealthy ? "text-green-600" : "text-red-600"
                 }`}
               >
-                {serverHealthy ? "Server Healthy" : "Server Down"}
+                {healthScore !== null
+                  ? `Server Health: ${healthScore.toFixed(2)}%`
+                  : serverHealthy
+                  ? "Server Healthy"
+                  : "Server Down"}
               </span>
-            </div> */}
+            </div>
           </CardTitle>
         </CardHeader>
         <CardContent>

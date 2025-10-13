@@ -847,3 +847,14 @@ export const getUserStats = async () => {
     }
   );
 };
+
+// Health Check
+export const getHealthCheck = async () => {
+  return apiCallWithErrorHandling(
+    () => api.get('/data/health/').then((response) => response.data),
+    {
+      location: 'getHealthCheck',
+      operation: 'health_check',
+    }
+  );
+};
