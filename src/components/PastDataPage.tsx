@@ -21,6 +21,7 @@ function PastDataPage() {
   const [ppidSearch, setPpidSearch] = useState("");
   const [groupFilter, setGroupFilter] = useState(true); // Changed default to true
   const [isExporting, setIsExporting] = useState(false);
+  const [isNTFMode, setIsNTFMode] = useState(false); // false = Defect Checker, true = NTF
   const { isTestMode } = useAppMode();
 
   const fetchPastTasks = async (page = 1, overrides = {}) => {
@@ -35,6 +36,7 @@ function PastDataPage() {
         ppid: ppidSearch || undefined,
         group: groupFilter,
         test_type: isTestMode ? "test" : "production",
+        qa: isNTFMode, // false = Defect Checker, true = NTF
         ...overrides, // allow reset to inject clean params
       };
 
@@ -152,6 +154,7 @@ function PastDataPage() {
         ppid: ppidSearch || undefined,
         group: groupFilter,
         test_type: isTestMode ? "test" : "production",
+        qa: isNTFMode, // false = Defect Checker, true = NTF
       });
 
       const allTasks = allTasksResponse.tasks || allTasksResponse;
@@ -267,11 +270,11 @@ function PastDataPage() {
     fetchPastTasks(1);
   };
 
-  // Initial load and when test mode changes
+  // Initial load and when test mode or NTF mode changes
   useEffect(() => {
     setCurrentPage(1); // Reset to first page when mode changes
     fetchPastTasks(1);
-  }, [isTestMode]); // Re-fetch when test mode changes
+  }, [isTestMode, isNTFMode]); // Re-fetch when test mode or NTF mode changes
 
   // Add a separate useEffect for pagination only
   useEffect(() => {
@@ -293,6 +296,7 @@ function PastDataPage() {
       ppid: undefined,
       group: true, // Default to whole group
       test_type: isTestMode ? "test" : "production",
+      qa: isNTFMode, // Preserve current mode (Defect Checker or NTF)
     });
   };
 
@@ -527,6 +531,27 @@ function PastDataPage() {
             <span className="text-xs font-semibold px-2 py-1 rounded bg-gray-200 dark:bg-gray-700">
               {isTestMode ? "Test" : "Production"}
             </span>
+          </div>
+
+          {/* Data Type Toggle */}
+          <div className="flex items-center gap-4 mb-6">
+            <span className="font-semibold">Data Type:</span>
+            <div className="flex gap-2">
+              <Button
+                onClick={() => setIsNTFMode(false)}
+                variant={!isNTFMode ? "default" : "outline"}
+                className="h-9"
+              >
+                Defect Checker
+              </Button>
+              <Button
+                onClick={() => setIsNTFMode(true)}
+                variant={isNTFMode ? "default" : "outline"}
+                className="h-9"
+              >
+                NTF
+              </Button>
+            </div>
           </div>
 
           <div className="space-y-4 mb-6">

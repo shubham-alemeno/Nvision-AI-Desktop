@@ -1,4 +1,4 @@
-import { BookOpen, Bot, CheckCheck, CheckCircle, CheckIcon, CheckLine, CheckSquare, Gpu, History, NotepadText, Settings2, SquareTerminal } from 'lucide-react';
+import { BookOpen, Bot, CheckCheck, CheckCircle, CheckIcon, CheckLine, CheckSquare, Gpu, History, LayoutDashboard, NotepadText, Settings2, SquareTerminal } from 'lucide-react';
 import React from 'react';
 import {
   Sidebar,
@@ -34,6 +34,12 @@ const data = {
     },
   ],
   navMain: [
+    {
+      title: 'Dashboard',
+      url: '#dashboard',
+      icon: LayoutDashboard,
+      isActive: true,
+    },
     {
       title: 'Data Collection',
       url: '#data-collection',

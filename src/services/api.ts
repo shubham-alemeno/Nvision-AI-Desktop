@@ -554,6 +554,7 @@ export const getPastTasks = async (params: {
   ppid?: string;
   group?: boolean;
   test_type?: string;
+  qa?: boolean;
 }) => {
   return apiCallWithErrorHandling(
     () => {
@@ -565,6 +566,7 @@ export const getPastTasks = async (params: {
       if (params.test_type) queryParams.append('test_type', params.test_type);
 
       queryParams.append('group', (params.group || false).toString());
+      queryParams.append('qa', (params.qa || false).toString());
 
       return api
         .get(`/data/task/past_tasks/?${queryParams.toString()}`)
@@ -584,6 +586,7 @@ export const getPastTasksForExport = async (params: {
   ppid?: string;
   group?: boolean;
   test_type?: string;
+  qa?: boolean;
 }) => {
   return apiCallWithErrorHandling(
     () => {
@@ -606,6 +609,44 @@ export const getPastTasksForExport = async (params: {
   );
 };
 
+// Live Accuracy
+export const getLiveAccuracy = async (params?: {
+  from_date?: string;
+  to_date?: string;
+  start_date?: string;
+  end_date?: string;
+  ppid_filter?: string;
+  ppid?: string[];
+  group?: boolean;
+  test_type?: string;
+  status?: string;
+}) => {
+  return apiCallWithErrorHandling(
+    () => {
+      const queryParams = new URLSearchParams();
+      if (params?.from_date) queryParams.append('from_date', params.from_date);
+      if (params?.to_date) queryParams.append('to_date', params.to_date);
+      if (params?.start_date) queryParams.append('start_date', params.start_date);
+      if (params?.end_date) queryParams.append('end_date', params.end_date);
+      if (params?.ppid_filter) queryParams.append('ppid_filter', params.ppid_filter);
+      if (params?.ppid) {
+        params.ppid.forEach(p => queryParams.append('ppid', p));
+      }
+      if (params?.group !== undefined) queryParams.append('group', params.group.toString());
+      if (params?.test_type) queryParams.append('test_type', params.test_type);
+      if (params?.status) queryParams.append('status', params.status);
+
+      return api
+        .get(`/data/task/live-accuracy/?${queryParams.toString()}`)
+        .then((response) => response.data);
+    },
+    {
+      location: 'getLiveAccuracy',
+      operation: 'live_accuracy_fetch',
+    }
+  );
+};
+
 // Statistics
 export const getPanelStats = async () => {
   return apiCallWithErrorHandling(
@@ -621,28 +662,38 @@ export const getPanelStats = async () => {
 };
 
 // Inference Usage
-export const getInferenceUsage = async () => {
+export const getInferenceUsage = async (qa: boolean = false) => {
   return apiCallWithErrorHandling(
-    () =>
-      api
-        .get('/data/inference-usage/my-usage/')
-        .then((response) => response.data),
+    () => {
+      const queryParams = new URLSearchParams();
+      queryParams.append('qa', qa.toString());
+
+      return api
+        .get(`/data/inference-usage/my-usage/?${queryParams.toString()}`)
+        .then((response) => response.data);
+    },
     {
       location: 'getInferenceUsage',
       operation: 'inference_usage_fetch',
+      extra: { qa: qa.toString() },
     }
   );
 };
 
-export const getGroupInferenceUsage = async () => {
+export const getGroupInferenceUsage = async (qa: boolean = false) => {
   return apiCallWithErrorHandling(
-    () =>
-      api
-        .get('/data/inference-usage/group-usage/')
-        .then((response) => response.data),
+    () => {
+      const queryParams = new URLSearchParams();
+      queryParams.append('qa', qa.toString());
+
+      return api
+        .get(`/data/inference-usage/group-usage/?${queryParams.toString()}`)
+        .then((response) => response.data);
+    },
     {
       location: 'getGroupInferenceUsage',
       operation: 'group_inference_usage_fetch',
+      extra: { qa: qa.toString() },
     }
   );
 };

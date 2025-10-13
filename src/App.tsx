@@ -46,6 +46,7 @@ import AdminUserManagement from "./components/AdminSettingsPage";
 import packageInfo from "../package.json";
 import NTFCheckerPage from "./components/NTFChecker";
 import NftDefectsPage from "./components/NtfDefectsPage";
+import Dashboard from "./components/Dashboard";
 
 declare global {
   interface Window {
@@ -111,7 +112,7 @@ const testPatterns = [
 ];
 
 function App() {
-  const [activePage, setActivePage] = useState("defect-checker");
+  const [activePage, setActivePage] = useState("dashboard");
   const [isCapturing, setIsCapturing] = useState(false);
   const [ppid, setPpid] = useState("");
   const [userData, setUserData] = useState("");
@@ -585,6 +586,7 @@ function App() {
 
   // Map activePage to page title
   const pageTitles = {
+    "dashboard": "Dashboard",
     "defect-checker": "Defect Checker",
     "ntf-checker": "NTF Checker",
     "data-collection": "Data Collection",
@@ -1607,6 +1609,8 @@ function App() {
         );
       case "past-data":
         return <PastDataPage />;
+      case "dashboard":
+        return <Dashboard />;
       case "usage-data":
         return <UsageDataPage />;
       case "admin-settings":

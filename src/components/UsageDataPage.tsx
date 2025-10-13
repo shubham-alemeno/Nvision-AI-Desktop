@@ -24,39 +24,51 @@ interface GroupUsage {
 }
 
 const UsageDataPage = () => {
+  // Defect Checker data
   const [inferenceUsage, setInferenceUsage] = useState<InferenceUsage | null>(
     null
   );
   const [groupUsage, setGroupUsage] = useState<GroupUsage[]>([]);
+
+  // NFT data
+  const [nftInferenceUsage, setNftInferenceUsage] = useState<InferenceUsage | null>(
+    null
+  );
+  const [nftGroupUsage, setNftGroupUsage] = useState<GroupUsage[]>([]);
+
   const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
-  
+  const [error, setError] = useState(null);
+
 
   useEffect(() => {
     const fetchUsageData = async () => {
       try {
-        const [userUsage, groupData] = await Promise.all([
-          getInferenceUsage(),
-          getGroupInferenceUsage(),
+        const [userUsage, groupData, nftUserUsage, nftGroupData] = await Promise.all([
+          getInferenceUsage(false), // Defect Checker
+          getGroupInferenceUsage(false), // Defect Checker
+          getInferenceUsage(true), // NFT
+          getGroupInferenceUsage(true), // NFT
         ]);
         setInferenceUsage(userUsage);
         setGroupUsage(groupData);
+        setNftInferenceUsage(nftUserUsage);
+        setNftGroupUsage(nftGroupData);
       } catch (error) {
         const apiError = error as ApiError;
         console.error('Error fetching usage data:', apiError);
 
         let errorMessage = "Failed to load usage data";
-      
+
       if (apiError.type === 'network') {
         errorMessage = "Network error. Please check your connection and try again.";
       } else if (apiError.type === 'server') {
         errorMessage = "Server error. Please try again later.";
       } else if (apiError.type === 'authentication') {
         errorMessage = "Authentication error. Please log in again.";
-      } 
-      
+      }
+
       setError(errorMessage);
-        
+
         // Set default values instead of showing error
         setInferenceUsage({
           id: 0,
@@ -74,6 +86,22 @@ const UsageDataPage = () => {
           total_inferences: 0,
           average_inferences: 0
         }]);
+        setNftInferenceUsage({
+          id: 0,
+          username: 'N/A',
+          user_email: 'N/A',
+          user_groups: [],
+          inference_count: 0,
+          created_at: '',
+          updated_at: '',
+          last_inference_at: ''
+        });
+        setNftGroupUsage([{
+          group_name: 'N/A',
+          user_count: 0,
+          total_inferences: 0,
+          average_inferences: 0
+        }]);
       } finally {
         setLoading(false);
       }
@@ -82,20 +110,24 @@ const UsageDataPage = () => {
     fetchUsageData();
   }, []);
 
-      const handleRetry = () => {
+  const handleRetry = () => {
     const fetchUsageData = async () => {
       setLoading(true);
       setError(null);
       try {
-  const [userUsage, groupData] = await Promise.all([
-          getInferenceUsage(),
-          getGroupInferenceUsage(),
+        const [userUsage, groupData, nftUserUsage, nftGroupData] = await Promise.all([
+          getInferenceUsage(false), // Defect Checker
+          getGroupInferenceUsage(false), // Defect Checker
+          getInferenceUsage(true), // NFT
+          getGroupInferenceUsage(true), // NFT
         ]);
         setInferenceUsage(userUsage);
         setGroupUsage(groupData);
+        setNftInferenceUsage(nftUserUsage);
+        setNftGroupUsage(nftGroupData);
       } catch (error) {
         const apiError = error as ApiError;
-        console.error("Error fetching defects:", error);
+        console.error("Error fetching usage data:", error);
         let errorMessage = "Failed to load usage data";
         if (apiError.type === "network") {
           errorMessage =
@@ -196,30 +228,41 @@ const UsageDataPage = () => {
               </CardContent>
             </Card>
           </div>
+        </CardContent>
+      </Card>
 
-          {/* <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Last Inference</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-sm">{inferenceUsage?.last_inference_at ? new Date(inferenceUsage.last_inference_at).toLocaleString() : 'Never'}</div>
-          </CardContent>
-        </Card>
+      <Card>
+        <CardHeader>
+          <CardTitle>NTF Usage</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">
+                  Account usage
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {nftInferenceUsage?.overview?.grand_total || 0}
+                </div>
+              </CardContent>
+            </Card>
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Group Details</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="text-sm">
-              <p>Group: {groupUsage[0]?.group_name || 'N/A'}</p>
-              <p>Members: {groupUsage[0]?.user_count || 0}</p>
-              <p>Avg Inferences: {groupUsage[0]?.average_inferences || 0}</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div> */}
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">
+                  Total usage
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">
+                  {nftGroupUsage[0]?.overview?.grand_total || 0}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
         </CardContent>
       </Card>
     </div>
