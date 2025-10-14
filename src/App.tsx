@@ -391,7 +391,7 @@ function App() {
       setUserData(userData.user);
       localStorage.setItem("sentinel_dash_user", JSON.stringify(userData.user));
 
-      setActivePage("defect-checker");
+      setActivePage("dashboard");
       const savedUsername =
         localStorage.getItem("sentinel_dash_username") ||
         userData.user.username ||

@@ -7,41 +7,36 @@ import { Search, RefreshCw, Activity } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAppMode } from "../contexts/appModeContext";
 
-interface DefectAccuracy {
-  defect_name: string;
-  accuracy: number;
+interface DefectMetrics {
+  "True Positive": number;
+  "True Negative": number;
+  "False Positive": number;
+  "False Negative": number;
   total_panels: number;
-  tp: number;
-  tn: number;
-  fp: number;
-  fn: number;
-}
-
-interface NTFAccuracy {
-  defect_name: string;
   accuracy: number;
-  total_panels: number;
-  tp: number;
-  tn: number;
-  fp: number;
-  fn: number;
+  precision: number;
+  recall: number;
+  f1_score: number;
 }
 
 interface AccuracyData {
-  defect_checker_accuracy: {
-    defects: DefectAccuracy[];
+  status: string;
+  defect_accuracy: {
+    [defectName: string]: DefectMetrics;
+  };
+  overall_accuracy: {
     average_accuracy: number;
     combined_accuracy: number;
   };
-  ntf_checker_accuracy: {
-    defects: NTFAccuracy[];
-    average_accuracy: number;
-    combined_accuracy: number;
+  tasks_overview: {
+    total_tasks: number;
+    tasks_with_feedback: number;
   };
 }
 
 function Dashboard() {
-  const [accuracyData, setAccuracyData] = useState<AccuracyData | null>(null);
+  const [defectCheckerData, setDefectCheckerData] = useState<AccuracyData | null>(null);
+  const [ntfCheckerData, setNtfCheckerData] = useState<AccuracyData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [fromDate, setFromDate] = useState("");
@@ -86,9 +81,17 @@ function Dashboard() {
         params.to_date = new Date(toDate).toISOString();
       }
 
-      const data = await getLiveAccuracy(params);
-      console.log("Accuracy Data:", data);
-      setAccuracyData(data);
+      // Fetch both defect checker and NTF checker data in parallel
+      const [defectData, ntfData] = await Promise.all([
+        getLiveAccuracy({ ...params, qa: false }),
+        getLiveAccuracy({ ...params, qa: true }),
+      ]);
+
+      console.log("Defect Checker Data:", defectData);
+      console.log("NTF Checker Data:", ntfData);
+
+      setDefectCheckerData(defectData);
+      setNtfCheckerData(ntfData);
     } catch (error) {
       const apiError = error as ApiError;
       console.error("Error fetching accuracy data:", apiError);
@@ -294,6 +297,18 @@ function Dashboard() {
           <div className="mb-8">
             <h2 className="text-xl font-bold mb-4">Defect Checker Accuracy</h2>
 
+            {/* Tasks Overview */}
+            {defectCheckerData?.tasks_overview && (
+              <div className="mb-4 p-4 bg-blue-50 rounded-lg">
+                <p className="text-sm font-medium">
+                  Total Tasks: {defectCheckerData.tasks_overview.total_tasks}
+                </p>
+                <p className="text-sm font-medium">
+                  Tasks with Feedback: {defectCheckerData.tasks_overview.tasks_with_feedback}
+                </p>
+              </div>
+            )}
+
             <div className="overflow-x-auto mb-4">
               <table className="min-w-full table-auto border-collapse border border-gray-200">
                 <thead className="bg-gray-50">
@@ -305,7 +320,16 @@ function Dashboard() {
                       Accuracy
                     </th>
                     <th className="border border-gray-200 px-4 py-3 text-left font-semibold text-sm">
-                      Total Panels Tested
+                      Precision
+                    </th>
+                    <th className="border border-gray-200 px-4 py-3 text-left font-semibold text-sm">
+                      Recall
+                    </th>
+                    <th className="border border-gray-200 px-4 py-3 text-left font-semibold text-sm">
+                      F1 Score
+                    </th>
+                    <th className="border border-gray-200 px-4 py-3 text-left font-semibold text-sm">
+                      Total Panels
                     </th>
                     <th className="border border-gray-200 px-4 py-3 text-left font-semibold text-sm">
                       TP
@@ -322,33 +346,46 @@ function Dashboard() {
                   </tr>
                 </thead>
                 <tbody>
-                  {accuracyData?.defect_checker_accuracy?.defects?.map(
-                    (defect, idx) => (
-                      <tr key={idx} className="hover:bg-gray-50">
-                        <td className="border border-gray-200 px-4 py-3 text-sm">
-                          {defect.defect_name}
-                        </td>
-                        <td className="border border-gray-200 px-4 py-3 text-sm">
-                          {formatPercentage(defect.accuracy)}
-                        </td>
-                        <td className="border border-gray-200 px-4 py-3 text-sm">
-                          {defect.total_panels}
-                        </td>
-                        <td className="border border-gray-200 px-4 py-3 text-sm">
-                          {defect.tp}
-                        </td>
-                        <td className="border border-gray-200 px-4 py-3 text-sm">
-                          {defect.tn}
-                        </td>
-                        <td className="border border-gray-200 px-4 py-3 text-sm">
-                          {defect.fp}
-                        </td>
-                        <td className="border border-gray-200 px-4 py-3 text-sm">
-                          {defect.fn}
-                        </td>
-                      </tr>
-                    )
-                  )}
+                  {defectCheckerData?.defect_accuracy &&
+                    Object.entries(defectCheckerData.defect_accuracy).map(
+                      ([defectName, metrics], idx) => {
+                        const typedMetrics = metrics as DefectMetrics;
+                        return (
+                          <tr key={idx} className="hover:bg-gray-50">
+                            <td className="border border-gray-200 px-4 py-3 text-sm">
+                              {defectName}
+                            </td>
+                            <td className="border border-gray-200 px-4 py-3 text-sm">
+                              {formatPercentage(typedMetrics.accuracy)}
+                            </td>
+                            <td className="border border-gray-200 px-4 py-3 text-sm">
+                              {formatPercentage(typedMetrics.precision)}
+                            </td>
+                            <td className="border border-gray-200 px-4 py-3 text-sm">
+                              {formatPercentage(typedMetrics.recall)}
+                            </td>
+                            <td className="border border-gray-200 px-4 py-3 text-sm">
+                              {formatPercentage(typedMetrics.f1_score)}
+                            </td>
+                            <td className="border border-gray-200 px-4 py-3 text-sm">
+                              {typedMetrics.total_panels}
+                            </td>
+                            <td className="border border-gray-200 px-4 py-3 text-sm">
+                              {typedMetrics["True Positive"]}
+                            </td>
+                            <td className="border border-gray-200 px-4 py-3 text-sm">
+                              {typedMetrics["True Negative"]}
+                            </td>
+                            <td className="border border-gray-200 px-4 py-3 text-sm">
+                              {typedMetrics["False Positive"]}
+                            </td>
+                            <td className="border border-gray-200 px-4 py-3 text-sm">
+                              {typedMetrics["False Negative"]}
+                            </td>
+                          </tr>
+                        );
+                      }
+                    )}
                 </tbody>
               </table>
             </div>
@@ -356,18 +393,18 @@ function Dashboard() {
             {/* Average and Combined Accuracy */}
             <div className="space-y-2">
               <p className="text-lg font-semibold">
-                Average Defect Checker Accuracy:{" "}
-                {accuracyData?.defect_checker_accuracy?.average_accuracy
+                Average Accuracy:{" "}
+                {defectCheckerData?.overall_accuracy?.average_accuracy
                   ? formatPercentage(
-                      accuracyData.defect_checker_accuracy.average_accuracy
+                      defectCheckerData.overall_accuracy.average_accuracy
                     )
                   : "N/A"}
               </p>
               <p className="text-lg font-semibold">
-                Combined Defect Checker Accuracy:{" "}
-                {accuracyData?.defect_checker_accuracy?.combined_accuracy
+                Combined Accuracy:{" "}
+                {defectCheckerData?.overall_accuracy?.combined_accuracy
                   ? formatPercentage(
-                      accuracyData.defect_checker_accuracy.combined_accuracy
+                      defectCheckerData.overall_accuracy.combined_accuracy
                     )
                   : "N/A"}
               </p>
@@ -378,6 +415,18 @@ function Dashboard() {
           <div>
             <h2 className="text-xl font-bold mb-4">NTF Checker Accuracy</h2>
 
+            {/* Tasks Overview */}
+            {ntfCheckerData?.tasks_overview && (
+              <div className="mb-4 p-4 bg-blue-50 rounded-lg">
+                <p className="text-sm font-medium">
+                  Total Tasks: {ntfCheckerData.tasks_overview.total_tasks}
+                </p>
+                <p className="text-sm font-medium">
+                  Tasks with Feedback: {ntfCheckerData.tasks_overview.tasks_with_feedback}
+                </p>
+              </div>
+            )}
+
             <div className="overflow-x-auto mb-4">
               <table className="min-w-full table-auto border-collapse border border-gray-200">
                 <thead className="bg-gray-50">
@@ -389,7 +438,16 @@ function Dashboard() {
                       Accuracy
                     </th>
                     <th className="border border-gray-200 px-4 py-3 text-left font-semibold text-sm">
-                      Total Panels Tested
+                      Precision
+                    </th>
+                    <th className="border border-gray-200 px-4 py-3 text-left font-semibold text-sm">
+                      Recall
+                    </th>
+                    <th className="border border-gray-200 px-4 py-3 text-left font-semibold text-sm">
+                      F1 Score
+                    </th>
+                    <th className="border border-gray-200 px-4 py-3 text-left font-semibold text-sm">
+                      Total Panels
                     </th>
                     <th className="border border-gray-200 px-4 py-3 text-left font-semibold text-sm">
                       TP
@@ -406,33 +464,46 @@ function Dashboard() {
                   </tr>
                 </thead>
                 <tbody>
-                  {accuracyData?.ntf_checker_accuracy?.defects?.map(
-                    (defect, idx) => (
-                      <tr key={idx} className="hover:bg-gray-50">
-                        <td className="border border-gray-200 px-4 py-3 text-sm">
-                          {defect.defect_name}
-                        </td>
-                        <td className="border border-gray-200 px-4 py-3 text-sm">
-                          {formatPercentage(defect.accuracy)}
-                        </td>
-                        <td className="border border-gray-200 px-4 py-3 text-sm">
-                          {defect.total_panels}
-                        </td>
-                        <td className="border border-gray-200 px-4 py-3 text-sm">
-                          {defect.tp}
-                        </td>
-                        <td className="border border-gray-200 px-4 py-3 text-sm">
-                          {defect.tn}
-                        </td>
-                        <td className="border border-gray-200 px-4 py-3 text-sm">
-                          {defect.fp}
-                        </td>
-                        <td className="border border-gray-200 px-4 py-3 text-sm">
-                          {defect.fn}
-                        </td>
-                      </tr>
-                    )
-                  )}
+                  {ntfCheckerData?.defect_accuracy &&
+                    Object.entries(ntfCheckerData.defect_accuracy).map(
+                      ([defectName, metrics], idx) => {
+                        const typedMetrics = metrics as DefectMetrics;
+                        return (
+                          <tr key={idx} className="hover:bg-gray-50">
+                            <td className="border border-gray-200 px-4 py-3 text-sm">
+                              {defectName}
+                            </td>
+                            <td className="border border-gray-200 px-4 py-3 text-sm">
+                              {formatPercentage(typedMetrics.accuracy)}
+                            </td>
+                            <td className="border border-gray-200 px-4 py-3 text-sm">
+                              {formatPercentage(typedMetrics.precision)}
+                            </td>
+                            <td className="border border-gray-200 px-4 py-3 text-sm">
+                              {formatPercentage(typedMetrics.recall)}
+                            </td>
+                            <td className="border border-gray-200 px-4 py-3 text-sm">
+                              {formatPercentage(typedMetrics.f1_score)}
+                            </td>
+                            <td className="border border-gray-200 px-4 py-3 text-sm">
+                              {typedMetrics.total_panels}
+                            </td>
+                            <td className="border border-gray-200 px-4 py-3 text-sm">
+                              {typedMetrics["True Positive"]}
+                            </td>
+                            <td className="border border-gray-200 px-4 py-3 text-sm">
+                              {typedMetrics["True Negative"]}
+                            </td>
+                            <td className="border border-gray-200 px-4 py-3 text-sm">
+                              {typedMetrics["False Positive"]}
+                            </td>
+                            <td className="border border-gray-200 px-4 py-3 text-sm">
+                              {typedMetrics["False Negative"]}
+                            </td>
+                          </tr>
+                        );
+                      }
+                    )}
                 </tbody>
               </table>
             </div>
@@ -440,18 +511,18 @@ function Dashboard() {
             {/* Average and Combined Accuracy */}
             <div className="space-y-2">
               <p className="text-lg font-semibold">
-                Average NTF Checker Accuracy:{" "}
-                {accuracyData?.ntf_checker_accuracy?.average_accuracy
+                Average Accuracy:{" "}
+                {ntfCheckerData?.overall_accuracy?.average_accuracy
                   ? formatPercentage(
-                      accuracyData.ntf_checker_accuracy.average_accuracy
+                      ntfCheckerData.overall_accuracy.average_accuracy
                     )
                   : "N/A"}
               </p>
               <p className="text-lg font-semibold">
-                Combined NTF Checker Accuracy:{" "}
-                {accuracyData?.ntf_checker_accuracy?.combined_accuracy
+                Combined Accuracy:{" "}
+                {ntfCheckerData?.overall_accuracy?.combined_accuracy
                   ? formatPercentage(
-                      accuracyData.ntf_checker_accuracy.combined_accuracy
+                      ntfCheckerData.overall_accuracy.combined_accuracy
                     )
                   : "N/A"}
               </p>

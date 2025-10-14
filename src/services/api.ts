@@ -620,6 +620,7 @@ export const getLiveAccuracy = async (params?: {
   group?: boolean;
   test_type?: string;
   status?: string;
+  qa?: boolean;
 }) => {
   return apiCallWithErrorHandling(
     () => {
@@ -635,6 +636,7 @@ export const getLiveAccuracy = async (params?: {
       if (params?.group !== undefined) queryParams.append('group', params.group.toString());
       if (params?.test_type) queryParams.append('test_type', params.test_type);
       if (params?.status) queryParams.append('status', params.status);
+      if (params?.qa !== undefined) queryParams.append('qa', params.qa.toString());
 
       return api
         .get(`/data/task/live-accuracy/?${queryParams.toString()}`)
@@ -643,6 +645,7 @@ export const getLiveAccuracy = async (params?: {
     {
       location: 'getLiveAccuracy',
       operation: 'live_accuracy_fetch',
+      extra: { qa: params?.qa?.toString() },
     }
   );
 };
