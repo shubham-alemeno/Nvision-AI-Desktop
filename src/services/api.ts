@@ -516,19 +516,27 @@ export const getLatestTask = (retryResponse: any) => {
 //Feedback
 export const submitFeedback = async (
   taskUuid: string,
-  feedback: Record<string, { feedback: boolean }>
+  feedback: Record<string, { feedback: boolean }>,
+  qa: boolean = false
 ) => {
   return apiCallWithErrorHandling(
-    () =>
-      api
-        .post(`/data/task/${taskUuid}/feedback/`, { feedback })
-        .then((response) => response.data),
+    () => {
+      const queryParams = new URLSearchParams();
+      if (qa) queryParams.append('qa', 'true');
+
+      const url = `/data/task/${taskUuid}/feedback/${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+
+      return api
+        .post(url, { feedback })
+        .then((response) => response.data);
+    },
     {
       location: 'submitFeedback',
       operation: 'feedback_submission',
       extra: {
         taskUuid,
         feedbackCount: Object.keys(feedback).length,
+        qa: qa.toString(),
       },
     }
   );

@@ -586,7 +586,7 @@ function App() {
 
   // Map activePage to page title
   const pageTitles = {
-    "dashboard": "Dashboard",
+    dashboard: "Dashboard",
     "defect-checker": "Defect Checker",
     "ntf-checker": "NTF Checker",
     "data-collection": "Data Collection",
@@ -1820,6 +1820,7 @@ function App() {
                     <div className="w-full max-w-2xl p-4">
                       <NftDefectsPage
                         defects={predictedDefects}
+                        taskUuid={taskid}
                         onGoHome={resetNftAndGoBack}
                       />
                     </div>
