@@ -34,72 +34,65 @@ const data = {
     },
   ],
   navMain: [
+    // OPERATIONS Section
     {
       title: 'Dashboard',
       url: '#dashboard',
       icon: LayoutDashboard,
       isActive: true,
+      section: 'operations',
+    },
+    {
+      title: 'Defect Checker',
+      url: '#defect-checker',
+      icon: Gpu,
+      section: 'operations',
+    },
+    {
+      title: 'NTF Checker',
+      url: '#ntf-checker',
+      icon: Bot,
+      section: 'operations',
     },
     {
       title: 'Data Collection',
       url: '#data-collection',
       icon: SquareTerminal,
       isActive: true,
+      section: 'operations',
     },
-    {
-      title: 'Defect Checker',
-      url: '#defect-checker',
-      icon: Gpu,
-      items: [],
-    },
-    {
-      title: 'NTF Checker',
-      url: '#ntf-checker',
-      icon: Bot,
-      items: [],
-    },
+    // HISTORY & REPORTS Section
     {
       title: 'Past Data',
       url: '#past-data',
       icon: History,
-      items: [],
+      section: 'history',
     },
     {
-      title: 'Data Collection Summary',
+      title: 'Summary',
       url: '#summary',
       icon: BookOpen,
-      items: [],
+      section: 'history',
     },
     {
-      title: 'App settings',
-      url: '#settings',
+      title: 'Usage Data',
+      url: '#usage-data',
+      icon: NotepadText,
+      section: 'history',
+    },
+    // SETTINGS Section (Flattened - no more collapsible)
+    {
+      title: 'Pattern EBC',
+      url: '#pattern-ebc',
       icon: Settings2,
-      items: [
-        {
-          title: 'Defect Checker Usage',
-          url: '#usage-data',
-        },
-        {
-          title: 'Pattern EBC',
-          url: '#pattern-ebc',
-        },
-        {
-          title: 'Admin Settings',
-          url: '#admin-settings',
-        },
-        // {
-        //   title: 'Defect Configuration',
-        //   url: '#defect-configuration',
-        // },
-        // {
-        //   title: 'Team',
-        //   url: '#settings-team',
-        // },
-        // {
-        //   title: 'Billing',
-        //   url: '#settings-billing',
-        // },
-      ],
+      section: 'settings',
+    },
+    {
+      title: 'Admin Settings',
+      url: '#admin-settings',
+      icon: CheckCheck,
+      section: 'settings',
+      requiresAdmin: true,
     },
   ],
 };
@@ -127,21 +120,21 @@ const AppSidebar = ({
       className="top-8 h-[calc(100vh-32px)]"
     >
       <SidebarHeader>
-        <div className="flex flex-col gap-2 w-full">
+        <div className="flex flex-col w-full">
           <TeamSwitcher teams={data.teams} />
-          <div className="mt-2">
+          <div className={`${state === 'expanded' ? 'mt-3' : 'mt-2'}`}>
+            {/* Expanded State - Full Toggle */}
             <div
-              className={`transition-all duration-200 overflow-hidden ${
+              className={`overflow-hidden ${
                 state === 'expanded'
-                  ? 'max-h-20 opacity-100'
-                  : 'max-h-0 opacity-0 pointer-events-none'
+                  ? 'max-h-16 opacity-100 mb-0'
+                  : 'max-h-0 opacity-0 pointer-events-none mb-0'
               }`}
             >
-              <div className="flex items-center justify-center">
-                {/* <span className="font-semibold text-xs">App mode:</span> */}
-                <div className="flex bg-gray-200 dark:bg-gray-700 rounded-lg p-1">
+              <div className="flex items-center justify-center px-2">
+                <div className="flex bg-gray-200 dark:bg-gray-700 rounded-lg p-1 w-full">
                   <button
-                    className={`px-4 py-2 rounded-md text-xs font-medium transition-all duration-200 ${
+                    className={`flex-1 py-2 rounded-md text-xs font-medium ${
                       !isTestMode
                         ? 'bg-green-500 dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm'
                         : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
@@ -151,7 +144,7 @@ const AppSidebar = ({
                     Production
                   </button>
                   <button
-                    className={`px-4 py-2 rounded-md text-xs font-medium transition-all duration-200 ${
+                    className={`flex-1 py-2 rounded-md text-xs font-medium ${
                       isTestMode
                         ? 'bg-yellow-500 dark:bg-gray-800 text-gray-900 dark:text-white shadow-sm'
                         : 'text-gray-600 dark:text-gray-400 hover:text-gray-900 dark:hover:text-white'
@@ -163,18 +156,20 @@ const AppSidebar = ({
                 </div>
               </div>
             </div>
+
+            {/* Collapsed State - Icon Only */}
             <div
-              className={`transition-all duration-200 flex items-center justify-center ${
+              className={`flex items-center justify-center ${
                 state !== 'expanded'
                   ? 'opacity-100 max-h-10'
                   : 'opacity-0 max-h-0 pointer-events-none'
               }`}
             >
               <button
-                className={`w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200 ${
+                className={`w-8 h-8 rounded-full flex items-center justify-center ${
                   isTestMode
-                    ? 'bg-yellow-500 text-gray-900 shadow-sm'
-                    : 'bg-green-500 text-gray-900 shadow-sm'
+                    ? 'bg-yellow-500 text-gray-900 shadow-md hover:shadow-lg'
+                    : 'bg-green-500 text-gray-900 shadow-md hover:shadow-lg'
                 }`}
                 title={isTestMode ? 'Test Mode' : 'Production Mode'}
                 onClick={() => setIsTestMode(!isTestMode)}

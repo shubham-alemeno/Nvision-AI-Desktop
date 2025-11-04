@@ -6,6 +6,7 @@ import {
 } from '@/components/ui/collapsible';
 import {
   SidebarGroup,
+  SidebarGroupLabel,
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
@@ -13,6 +14,7 @@ import {
   SidebarMenuSubButton,
   SidebarMenuSubItem,
 } from '@/components/ui/sidebar';
+import { Separator } from '@/components/ui/separator';
 
 interface NavMainProps {
   items: {
@@ -20,6 +22,8 @@ interface NavMainProps {
     url: string;
     icon?: LucideIcon;
     isActive?: boolean;
+    section?: string;
+    requiresAdmin?: boolean;
     items?: {
       title: string;
       url: string;
@@ -62,95 +66,123 @@ const hasAdminPermissions = (userData: any): boolean => {
 
   // Filter navigation items based on permissions
   const getFilteredNavItems = () => {
-    return items.map((item) => {
-      if (item.title === 'App settings' && item.items) {
-        // Filter sub-items for App settings
-        const filteredSubItems = item.items.filter((subItem) => {
-          if (subItem.title === 'Admin Settings') {
-            return hasAdminPermissions(userData);
-          }
-          return true; // Show other sub-items
-        });
-
-        return {
-          ...item,
-          items: filteredSubItems,
-        };
+    return items.filter((item) => {
+      // Check if item requires admin permissions
+      if (item.requiresAdmin) {
+        return hasAdminPermissions(userData);
       }
-      return item;
+      return true;
     });
   };
 
   const filteredItems = getFilteredNavItems();
 
+  // Group items by section
+  const groupedItems = filteredItems.reduce((acc, item) => {
+    const section = item.section || 'other';
+    if (!acc[section]) {
+      acc[section] = [];
+    }
+    acc[section].push(item);
+    return acc;
+  }, {} as Record<string, typeof filteredItems>);
+
+  // Define section labels
+  const sectionLabels: Record<string, string> = {
+    operations: 'OPERATIONS',
+    history: 'HISTORY & REPORTS',
+    settings: 'SETTINGS',
+  };
+
+  // Define section order
+  const sectionOrder = ['operations', 'history', 'settings'];
+
   return (
-    <SidebarGroup>
-      <SidebarMenu>
-        {filteredItems.map((item) => {
-          if (!item.items || item.items.length === 0) {
-            const pageKey = getPageKey(item.url);
-            return (
-              <SidebarMenuItem key={item.title}>
-                <SidebarMenuButton
-                  tooltip={item.title}
-                  isActive={activePage === pageKey}
-                  onClick={() => onNavigate(pageKey)}
-                >
-                  {item.icon && <item.icon />}
-                  <span>{item.title}</span>
-                </SidebarMenuButton>
-              </SidebarMenuItem>
-            );
-          }
-          // If item has subitems, render as collapsible
-          return (
-            <Collapsible
-              key={item.title}
-              asChild
-              defaultOpen={item.isActive}
-              className="group/collapsible"
-            >
-              <SidebarMenuItem>
-                <CollapsibleTrigger asChild>
-                  <SidebarMenuButton
-                    tooltip={item.title}
-                    isActive={
-                      activePage === getPageKey(item.url) ||
-                      item.items.some(
-                        (sub) => activePage === getPageKey(sub.url)
-                      )
-                    }
-                  >
-                    {item.icon && <item.icon />}
-                    <span>{item.title}</span>
-                    <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
-                  </SidebarMenuButton>
-                </CollapsibleTrigger>
-                <CollapsibleContent>
-                  <SidebarMenuSub>
-                    {item.items?.map((subItem) => {
-                      const subPageKey = getPageKey(subItem.url);
-                      return (
-                        <SidebarMenuSubItem
-                          key={subItem.title}
-                          className="cursor-pointer"
+    <>
+      {sectionOrder.map((sectionKey, sectionIndex) => {
+        const sectionItems = groupedItems[sectionKey];
+        if (!sectionItems || sectionItems.length === 0) return null;
+
+        return (
+          <div key={sectionKey}>
+            <SidebarGroup>
+              <SidebarGroupLabel className="text-xs font-semibold text-gray-500 uppercase tracking-wider px-2 mb-1">
+                {sectionLabels[sectionKey]}
+              </SidebarGroupLabel>
+              <SidebarMenu>
+                {sectionItems.map((item) => {
+                  if (!item.items || item.items.length === 0) {
+                    const pageKey = getPageKey(item.url);
+                    return (
+                      <SidebarMenuItem key={item.title}>
+                        <SidebarMenuButton
+                          tooltip={item.title}
+                          isActive={activePage === pageKey}
+                          onClick={() => onNavigate(pageKey)}
                         >
-                          <SidebarMenuSubButton
-                            isActive={activePage === subPageKey}
-                            onClick={() => onNavigate(subPageKey)}
+                          {item.icon && <item.icon />}
+                          <span>{item.title}</span>
+                        </SidebarMenuButton>
+                      </SidebarMenuItem>
+                    );
+                  }
+                  // If item has subitems, render as collapsible
+                  return (
+                    <Collapsible
+                      key={item.title}
+                      asChild
+                      defaultOpen={item.isActive}
+                      className="group/collapsible"
+                    >
+                      <SidebarMenuItem>
+                        <CollapsibleTrigger asChild>
+                          <SidebarMenuButton
+                            tooltip={item.title}
+                            isActive={
+                              activePage === getPageKey(item.url) ||
+                              item.items.some(
+                                (sub) => activePage === getPageKey(sub.url)
+                              )
+                            }
                           >
-                            <span>{subItem.title}</span>
-                          </SidebarMenuSubButton>
-                        </SidebarMenuSubItem>
-                      );
-                    })}
-                  </SidebarMenuSub>
-                </CollapsibleContent>
-              </SidebarMenuItem>
-            </Collapsible>
-          );
-        })}
-      </SidebarMenu>
-    </SidebarGroup>
+                            {item.icon && <item.icon />}
+                            <span>{item.title}</span>
+                            <ChevronRight className="ml-auto transition-transform duration-200 group-data-[state=open]/collapsible:rotate-90" />
+                          </SidebarMenuButton>
+                        </CollapsibleTrigger>
+                        <CollapsibleContent>
+                          <SidebarMenuSub>
+                            {item.items?.map((subItem) => {
+                              const subPageKey = getPageKey(subItem.url);
+                              return (
+                                <SidebarMenuSubItem
+                                  key={subItem.title}
+                                  className="cursor-pointer"
+                                >
+                                  <SidebarMenuSubButton
+                                    isActive={activePage === subPageKey}
+                                    onClick={() => onNavigate(subPageKey)}
+                                  >
+                                    <span>{subItem.title}</span>
+                                  </SidebarMenuSubButton>
+                                </SidebarMenuSubItem>
+                              );
+                            })}
+                          </SidebarMenuSub>
+                        </CollapsibleContent>
+                      </SidebarMenuItem>
+                    </Collapsible>
+                  );
+                })}
+              </SidebarMenu>
+            </SidebarGroup>
+            {/* Add separator between sections, except for the last one */}
+            {sectionIndex < sectionOrder.length - 1 && (
+              <Separator className="my-2" />
+            )}
+          </div>
+        );
+      })}
+    </>
   );
 }

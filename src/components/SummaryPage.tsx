@@ -138,12 +138,6 @@ const SummaryPage: React.FC = () => {
         </div>
       </CardHeader>
       <CardContent>
-        <div className="flex items-center gap-4 mb-2">
-          <span className="font-semibold">App mode:</span>
-          <span className="text-xs font-semibold px-2 py-1 rounded bg-gray-200 dark:bg-gray-700">
-            {isTestMode ? "Test" : "Production"}
-          </span>
-        </div>
         {statsLoading ? (
           <p>Loading statistics...</p>
         ) : (

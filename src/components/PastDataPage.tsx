@@ -3,9 +3,13 @@ import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { getPastTasks, ApiError, getPastTasksForExport } from "@/services/api";
-import { Search, Download, RefreshCw, Loader2 } from "lucide-react";
+import { Search, Download, RefreshCw, Loader2, ChevronDown, ChevronUp, Calendar, X, Database, ImageIcon, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useAppMode } from "../contexts/appModeContext";
+import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
+import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { Skeleton } from "@/components/ui/skeleton";
 
 function PastDataPage() {
   const [pastTasks, setPastTasks] = useState([]);
@@ -23,6 +27,10 @@ function PastDataPage() {
   const [isExporting, setIsExporting] = useState(false);
   const [isNTFMode, setIsNTFMode] = useState(false); // false = Defect Checker, true = NTF
   const { isTestMode } = useAppMode();
+
+  // UI state
+  const [filtersOpen, setFiltersOpen] = useState(false);
+  const [jumpToPage, setJumpToPage] = useState("");
 
   const fetchPastTasks = async (page = 1, overrides = {}) => {
     try {
@@ -377,10 +385,10 @@ function PastDataPage() {
   //   );
   // };
 
-  // Alternative: Use only one state
+  // Alternative: Use badges for compact display
   const renderPredictions = (predictions) => {
     if (!predictions) {
-      return <span className="text-gray-500">-</span>;
+      return <span className="text-gray-500 text-sm">-</span>;
     }
 
     const items = Object.keys(predictions)
@@ -397,15 +405,15 @@ function PastDataPage() {
       .filter(Boolean);
 
     return items.length > 0 ? (
-      <div className="space-y-1">
+      <div className="flex flex-wrap gap-0.5 max-h-20 overflow-y-auto">
         {items.map((item, idx) => (
-          <div key={idx} className="text-black font-medium">
+          <Badge key={idx} className="text-[11px] px-1.5 py-0 bg-blue-100 text-blue-800 border-blue-200">
             {item}
-          </div>
+          </Badge>
         ))}
       </div>
     ) : (
-      <span className="text-gray-500">-</span>
+      <span className="text-gray-500 text-sm">-</span>
     );
   };
 
@@ -426,33 +434,326 @@ function PastDataPage() {
     return <span className="text-gray-500">N/A</span>;
   };
 
-  // Updated function to render correction categories with each defect on a new line
-  const renderCorrectionCategory = (items) => {
+  // Updated function to render correction categories with badges in a scrollable container
+  const renderCorrectionCategory = (items, color = 'gray') => {
     if (!items || items.length === 0) {
-      return <span className="text-gray-500">-</span>;
+      return <span className="text-gray-500 text-sm">-</span>;
     }
 
+    // Color mapping for badges
+    const colorClasses = {
+      green: 'bg-green-100 text-green-800 border-green-200',
+      red: 'bg-red-100 text-red-800 border-red-200',
+      gray: 'bg-gray-100 text-gray-800 border-gray-200'
+    };
+
+    const badgeClass = colorClasses[color] || colorClasses.gray;
+
     return (
-      <div className="space-y-1">
+      <div className="flex flex-wrap gap-0.5 max-h-20 overflow-y-auto">
         {items.map((item, idx) => (
-          <div key={idx} className="text-black font-medium">
+          <Badge key={idx} className={`text-[11px] px-1.5 py-0 ${badgeClass}`}>
             {item}
-          </div>
+          </Badge>
         ))}
       </div>
     );
   };
 
-  if (loading) {
+  // Function to open panel images in a new window
+  const openImagesWindow = (panelImages: any, ppid: string) => {
+    if (!panelImages) {
+      alert("No images available for this panel");
+      return;
+    }
+
+    // Create HTML content for the new window
+    const imageOrder = [
+      'white', 'black', 'cyan', 'gray50', 'red', 'green', 'blue',
+      'gray75', 'grayvertical', 'colorbars', 'focus', 'blackwithwhiteborder',
+      'crosshatch', '16bargray', 'black&white', 'scratches'
+    ];
+
+    const imageLabels: Record<string, string> = {
+      'white': 'White (AAA)',
+      'black': 'Black (BBB)',
+      'cyan': 'Cyan (CCC)',
+      'gray50': 'Gray 50 (DDD)',
+      'red': 'Red (EEE)',
+      'green': 'Green (FFF)',
+      'blue': 'Blue (GGG)',
+      'gray75': 'Gray 75 (HHH)',
+      'grayvertical': 'Gray Vertical (III)',
+      'colorbars': 'Color Bars (JJJ)',
+      'focus': 'Focus (KKK)',
+      'blackwithwhiteborder': 'Black with White Border (LLL)',
+      'crosshatch': 'Cross Hatch (MMM)',
+      '16bargray': '16 Bar Gray (NNN)',
+      'black&white': 'Black & White (OOO)',
+      'scratches': 'Scratches'
+    };
+
+    // Create image data object for download function
+    const imageData = imageOrder
+      .filter(key => panelImages[key])
+      .map(key => ({
+        url: panelImages[key],
+        filename: `${imageLabels[key].replace(/[^a-zA-Z0-9]/g, '_')}.png`
+      }));
+
+    const imagesHTML = imageOrder
+      .filter(key => panelImages[key])
+      .map(key => `
+        <div style="margin-bottom: 20px; page-break-inside: avoid;">
+          <h3 style="margin: 10px 0; font-size: 16px; font-weight: bold;">${imageLabels[key]}</h3>
+          <img src="${panelImages[key]}"
+               style="max-width: 100%; height: auto; border: 1px solid #ccc; border-radius: 4px;"
+               alt="${imageLabels[key]}" />
+        </div>
+      `)
+      .join('');
+
+    const htmlContent = `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <title>Panel Images - ${ppid}</title>
+          <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+          <style>
+            body {
+              font-family: Arial, sans-serif;
+              padding: 20px;
+              background-color: #f5f5f5;
+            }
+            h1 {
+              color: #333;
+              margin-bottom: 10px;
+            }
+            .header {
+              display: flex;
+              justify-content: space-between;
+              align-items: center;
+              margin-bottom: 20px;
+            }
+            .download-btn {
+              background-color: #10b981;
+              color: white;
+              border: none;
+              padding: 10px 20px;
+              border-radius: 6px;
+              cursor: pointer;
+              font-size: 14px;
+              font-weight: 600;
+              display: flex;
+              align-items: center;
+              gap: 8px;
+            }
+            .download-btn:hover {
+              background-color: #059669;
+            }
+            .download-btn:disabled {
+              background-color: #9ca3af;
+              cursor: not-allowed;
+            }
+            .container {
+              max-width: 1200px;
+              margin: 0 auto;
+              background: white;
+              padding: 20px;
+              border-radius: 8px;
+              box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            }
+            @media print {
+              body { background: white; }
+              .container { box-shadow: none; }
+              .download-btn { display: none; }
+            }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <div class="header">
+              <h1>Panel Images - ${ppid}</h1>
+              <button class="download-btn" onclick="downloadAllImages()" id="downloadBtn">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
+                  <polyline points="7 10 12 15 17 10"></polyline>
+                  <line x1="12" y1="15" x2="12" y2="3"></line>
+                </svg>
+                Download All as ZIP
+              </button>
+            </div>
+            ${imagesHTML}
+          </div>
+
+          <script>
+            const imageData = ${JSON.stringify(imageData)};
+            const ppid = "${ppid}";
+
+            async function downloadAllImages() {
+              const btn = document.getElementById('downloadBtn');
+              btn.disabled = true;
+              btn.innerHTML = '<span>Downloading...</span>';
+
+              try {
+                const zip = new JSZip();
+                const imgFolder = zip.folder("${ppid}_images");
+
+                // Fetch all images and add to ZIP
+                const promises = imageData.map(async (img) => {
+                  try {
+                    const response = await fetch(img.url);
+                    const blob = await response.blob();
+                    imgFolder.file(img.filename, blob);
+                  } catch (error) {
+                    console.error('Error fetching image:', img.url, error);
+                  }
+                });
+
+                await Promise.all(promises);
+
+                // Generate ZIP file
+                const content = await zip.generateAsync({type: 'blob'});
+
+                // Download ZIP
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(content);
+                link.download = ppid + '_images.zip';
+                link.click();
+
+                btn.disabled = false;
+                btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>Download All as ZIP';
+              } catch (error) {
+                console.error('Error creating ZIP:', error);
+                alert('Failed to download images. Please try again.');
+                btn.disabled = false;
+                btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>Download All as ZIP';
+              }
+            }
+          </script>
+        </body>
+      </html>
+    `;
+
+    // Open new window
+    const newWindow = window.open('', '_blank');
+    if (newWindow) {
+      newWindow.document.write(htmlContent);
+      newWindow.document.close();
+    } else {
+      alert("Please allow pop-ups to view images");
+    }
+  };
+
+  // Helper function to count active filters
+  const getActiveFilterCount = () => {
+    let count = 0;
+    if (fromDate) count++;
+    if (toDate) count++;
+    if (ppidSearch) count++;
+    if (!groupFilter) count++; // Count non-default values
+    return count;
+  };
+
+  // Helper function to get active filter summary
+  const getActiveFilterSummary = () => {
+    const filters = [];
+    if (fromDate) filters.push({ label: "From", value: fromDate, key: "from" });
+    if (toDate) filters.push({ label: "To", value: toDate, key: "to" });
+    if (ppidSearch) filters.push({ label: "PPID", value: ppidSearch, key: "ppid" });
+    if (!groupFilter) filters.push({ label: "Group", value: "This Account", key: "group" });
+    return filters;
+  };
+
+  // Helper function to clear individual filter
+  const clearFilter = (key: string) => {
+    if (key === "from") setFromDate("");
+    if (key === "to") setToDate("");
+    if (key === "ppid") setPpidSearch("");
+    if (key === "group") setGroupFilter(true);
+  };
+
+  // Helper function to truncate text
+  const truncateText = (text, maxLength = 50) => {
+    if (!text) return "";
+    if (text.length <= maxLength) return text;
+    return text.substring(0, maxLength) + "...";
+  };
+
+  // Quick filter functions
+  const setQuickDateFilter = (days) => {
+    const today = new Date();
+    const toDateStr = today.toISOString().split("T")[0];
+
+    if (days === 0) {
+      // Today
+      setFromDate(toDateStr);
+      setToDate(toDateStr);
+    } else {
+      // Last N days
+      const fromDateObj = new Date();
+      fromDateObj.setDate(fromDateObj.getDate() - days);
+      setFromDate(fromDateObj.toISOString().split("T")[0]);
+      setToDate(toDateStr);
+    }
+  };
+
+  // Handle page jump
+  const handlePageJump = () => {
+    const pageNum = parseInt(jumpToPage);
+    if (pageNum && pageNum > 0 && pageNum <= totalPages) {
+      setCurrentPage(pageNum);
+      setJumpToPage("");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  };
+
+  if (loading && currentPage === 1) {
     return (
-      <div className="max-w-full mx-auto space-y-6 p-4">
+      <div className="max-w-full mx-auto space-y-6">
         <Card>
           <CardHeader>
-            <CardTitle>Past Data</CardTitle>
+            <CardTitle className="flex justify-between items-center">
+              <Skeleton className="h-8 w-32" />
+              <Skeleton className="h-10 w-40" />
+            </CardTitle>
           </CardHeader>
-          <CardContent>
-            <div className="flex justify-center items-center py-8">
-              <div className="text-gray-500">Loading...</div>
+          <CardContent className="space-y-6">
+            {/* Data type toggle skeleton */}
+            <div className="flex items-center gap-4">
+              <Skeleton className="h-9 w-32" />
+              <Skeleton className="h-9 w-32" />
+            </div>
+
+            {/* Filters skeleton */}
+            <Skeleton className="h-10 w-40" />
+
+            {/* Table skeleton */}
+            <div className="border rounded-lg overflow-hidden">
+              {/* Table header */}
+              <div className="bg-gray-50 border-b p-4">
+                <div className="grid grid-cols-7 gap-4">
+                  {[1, 2, 3, 4, 5, 6, 7].map((i) => (
+                    <Skeleton key={i} className="h-4" />
+                  ))}
+                </div>
+              </div>
+              {/* Table rows */}
+              {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+                <div key={i} className="border-b p-4">
+                  <div className="grid grid-cols-7 gap-4">
+                    {[1, 2, 3, 4, 5, 6, 7].map((j) => (
+                      <Skeleton key={j} className="h-6" />
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Pagination skeleton */}
+            <div className="flex justify-between items-center">
+              <Skeleton className="h-5 w-48" />
+              <Skeleton className="h-9 w-64" />
             </div>
           </CardContent>
         </Card>
@@ -525,136 +826,234 @@ function PastDataPage() {
           </CardTitle>
         </CardHeader>
         <CardContent>
-          {/* App Mode Display */}
-          <div className="flex items-center gap-4 mb-6">
-            <span className="font-semibold">App mode:</span>
-            <span className="text-xs font-semibold px-2 py-1 rounded bg-gray-200 dark:bg-gray-700">
-              {isTestMode ? "Test" : "Production"}
-            </span>
-          </div>
-
-          {/* Data Type Toggle */}
-          <div className="flex items-center gap-4 mb-6">
-            <span className="font-semibold">Data Type:</span>
-            <div className="flex gap-2">
-              <Button
-                onClick={() => setIsNTFMode(false)}
-                variant={!isNTFMode ? "default" : "outline"}
-                className="h-9"
-              >
-                Defect Checker
-              </Button>
-              <Button
-                onClick={() => setIsNTFMode(true)}
-                variant={isNTFMode ? "default" : "outline"}
-                className="h-9"
-              >
-                NTF
-              </Button>
-            </div>
-          </div>
-
-          <div className="space-y-4 mb-6">
-            {/* Row 1: Date Filters */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label className="block text-sm font-medium mb-1">
-                  From Date
-                </Label>
-                <Input
-                  type="date"
-                  value={fromDate}
-                  onChange={(e) => setFromDate(e.target.value)}
-                  className="w-full"
-                />
-              </div>
-              <div>
-                <Label className="block text-sm font-medium mb-1">
-                  To Date
-                </Label>
-                <Input
-                  type="date"
-                  value={toDate}
-                  onChange={(e) => setToDate(e.target.value)}
-                  className="w-full"
-                />
-              </div>
-            </div>
-
-            {/* Row 2: PPID + Group */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <Label className="block text-sm font-medium mb-1">
-                  Search PPID
-                </Label>
-                <Input
-                  placeholder="Enter PPID"
-                  value={ppidSearch}
-                  onChange={(e) => setPpidSearch(e.target.value)}
-                  className="w-full"
-                  onKeyPress={(e) => e.key === "Enter" && handleSearch()}
-                />
-              </div>
-              <div>
-                <Label className="block text-sm font-medium mb-1">Group</Label>
-                <select
-                  value={groupFilter.toString()}
-                  onChange={(e) => setGroupFilter(e.target.value === "true")}
-                  className="w-full border border-gray-300 rounded-md p-2 h-10"
+          {/* App Mode and Data Type Display */}
+          <div className="flex flex-wrap items-center gap-4 mb-6">
+            <div className="flex items-center gap-2">
+              <span className="font-semibold">Data Type:</span>
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => setIsNTFMode(false)}
+                  variant={!isNTFMode ? "default" : "outline"}
+                  size="sm"
                 >
-                  <option value="false">This Account</option>
-                  <option value="true">Whole Group</option>
-                </select>
+                  Defect Checker
+                </Button>
+                <Button
+                  onClick={() => setIsNTFMode(true)}
+                  variant={isNTFMode ? "default" : "outline"}
+                  size="sm"
+                >
+                  NTF
+                </Button>
+              </div>
+            </div>
+          </div>
+
+          {/* Collapsible Filters */}
+          <Collapsible open={filtersOpen} onOpenChange={setFiltersOpen} className="mb-6">
+            <div className="flex items-center justify-between">
+              <CollapsibleTrigger asChild>
+                <Button variant="outline" className="flex items-center gap-2 mb-2">
+                  <Search className="h-4 w-4" />
+                  Filters
+                  {getActiveFilterCount() > 0 && (
+                    <Badge variant="secondary" className="ml-1">
+                      {getActiveFilterCount()}
+                    </Badge>
+                  )}
+                  {filtersOpen ? (
+                    <ChevronUp className="h-4 w-4" />
+                  ) : (
+                    <ChevronDown className="h-4 w-4" />
+                  )}
+                </Button>
+              </CollapsibleTrigger>
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => fetchPastTasks(currentPage)}
+                  variant="outline"
+                  size="sm"
+                  className="flex items-center gap-2"
+                >
+                  <RefreshCw className="h-4 w-4" />
+                  Refresh
+                </Button>
               </div>
             </div>
 
-            {/* Row 3: Actions */}
-            <div className="flex gap-4">
-              <Button
-                onClick={handleSearch}
-                disabled={loading}
-                className="h-10 flex items-center justify-center gap-2"
-              >
-                <Search className="h-4 w-4" />
-                {loading ? "Searching..." : "Search"}
-              </Button>
-              <Button variant="outline" onClick={handleReset} className="h-10">
-                Reset
-              </Button>
-            </div>
-          </div>
+            {/* Active Filter Summary - Show when collapsed */}
+            {!filtersOpen && getActiveFilterCount() > 0 && (
+              <div className="flex flex-wrap gap-2 mt-2 mb-2">
+                {getActiveFilterSummary().map((filter) => (
+                  <Badge
+                    key={filter.key}
+                    variant="secondary"
+                    className="flex items-center gap-1 px-2 py-1"
+                  >
+                    <span className="text-sm">
+                      <span className="font-semibold">{filter.label}:</span> {filter.value}
+                    </span>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        clearFilter(filter.key);
+                      }}
+                      className="ml-1 hover:bg-gray-300 rounded-full p-0.5"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </Badge>
+                ))}
+              </div>
+            )}
+
+            <CollapsibleContent className="space-y-4 mt-4 p-4 border rounded-lg bg-gray-50">
+              {/* Quick Date Filters */}
+              <div>
+                <Label className="block text-sm font-medium mb-2">Quick Filters</Label>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setQuickDateFilter(0)}
+                    className="flex items-center gap-1"
+                  >
+                    <Calendar className="h-3 w-3" />
+                    Today
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setQuickDateFilter(7)}
+                    className="flex items-center gap-1"
+                  >
+                    <Calendar className="h-3 w-3" />
+                    Last 7 Days
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setQuickDateFilter(30)}
+                    className="flex items-center gap-1"
+                  >
+                    <Calendar className="h-3 w-3" />
+                    Last 30 Days
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => {
+                      const today = new Date();
+                      const firstDay = new Date(today.getFullYear(), today.getMonth(), 1);
+                      setFromDate(firstDay.toISOString().split("T")[0]);
+                      setToDate(today.toISOString().split("T")[0]);
+                    }}
+                    className="flex items-center gap-1"
+                  >
+                    <Calendar className="h-3 w-3" />
+                    This Month
+                  </Button>
+                </div>
+              </div>
+
+              {/* Row 1: Date Filters */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label className="block text-sm font-medium mb-1">From Date</Label>
+                  <Input
+                    type="date"
+                    value={fromDate}
+                    onChange={(e) => setFromDate(e.target.value)}
+                    className="w-full"
+                  />
+                </div>
+                <div>
+                  <Label className="block text-sm font-medium mb-1">To Date</Label>
+                  <Input
+                    type="date"
+                    value={toDate}
+                    onChange={(e) => setToDate(e.target.value)}
+                    className="w-full"
+                  />
+                </div>
+              </div>
+
+              {/* Row 2: PPID + Group */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <Label className="block text-sm font-medium mb-1">Search PPID</Label>
+                  <Input
+                    placeholder="Enter PPID"
+                    value={ppidSearch}
+                    onChange={(e) => setPpidSearch(e.target.value)}
+                    className="w-full"
+                    onKeyPress={(e) => e.key === "Enter" && handleSearch()}
+                  />
+                </div>
+                <div>
+                  <Label className="block text-sm font-medium mb-1">Group</Label>
+                  <select
+                    value={groupFilter.toString()}
+                    onChange={(e) => setGroupFilter(e.target.value === "true")}
+                    className="w-full border border-gray-300 rounded-md p-2 h-10"
+                  >
+                    <option value="false">This Account</option>
+                    <option value="true">Whole Group</option>
+                  </select>
+                </div>
+              </div>
+
+              {/* Row 3: Actions */}
+              <div className="flex gap-4">
+                <Button
+                  onClick={handleSearch}
+                  disabled={loading}
+                  className="h-10 flex items-center justify-center gap-2"
+                >
+                  <Search className="h-4 w-4" />
+                  {loading ? "Searching..." : "Search"}
+                </Button>
+                <Button variant="outline" onClick={handleReset} className="h-10">
+                  Reset
+                </Button>
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
 
           <div className="overflow-x-auto">
-            <table className="min-w-full table-fixed border-collapse border border-gray-200">
+            <table className="min-w-full table-auto border-collapse border border-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="border border-gray-200 px-4 py-3 text-left font-semibold text-sm w-[8%]">
+                  <th className="border border-gray-200 px-2 py-2 text-left font-semibold text-sm sticky left-0 bg-gray-50 z-10 w-24">
                     PPID
                   </th>
-                  <th className="border border-gray-200 px-4 py-3 text-left font-semibold text-sm w-[10%]">
+                  <th className="border border-gray-200 px-2 py-2 text-left font-semibold text-sm w-28">
                     Timestamp
                   </th>
                   {/* Commented out True Defects column for now */}
                   {/* <th className="border border-gray-200 px-4 py-3 text-left font-semibold text-sm w-[12%]">
                     True defects
                   </th> */}
-                  <th className="border border-gray-200 px-4 py-3 text-left font-semibold text-sm w-[12%]">
+                  <th className="border border-gray-200 px-2 py-2 text-left font-semibold text-sm w-32">
                     Predictions
                   </th>
-                  <th className="border border-gray-200 px-4 py-3 text-left font-semibold text-sm w-[12%]">
+                  <th className="border border-gray-200 px-2 py-2 text-left font-semibold text-sm w-32">
                     Correctly Identified (TP)
                   </th>
-                  <th className="border border-gray-200 px-4 py-3 text-left font-semibold text-sm w-[12%]">
+                  <th className="border border-gray-200 px-2 py-2 text-left font-semibold text-sm w-32">
                     Wrongly Identified (FP)
                   </th>
-                  <th className="border border-gray-200 px-4 py-3 text-left font-semibold text-sm w-[12%]">
+                  <th className="border border-gray-200 px-2 py-2 text-left font-semibold text-sm w-32">
                     Missed out Defect (FN)
                   </th>
-                  <th className="border border-gray-200 px-4 py-3 text-left font-semibold text-sm w-[12%]">
+                  <th className="border border-gray-200 px-2 py-2 text-left font-semibold text-sm w-32">
                     TN
                   </th>
-                  <th className="border border-gray-200 px-4 py-3 text-left font-semibold text-sm w-[10%]">
+                  <th className="border border-gray-200 px-2 py-2 text-left font-semibold text-sm w-24">
                     Created By
+                  </th>
+                  <th className="border border-gray-200 px-2 py-2 text-center font-semibold text-sm w-20">
+                    Images
                   </th>
                 </tr>
               </thead>
@@ -668,11 +1067,25 @@ function PastDataPage() {
 
                     return (
                       <tr key={task.PPID || idx} className="hover:bg-gray-50">
-                        <td className="border border-gray-200 px-4 py-3 text-sm font-mono">
-                          {task.PPID}
+                        <td className="border border-gray-200 px-2 py-2 text-sm font-mono sticky left-0 bg-white hover:bg-gray-50 z-10">
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="block">{truncateText(task.PPID, 12)}</span>
+                              </TooltipTrigger>
+                              {task.PPID && task.PPID.length > 12 && (
+                                <TooltipContent>
+                                  <p>{task.PPID}</p>
+                                </TooltipContent>
+                              )}
+                            </Tooltip>
+                          </TooltipProvider>
                         </td>
-                        <td className="border border-gray-200 px-4 py-3 text-sm">
-                          {formatTimestamp(task.Timestamp)}
+                        <td className="border border-gray-200 px-2 py-2 text-sm whitespace-nowrap">
+                          <div className="flex flex-col">
+                            <span>{new Date(task.Timestamp).toLocaleDateString('en-GB')}</span>
+                            <span className="text-gray-500">{new Date(task.Timestamp).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}</span>
+                          </div>
                         </td>
                         {/* Commented out True Defects column */}
                         {/* <td className="border border-gray-200 px-4 py-3 text-sm align-top">
@@ -680,39 +1093,65 @@ function PastDataPage() {
                             {renderTrueDefects(task.TrueDefects)}
                           </div>
                         </td> */}
-                        <td className="border border-gray-200 px-4 py-3 text-sm align-top">
-                          <div className="break-words">
-                            {renderPredictions(task.Prediction)}
-                          </div>
+                        <td className="border border-gray-200 px-2 py-2 text-sm align-top">
+                          {renderPredictions(task.Prediction)}
                         </td>
-                        <td className="border border-gray-200 px-4 py-3 text-sm align-top">
-                          <div className="break-words">
-                            {renderCorrectionCategory(
-                              corrections.correctlyIdentified
-                            )}
-                          </div>
+                        <td className="border border-gray-200 px-2 py-2 text-sm align-top">
+                          {renderCorrectionCategory(
+                            corrections.correctlyIdentified,
+                            'green'
+                          )}
                         </td>
-                        <td className="border border-gray-200 px-4 py-3 text-sm align-top">
-                          <div className="break-words">
-                            {renderCorrectionCategory(
-                              corrections.wronglyIdentified
-                            )}
-                          </div>
+                        <td className="border border-gray-200 px-2 py-2 text-sm align-top">
+                          {renderCorrectionCategory(
+                            corrections.wronglyIdentified,
+                            'red'
+                          )}
                         </td>
-                        <td className="border border-gray-200 px-4 py-3 text-sm align-top">
-                          <div className="break-words">
-                            {renderCorrectionCategory(
-                              corrections.missedOutDefects
-                            )}
-                          </div>
+                        <td className="border border-gray-200 px-2 py-2 text-sm align-top">
+                          {renderCorrectionCategory(
+                            corrections.missedOutDefects
+                          )}
                         </td>
-                        <td className="border border-gray-200 px-4 py-3 text-sm align-top">
-                          <div className="break-words">
-                            {renderCorrectionCategory(corrections.tbd)}
-                          </div>
+                        <td className="border border-gray-200 px-2 py-2 text-sm align-top">
+                          {renderCorrectionCategory(corrections.tbd)}
                         </td>
-                        <td className="border border-gray-200 px-4 py-3 text-sm">
-                          {task.Created_By || "N/A"}
+                        <td className="border border-gray-200 px-2 py-2 text-sm">
+                          <TooltipProvider>
+                            <Tooltip>
+                              <TooltipTrigger asChild>
+                                <span className="block">{truncateText(task.Created_By || "N/A", 15)}</span>
+                              </TooltipTrigger>
+                              {task.Created_By && task.Created_By.length > 15 && (
+                                <TooltipContent>
+                                  <p>{task.Created_By}</p>
+                                </TooltipContent>
+                              )}
+                            </Tooltip>
+                          </TooltipProvider>
+                        </td>
+                        <td className="border border-gray-200 px-2 py-2 text-sm text-center">
+                          {task.PanelImages ? (
+                            <TooltipProvider>
+                              <Tooltip>
+                                <TooltipTrigger asChild>
+                                  <Button
+                                    onClick={() => openImagesWindow(task.PanelImages, task.PPID)}
+                                    size="sm"
+                                    variant="outline"
+                                    className="h-7 px-2 text-sm"
+                                  >
+                                    <ImageIcon className="h-3 w-3" />
+                                  </Button>
+                                </TooltipTrigger>
+                                <TooltipContent>
+                                  <p>View all panel images</p>
+                                </TooltipContent>
+                              </Tooltip>
+                            </TooltipProvider>
+                          ) : (
+                            <span className="text-gray-400 text-sm">-</span>
+                          )}
                         </td>
                       </tr>
                     );
@@ -720,10 +1159,33 @@ function PastDataPage() {
                 ) : (
                   <tr>
                     <td
-                      colSpan="7" // Updated colspan since we have 7 columns now (8 when True Defects is uncommented)
-                      className="text-center py-8 text-gray-500 border border-gray-200"
+                      colSpan={9}
+                      className="border border-gray-200"
                     >
-                      No past tasks found
+                      {/* Empty State */}
+                      <div className="flex flex-col items-center justify-center py-16 px-4">
+                        <div className="rounded-full bg-gray-100 p-6 mb-4">
+                          <Database className="h-12 w-12 text-gray-400" />
+                        </div>
+                        <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                          No tasks found
+                        </h3>
+                        <p className="text-sm text-gray-500 text-center max-w-md mb-4">
+                          {getActiveFilterCount() > 0
+                            ? "No tasks match your current filters. Try adjusting your search criteria."
+                            : "No data has been collected yet. Start by using the Defect Checker or Data Collection features."}
+                        </p>
+                        {getActiveFilterCount() > 0 && (
+                          <Button
+                            variant="outline"
+                            onClick={handleReset}
+                            className="flex items-center gap-2"
+                          >
+                            <X className="h-4 w-4" />
+                            Clear Filters
+                          </Button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 )}
@@ -731,29 +1193,80 @@ function PastDataPage() {
             </table>
           </div>
 
-          {/* Pagination info */}
-          <div className="mt-6 flex flex-col sm:flex-row justify-between items-center text-sm text-gray-600">
-            <div>
-              Showing page {currentPage} of {totalPages}
-            </div>
-            <div className="mt-2 sm:mt-0 flex space-x-2">
-              <button
-                onClick={handlePreviousPage}
-                disabled={!previousUrl || loading}
-                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Previous
-              </button>
-              <div className="px-4 py-2 bg-gray-100 rounded">
-                Page {currentPage} of {totalPages}
+          {/* Enhanced Pagination */}
+          <div className="mt-6 space-y-4">
+            {/* Pagination Info and Controls */}
+            <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+              {/* Results Count */}
+              <div className="text-sm text-gray-600">
+                Showing{" "}
+                <span className="font-semibold">
+                  {totalTasks > 0 ? (currentPage - 1) * 20 + 1 : 0}
+                </span>{" "}
+                to{" "}
+                <span className="font-semibold">
+                  {Math.min(currentPage * 20, totalTasks)}
+                </span>{" "}
+                of <span className="font-semibold">{totalTasks.toLocaleString()}</span> results
               </div>
-              <button
-                onClick={handleNextPage}
-                disabled={!nextUrl || loading}
-                className="px-4 py-2 bg-gray-100 hover:bg-gray-200 rounded disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                Next
-              </button>
+
+              {/* Page Navigation */}
+              <div className="flex items-center gap-2 flex-wrap justify-center">
+                <Button
+                  onClick={handlePreviousPage}
+                  disabled={!previousUrl || loading}
+                  variant="outline"
+                  size="sm"
+                >
+                  Previous
+                </Button>
+
+                <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 rounded border">
+                  <span className="text-sm text-gray-600">
+                    Page {currentPage} of {totalPages}
+                  </span>
+                </div>
+
+                <Button
+                  onClick={handleNextPage}
+                  disabled={!nextUrl || loading}
+                  variant="outline"
+                  size="sm"
+                >
+                  Next
+                </Button>
+              </div>
+
+              {/* Jump to Page */}
+              <div className="flex items-center gap-2">
+                <Label htmlFor="jump-to-page" className="text-sm whitespace-nowrap">
+                  Jump to:
+                </Label>
+                <Input
+                  id="jump-to-page"
+                  type="number"
+                  min="1"
+                  max={totalPages}
+                  value={jumpToPage}
+                  onChange={(e) => setJumpToPage(e.target.value)}
+                  onKeyPress={(e) => e.key === "Enter" && handlePageJump()}
+                  placeholder="Page"
+                  className="w-20 h-9"
+                />
+                <Button
+                  onClick={handlePageJump}
+                  disabled={!jumpToPage || loading}
+                  variant="outline"
+                  size="sm"
+                >
+                  Go
+                </Button>
+              </div>
+            </div>
+
+            {/* Note about items per page */}
+            <div className="text-sm text-gray-500 text-center">
+              Showing 20 items per page
             </div>
           </div>
         </CardContent>

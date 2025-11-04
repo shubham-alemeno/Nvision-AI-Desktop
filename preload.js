@@ -40,6 +40,13 @@ contextBridge.exposeInMainWorld('electronAPI', {
   getCurrentEnvironment: () => ipcRenderer.invoke('get-current-environment'),
   onEnvironmentChanged: (callback) => ipcRenderer.on('environment-changed', callback),
 
+  // Auto-updater
+  checkForUpdates: () => ipcRenderer.invoke('check-for-updates'),
+  installUpdate: () => ipcRenderer.send('install-update'),
+  onUpdateStatus: (callback) => {
+    ipcRenderer.on('update-status', (event, data) => callback(data));
+  },
+
   // Remove listeners
   removeAllListeners: (channel) => ipcRenderer.removeAllListeners(channel)
 });

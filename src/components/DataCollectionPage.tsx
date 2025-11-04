@@ -59,6 +59,7 @@ const DataCollectionPage: React.FC<DataCollectionrops> = ({
     videoRef,
     cameraError: contextCameraError,
     clearCameraError,
+    getCameraSettings,
   } = useCamera();
 
   useEffect(() => {
@@ -82,6 +83,29 @@ const DataCollectionPage: React.FC<DataCollectionrops> = ({
       setCameraError(null);
     }
   }, [contextCameraError]);
+
+  // Initialize with actual camera defaults when camera is ready
+  useEffect(() => {
+    if (isCameraReady) {
+      const settings = getCameraSettings();
+      if (settings) {
+        console.log('Camera default settings:', settings);
+        // Only set defaults if not already saved in localStorage
+        if (!localStorage.getItem('exposure') && settings.exposureCompensation !== undefined) {
+          setExposure(settings.exposureCompensation);
+        }
+        if (!localStorage.getItem('brightness') && settings.brightness !== undefined) {
+          setBrightness(settings.brightness);
+        }
+        if (!localStorage.getItem('contrast') && settings.contrast !== undefined) {
+          setContrast(settings.contrast);
+        }
+        if (!localStorage.getItem('focusDistance') && settings.focusDistance !== undefined) {
+          setFocusDistance(settings.focusDistance);
+        }
+      }
+    }
+  }, [isCameraReady]);
 
   useEffect(() => {
     if (isCameraReady) {

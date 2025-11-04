@@ -1,6 +1,6 @@
 {
   "name": "nvision-ai",
-  "version": "4.9.3",
+  "version": "4.9.4",
   "description": "Nvision AI",
   "author": "Nvision",
   "main": "main.js",
@@ -16,6 +16,10 @@
     "build": "vite build && electron-builder",
     "start": "cross-env NODE_ENV=production electron ."
   },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/shubham-alemeno/Nvision-AI-Desktop.git"
+  },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.787.0",
     "@radix-ui/react-avatar": "^1.1.10",
@@ -27,6 +31,7 @@
     "@radix-ui/react-separator": "^1.1.7",
     "@radix-ui/react-slot": "^1.2.3",
     "@radix-ui/react-switch": "^1.2.6",
+    "@radix-ui/react-tabs": "^1.1.13",
     "@radix-ui/react-tooltip": "^1.2.7",
     "@sentry/react": "^9.22.0",
     "@sentry/vite-plugin": "^3.5.0",
@@ -34,7 +39,9 @@
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "electron-squirrel-startup": "^1.0.0",
+    "electron-updater": "^6.1.7",
     "jimp": "^0.16.1",
+    "jszip": "^3.10.1",
     "lucide-react": "^0.511.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
@@ -59,7 +66,13 @@
   "build": {
     "appId": "com.nvision.datacollection",
     "productName": "Nvision AI",
-    "publish": null,
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "shubham-alemeno",
+        "repo": "Nvision-AI-Desktop"
+      }
+    ],
     "directories": {
       "buildResources": "src/assets",
       "output": "dist_electron/${version}"

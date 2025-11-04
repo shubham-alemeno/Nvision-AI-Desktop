@@ -30,19 +30,19 @@ const DefectCheckerPage: React.FC<DefectCheckerPageProps> = ({
   const [ppid, setPpid] = useState('');
   const [exposure, setExposure] = useState(() => {
     const saved = localStorage.getItem('exposure');
-    return saved ? Number(saved) : 140;
+    return saved ? Number(saved) : defaultLiveSettings.exposure;
   });
   const [focusDistance, setFocusDistance] = useState(() => {
     const savedDistance = localStorage.getItem('focusDistance');
-    return savedDistance ? Number(savedDistance) : 125;
+    return savedDistance ? Number(savedDistance) : defaultLiveSettings.focusDistance;
   });
   const [brightness, setBrightness] = useState(() => {
     const savedBrightness = localStorage.getItem('brightness');
-    return savedBrightness ? Number(savedBrightness) : 125;
+    return savedBrightness ? Number(savedBrightness) : defaultLiveSettings.brightness;
   });
   const [contrast, setContrast] = useState(() => {
     const savedContrast = localStorage.getItem('contrast');
-    return savedContrast ? Number(savedContrast) : 125;
+    return savedContrast ? Number(savedContrast) : defaultLiveSettings.contrast;
   });
   const [showHiddenState, setShowHiddenState] = useState(false);
   const [submitLoading, setSubmitLoading] = useState(false);
@@ -59,6 +59,7 @@ const DefectCheckerPage: React.FC<DefectCheckerPageProps> = ({
     videoRef,
     cameraError: contextCameraError,
     clearCameraError,
+    getCameraSettings,
   } = useCamera();
 
   useEffect(() => {
@@ -82,6 +83,29 @@ const DefectCheckerPage: React.FC<DefectCheckerPageProps> = ({
       setCameraError(null);
     }
   }, [contextCameraError]);
+
+  // Initialize with actual camera defaults when camera is ready
+  useEffect(() => {
+    if (isCameraReady) {
+      const settings = getCameraSettings();
+      if (settings) {
+        console.log('Camera default settings:', settings);
+        // Only set defaults if not already saved in localStorage
+        if (!localStorage.getItem('exposure') && settings.exposureCompensation !== undefined) {
+          setExposure(settings.exposureCompensation);
+        }
+        if (!localStorage.getItem('brightness') && settings.brightness !== undefined) {
+          setBrightness(settings.brightness);
+        }
+        if (!localStorage.getItem('contrast') && settings.contrast !== undefined) {
+          setContrast(settings.contrast);
+        }
+        if (!localStorage.getItem('focusDistance') && settings.focusDistance !== undefined) {
+          setFocusDistance(settings.focusDistance);
+        }
+      }
+    }
+  }, [isCameraReady]);
 
   useEffect(() => {
     if (isCameraReady) {

@@ -41,6 +41,7 @@ interface CameraContextType {
   setDevice: (device: CameraDevice) => Promise<void>;
   getAvailableResolutions: (deviceId?: string) => Promise<CameraResolution[]>;
   getAvailableDevices: () => Promise<CameraDevice[]>;
+  getCameraSettings: () => any;
   clearCameraError: () => void;
 }
 
@@ -500,6 +501,23 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({
     setCameraError(null);
   };
 
+  // Get current camera settings
+  const getCameraSettings = () => {
+    const track = videoTrackRef.current;
+    if (!track) {
+      console.warn("No active video track to get settings");
+      return null;
+    }
+
+    try {
+      const settings = track.getSettings();
+      return settings;
+    } catch (error) {
+      console.error("Error getting camera settings:", error);
+      return null;
+    }
+  };
+
   // Adjust camera settings (simplified)
   const adjustCameraSettings = async (settings: CameraSettings) => {
     const track = videoTrackRef.current;
@@ -584,6 +602,7 @@ export const CameraProvider: React.FC<{ children: React.ReactNode }> = ({
     setDevice,
     getAvailableResolutions,
     getAvailableDevices,
+    getCameraSettings,
     clearCameraError,
   };
 

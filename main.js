@@ -1,11 +1,17 @@
-const { app, BrowserWindow, globalShortcut, Tray, Menu, ipcMain, Notification } = require('electron');
+const { app, BrowserWindow, globalShortcut, Tray, Menu, ipcMain, Notification, dialog } = require('electron');
 const path = require('path');
 const fs = require('fs');
 const { S3Client, PutObjectCommand } = require('@aws-sdk/client-s3');
+const { autoUpdater } = require('electron-updater');
+
 // const { STAGING_URL, PRODUCTION_URL } = require('./constants')
 let mainWindow;
 let tray = null;
 let isProductionMode = true;
+
+// Configure auto-updater
+autoUpdater.autoDownload = false;
+autoUpdater.autoInstallOnAppQuit = true;
 
 const PRODUCTION_URL = 'https://nvision.alemeno.com';
 const STAGING_URL = 'https://nvision-staging.alemeno.com';
@@ -221,9 +227,103 @@ ipcMain.handle('upload-image', async (event, { imageData, ppid, patternName, isT
   }
 });
 
+// Auto-updater event handlers
+autoUpdater.on('checking-for-update', () => {
+  console.log('Checking for update...');
+  mainWindow?.webContents.send('update-status', { status: 'checking' });
+});
+
+autoUpdater.on('update-available', (info) => {
+  console.log('Update available:', info.version);
+
+  dialog.showMessageBox(mainWindow, {
+    type: 'info',
+    title: 'Update Available',
+    message: `A new version (${info.version}) is available!`,
+    detail: 'Would you like to download it now? The app will update when you restart.',
+    buttons: ['Download', 'Later'],
+    defaultId: 0,
+    cancelId: 1
+  }).then((result) => {
+    if (result.response === 0) {
+      autoUpdater.downloadUpdate();
+      mainWindow?.webContents.send('update-status', { status: 'downloading' });
+    }
+  });
+});
+
+autoUpdater.on('update-not-available', (info) => {
+  console.log('Update not available. Current version:', info.version);
+  mainWindow?.webContents.send('update-status', { status: 'not-available' });
+});
+
+autoUpdater.on('error', (err) => {
+  console.error('Error in auto-updater:', err);
+  mainWindow?.webContents.send('update-status', { status: 'error', error: err.message });
+});
+
+autoUpdater.on('download-progress', (progressObj) => {
+  console.log(`Download progress: ${Math.round(progressObj.percent)}%`);
+  mainWindow?.webContents.send('update-status', {
+    status: 'downloading',
+    progress: Math.round(progressObj.percent),
+    bytesPerSecond: progressObj.bytesPerSecond,
+    transferred: progressObj.transferred,
+    total: progressObj.total
+  });
+});
+
+autoUpdater.on('update-downloaded', (info) => {
+  console.log('Update downloaded:', info.version);
+
+  dialog.showMessageBox(mainWindow, {
+    type: 'info',
+    title: 'Update Ready',
+    message: 'Update downloaded successfully!',
+    detail: 'The application will restart to install the update.',
+    buttons: ['Restart Now', 'Later'],
+    defaultId: 0,
+    cancelId: 1
+  }).then((result) => {
+    if (result.response === 0) {
+      autoUpdater.quitAndInstall();
+    } else {
+      mainWindow?.webContents.send('update-status', { status: 'ready-to-install' });
+    }
+  });
+});
+
+// IPC handler for manual update check
+ipcMain.handle('check-for-updates', async () => {
+  try {
+    const result = await autoUpdater.checkForUpdates();
+    return { success: true, updateInfo: result?.updateInfo };
+  } catch (error) {
+    console.error('Error checking for updates:', error);
+    return { success: false, error: error.message };
+  }
+});
+
+// IPC handler to install pending update
+ipcMain.on('install-update', () => {
+  autoUpdater.quitAndInstall();
+});
+
 // App lifecycle
 app.whenReady().then(() => {
   createWindow();
+
+  // Check for updates on startup (after 3 seconds delay)
+  if (!app.isPackaged) {
+    console.log('Development mode - skipping auto-update check');
+  } else {
+    setTimeout(() => {
+      autoUpdater.checkForUpdates().catch(err => {
+        console.error('Failed to check for updates:', err);
+      });
+    }, 3000);
+  }
+
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });
