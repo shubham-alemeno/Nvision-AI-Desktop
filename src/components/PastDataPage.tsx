@@ -31,16 +31,21 @@ function PastDataPage() {
   // UI state
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [jumpToPage, setJumpToPage] = useState("");
+  const [isInitialLoad, setIsInitialLoad] = useState(true);
 
   const fetchPastTasks = async (page = 1, overrides = {}) => {
     try {
       setLoading(true);
       console.log("Fetching page:", page);
 
+      // Append time to dates: from_date at 00:00:00, to_date at 23:59:59
+      const fromDateTime = fromDate ? `${fromDate}T00:00:00` : undefined;
+      const toDateTime = toDate ? `${toDate}T23:59:59` : undefined;
+
       const params = {
         page,
-        from_date: fromDate || undefined,
-        to_date: toDate || undefined,
+        from_date: fromDateTime,
+        to_date: toDateTime,
         ppid: ppidSearch || undefined,
         group: groupFilter,
         test_type: isTestMode ? "test" : "production",
@@ -155,10 +160,14 @@ function PastDataPage() {
     try {
       setIsExporting(true); // Start loader
 
+      // Append time to dates: from_date at 00:00:00, to_date at 23:59:59
+      const fromDateTime = fromDate ? `${fromDate}T00:00:00` : undefined;
+      const toDateTime = toDate ? `${toDate}T23:59:59` : undefined;
+
       // Get all data without pagination for export
       const allTasksResponse = await getPastTasksForExport({
-        from_date: fromDate || undefined,
-        to_date: toDate || undefined,
+        from_date: fromDateTime,
+        to_date: toDateTime,
         ppid: ppidSearch || undefined,
         group: groupFilter,
         test_type: isTestMode ? "test" : "production",
@@ -176,13 +185,26 @@ function PastDataPage() {
 
       // Rest of the export logic remains the same...
       const exportData = allTasks.map((task) => {
-        const predictions = formatDefects(task.Prediction);
+        // Filter predictions for NTF mode
+        let filteredPredictions = task.Prediction;
+        if (isNTFMode && task.Prediction) {
+          filteredPredictions = Object.keys(task.Prediction)
+            .filter(key => key.toLowerCase().includes('ntf'))
+            .reduce((obj, key) => {
+              obj[key] = task.Prediction[key];
+              return obj;
+            }, {});
+        }
+
+        const predictions = formatDefects(filteredPredictions);
         const corrections = getCategorizedCorrections(
           task.Prediction,
-          task.Correction
+          task.Correction,
+          isNTFMode // Filter to only NTF defects in NTF mode
         );
         return {
           PPID: task.PPID,
+          "Prediction Type": isNTFMode ? "NTF" : "Defect Checker",
           Timestamp: formatTimestamp(task.Timestamp),
           Predictions: predictions,
           "Correctly Identified (TP)":
@@ -192,7 +214,7 @@ function PastDataPage() {
           "Missed out Defect (FN)":
             corrections.missedOutDefects.join(", ") || "-",
           TN: corrections.tbd.join(", ") || "-",
-          "Created By": task.Created_By || "N/A",
+          "Created By": task.Created_By || "-",
         };
       });
 
@@ -209,10 +231,11 @@ function PastDataPage() {
       const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
       const link = document.createElement("a");
       const url = URL.createObjectURL(blob);
+      const dataType = isNTFMode ? "NTF" : "Defect_Checker";
       link.setAttribute("href", url);
       link.setAttribute(
         "download",
-        `past_data_${new Date().toISOString().split("T")[0]}.csv`
+        `past_data_${dataType}_${new Date().toISOString().split("T")[0]}.csv`
       );
       link.style.visibility = "hidden";
       document.body.appendChild(link);
@@ -227,7 +250,7 @@ function PastDataPage() {
   };
 
   // Helper function to get categorized corrections
-  const getCategorizedCorrections = (predictions, corrections) => {
+  const getCategorizedCorrections = (predictions, corrections, filterNTFOnly = false) => {
     const result = {
       correctlyIdentified: [], // TP
       wronglyIdentified: [], // FP
@@ -238,10 +261,15 @@ function PastDataPage() {
     if (!predictions && !corrections) return result;
 
     // Get all unique defect keys
-    const allKeys = new Set([
+    let allKeys = new Set([
       ...Object.keys(predictions || {}),
       ...Object.keys(corrections || {}),
     ]);
+
+    // Filter to only NTF defects if in NTF mode
+    if (filterNTFOnly) {
+      allKeys = new Set([...allKeys].filter(key => key.toLowerCase().includes('ntf')));
+    }
 
     allKeys.forEach((key) => {
       const defectName = key.replace("def_", "").replace(/_/g, " ");
@@ -263,10 +291,11 @@ function PastDataPage() {
       else if (!predicted && correction === "False Negative") {
         result.missedOutDefects.push(prettyName);
       }
-      // True Negative - TBD (not predicted and no correction, or explicitly marked as TN)
-      else if (!predicted && (!correction || correction === "True Negative")) {
+      // True Negative - only if explicitly marked as TN
+      else if (!predicted && correction === "True Negative") {
         result.tbd.push(prettyName);
       }
+      // Note: Defects without corrections are not categorized
     });
 
     return result;
@@ -274,6 +303,10 @@ function PastDataPage() {
 
   // Modified useEffect and search function
   const handleSearch = () => {
+    window.scrollTo(0, 0);
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+
     setCurrentPage(1); // Reset to first page when searching
     fetchPastTasks(1);
   };
@@ -282,20 +315,31 @@ function PastDataPage() {
   useEffect(() => {
     setCurrentPage(1); // Reset to first page when mode changes
     fetchPastTasks(1);
+    setIsInitialLoad(false); // Mark that initial load is complete
   }, [isTestMode, isNTFMode]); // Re-fetch when test mode or NTF mode changes
 
-  // Add a separate useEffect for pagination only
+  // Handle pagination changes (not on initial load)
   useEffect(() => {
-    if (currentPage > 1) {
+    if (!isInitialLoad) {
+      // Scroll to top immediately when page changes
+      window.scrollTo(0, 0);
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+
       fetchPastTasks(currentPage);
     }
   }, [currentPage]);
 
   const handleReset = () => {
+    window.scrollTo(0, 0);
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+
     setFromDate("");
     setToDate("");
     setPpidSearch("");
     setGroupFilter(true); // Reset to default (whole group)
+    setCurrentPage(1); // Reset to first page
 
     // Call API directly with cleared filters (ignores stale state issue)
     fetchPastTasks(1, {
@@ -311,14 +355,12 @@ function PastDataPage() {
   const handleNextPage = () => {
     if (nextUrl) {
       setCurrentPage((prev) => prev + 1);
-      window.scrollTo({ top: 0, behavior: "smooth" });
     }
   };
 
   const handlePreviousPage = () => {
     if (previousUrl) {
       setCurrentPage((prev) => prev - 1);
-      window.scrollTo({ top: 0, behavior: "smooth" });
     }
   };
 
@@ -341,14 +383,14 @@ function PastDataPage() {
   };
 
   const formatDefects = (defects) => {
-    if (!defects) return "N/A";
+    if (!defects) return "-";
 
     const activeDefects = Object.entries(defects)
       .filter(([key, value]) => value === true)
       .map(([key]) => key.replace("def_", "").replace(/_/g, " "))
       .map((defect) => defect.charAt(0).toUpperCase() + defect.slice(1));
 
-    return activeDefects.length > 0 ? activeDefects.join(", ") : "None";
+    return activeDefects.length > 0 ? activeDefects.join(", ") : "-";
   };
 
   // Updated function to render predictions with each defect on a new line
@@ -392,6 +434,13 @@ function PastDataPage() {
     }
 
     const items = Object.keys(predictions)
+      .filter((key) => {
+        // Filter to only NTF defects if in NTF mode
+        if (isNTFMode) {
+          return key.toLowerCase().includes('ntf');
+        }
+        return true;
+      })
       .map((key) => {
         const defectName = key.replace("def_", "").replace(/_/g, " ");
         const prettyName =
@@ -407,7 +456,7 @@ function PastDataPage() {
     return items.length > 0 ? (
       <div className="flex flex-wrap gap-0.5 max-h-20 overflow-y-auto">
         {items.map((item, idx) => (
-          <Badge key={idx} className="text-[11px] px-1.5 py-0 bg-blue-100 text-blue-800 border-blue-200">
+          <Badge key={idx} className="text-[11px] px-1.5 py-0 bg-blue-100 text-blue-800 border-blue-200 hover:bg-blue-100 hover:text-blue-800">
             {item}
           </Badge>
         ))}
@@ -420,7 +469,7 @@ function PastDataPage() {
   // New function to render true defects (commented out for now)
   const renderTrueDefects = (trueDefects) => {
     // Commented out since we don't have this data yet
-    // if (!trueDefects) return <span className="text-gray-500">N/A</span>;
+    // if (!trueDefects) return <span className="text-gray-500">-</span>;
 
     // const items = Object.keys(trueDefects)
     //   .filter(key => trueDefects[key] === true)
@@ -429,9 +478,9 @@ function PastDataPage() {
     //     return defectName.charAt(0).toUpperCase() + defectName.slice(1);
     //   });
 
-    // return items.length > 0 ? items.join(', ') : 'None';
+    // return items.length > 0 ? items.join(', ') : '-';
 
-    return <span className="text-gray-500">N/A</span>;
+    return <span className="text-gray-500">-</span>;
   };
 
   // Updated function to render correction categories with badges in a scrollable container
@@ -440,11 +489,11 @@ function PastDataPage() {
       return <span className="text-gray-500 text-sm">-</span>;
     }
 
-    // Color mapping for badges
+    // Color mapping for badges with hover states
     const colorClasses = {
-      green: 'bg-green-100 text-green-800 border-green-200',
-      red: 'bg-red-100 text-red-800 border-red-200',
-      gray: 'bg-gray-100 text-gray-800 border-gray-200'
+      green: 'bg-green-100 text-green-800 border-green-200 hover:bg-green-100 hover:text-green-800',
+      red: 'bg-red-100 text-red-800 border-red-200 hover:bg-red-100 hover:text-red-800',
+      gray: 'bg-gray-100 text-gray-800 border-gray-200 hover:bg-gray-100 hover:text-gray-800'
     };
 
     const badgeClass = colorClasses[color] || colorClasses.gray;
@@ -461,8 +510,11 @@ function PastDataPage() {
   };
 
   // Function to open panel images in a new window
-  const openImagesWindow = (panelImages: any, ppid: string) => {
-    if (!panelImages) {
+  const openImagesWindow = (task: any, ppid: string) => {
+    const panelImages = task.PanelImages;
+    const panelImagesUnprocessed = task.PanelImages_Unprocessed;
+
+    if (!panelImages && !panelImagesUnprocessed) {
       alert("No images available for this panel");
       return;
     }
@@ -493,20 +545,41 @@ function PastDataPage() {
       'scratches': 'Scratches'
     };
 
-    // Create image data object for download function
-    const imageData = imageOrder
-      .filter(key => panelImages[key])
+    // Create image data objects for both processed and unprocessed
+    const processedImageData = imageOrder
+      .filter(key => panelImages && panelImages[key])
       .map(key => ({
         url: panelImages[key],
-        filename: `${imageLabels[key].replace(/[^a-zA-Z0-9]/g, '_')}.png`
+        filename: `processed_${imageLabels[key].replace(/[^a-zA-Z0-9]/g, '_')}.png`
       }));
 
-    const imagesHTML = imageOrder
-      .filter(key => panelImages[key])
+    const unprocessedImageData = imageOrder
+      .filter(key => panelImagesUnprocessed && panelImagesUnprocessed[key])
+      .map(key => ({
+        url: panelImagesUnprocessed[key],
+        filename: `original_${imageLabels[key].replace(/[^a-zA-Z0-9]/g, '_')}.png`
+      }));
+
+    // Generate HTML for processed images
+    const processedImagesHTML = imageOrder
+      .filter(key => panelImages && panelImages[key])
       .map(key => `
         <div style="margin-bottom: 20px; page-break-inside: avoid;">
           <h3 style="margin: 10px 0; font-size: 16px; font-weight: bold;">${imageLabels[key]}</h3>
           <img src="${panelImages[key]}"
+               style="max-width: 100%; height: auto; border: 1px solid #ccc; border-radius: 4px;"
+               alt="${imageLabels[key]}" />
+        </div>
+      `)
+      .join('');
+
+    // Generate HTML for unprocessed images
+    const unprocessedImagesHTML = imageOrder
+      .filter(key => panelImagesUnprocessed && panelImagesUnprocessed[key])
+      .map(key => `
+        <div style="margin-bottom: 20px; page-break-inside: avoid;">
+          <h3 style="margin: 10px 0; font-size: 16px; font-weight: bold;">${imageLabels[key]}</h3>
+          <img src="${panelImagesUnprocessed[key]}"
                style="max-width: 100%; height: auto; border: 1px solid #ccc; border-radius: 4px;"
                alt="${imageLabels[key]}" />
         </div>
@@ -534,6 +607,38 @@ function PastDataPage() {
               justify-content: space-between;
               align-items: center;
               margin-bottom: 20px;
+              flex-wrap: wrap;
+              gap: 12px;
+            }
+            .header-left {
+              display: flex;
+              align-items: center;
+              gap: 12px;
+            }
+            .toggle-container {
+              display: inline-flex;
+              background-color: #e5e7eb;
+              border-radius: 8px;
+              padding: 4px;
+            }
+            .toggle-btn {
+              background-color: transparent;
+              color: #6b7280;
+              border: none;
+              padding: 8px 16px;
+              border-radius: 6px;
+              cursor: pointer;
+              font-size: 14px;
+              font-weight: 600;
+              transition: all 0.2s;
+            }
+            .toggle-btn.active {
+              background-color: white;
+              color: #1f2937;
+              box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            }
+            .toggle-btn:hover:not(.active) {
+              color: #1f2937;
             }
             .download-btn {
               background-color: #10b981;
@@ -563,17 +668,35 @@ function PastDataPage() {
               border-radius: 8px;
               box-shadow: 0 2px 4px rgba(0,0,0,0.1);
             }
+            .images-container {
+              display: none;
+            }
+            .images-container.active {
+              display: block;
+            }
             @media print {
               body { background: white; }
               .container { box-shadow: none; }
-              .download-btn { display: none; }
+              .download-btn, .toggle-container { display: none; }
             }
           </style>
         </head>
         <body>
           <div class="container">
             <div class="header">
-              <h1>Panel Images - ${ppid}</h1>
+              <div class="header-left">
+                <h1>Panel Images - ${ppid}</h1>
+                ${panelImages && panelImagesUnprocessed ? `
+                <div class="toggle-container">
+                  <button class="toggle-btn active" onclick="toggleView('processed')" id="processedBtn">
+                    Processed (Cropped)
+                  </button>
+                  <button class="toggle-btn" onclick="toggleView('original')" id="originalBtn">
+                    Original (Uncropped)
+                  </button>
+                </div>
+                ` : ''}
+              </div>
               <button class="download-btn" onclick="downloadAllImages()" id="downloadBtn">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                   <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path>
@@ -583,12 +706,54 @@ function PastDataPage() {
                 Download All as ZIP
               </button>
             </div>
-            ${imagesHTML}
+
+            ${panelImages ? `
+            <div id="processedImages" class="images-container active">
+              ${processedImagesHTML}
+            </div>
+            ` : ''}
+
+            ${panelImagesUnprocessed ? `
+            <div id="originalImages" class="images-container">
+              ${unprocessedImagesHTML}
+            </div>
+            ` : ''}
           </div>
 
           <script>
-            const imageData = ${JSON.stringify(imageData)};
+            const processedImageData = ${JSON.stringify(processedImageData)};
+            const unprocessedImageData = ${JSON.stringify(unprocessedImageData)};
             const ppid = "${ppid}";
+            let currentView = 'processed';
+
+            function toggleView(view) {
+              currentView = view;
+
+              // Update button states
+              const processedBtn = document.getElementById('processedBtn');
+              const originalBtn = document.getElementById('originalBtn');
+
+              if (processedBtn && originalBtn) {
+                if (view === 'processed') {
+                  processedBtn.classList.add('active');
+                  originalBtn.classList.remove('active');
+                } else {
+                  originalBtn.classList.add('active');
+                  processedBtn.classList.remove('active');
+                }
+              }
+
+              // Toggle image containers
+              const processedContainer = document.getElementById('processedImages');
+              const originalContainer = document.getElementById('originalImages');
+
+              if (processedContainer) {
+                processedContainer.classList.toggle('active', view === 'processed');
+              }
+              if (originalContainer) {
+                originalContainer.classList.toggle('active', view === 'original');
+              }
+            }
 
             async function downloadAllImages() {
               const btn = document.getElementById('downloadBtn');
@@ -597,7 +762,11 @@ function PastDataPage() {
 
               try {
                 const zip = new JSZip();
-                const imgFolder = zip.folder("${ppid}_images");
+                const imageData = currentView === 'processed' ? processedImageData : unprocessedImageData;
+                const folderName = currentView === 'processed'
+                  ? "${ppid}_processed_images"
+                  : "${ppid}_original_images";
+                const imgFolder = zip.folder(folderName);
 
                 // Fetch all images and add to ZIP
                 const promises = imageData.map(async (img) => {
@@ -618,7 +787,7 @@ function PastDataPage() {
                 // Download ZIP
                 const link = document.createElement('a');
                 link.href = URL.createObjectURL(content);
-                link.download = ppid + '_images.zip';
+                link.download = folderName + '.zip';
                 link.click();
 
                 btn.disabled = false;
@@ -686,7 +855,7 @@ function PastDataPage() {
     const toDateStr = today.toISOString().split("T")[0];
 
     if (days === 0) {
-      // Today
+      // Today - same day with time 00:00:00 to 23:59:59
       setFromDate(toDateStr);
       setToDate(toDateStr);
     } else {
@@ -704,7 +873,7 @@ function PastDataPage() {
     if (pageNum && pageNum > 0 && pageNum <= totalPages) {
       setCurrentPage(pageNum);
       setJumpToPage("");
-      window.scrollTo({ top: 0, behavior: "smooth" });
+      // Scroll handled by useEffect when currentPage changes
     }
   };
 
@@ -1062,7 +1231,8 @@ function PastDataPage() {
                   pastTasks.map((task, idx) => {
                     const corrections = getCategorizedCorrections(
                       task.Prediction,
-                      task.Correction
+                      task.Correction,
+                      isNTFMode // Filter to only NTF defects in NTF mode
                     );
 
                     return (
@@ -1071,13 +1241,24 @@ function PastDataPage() {
                           <TooltipProvider>
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <span className="block">{truncateText(task.PPID, 12)}</span>
+                                <span
+                                  className="block break-words cursor-pointer hover:text-blue-600 transition-colors"
+                                  onClick={() => {
+                                    navigator.clipboard.writeText(task.PPID);
+                                    // Optional: Show a brief notification
+                                    const toast = document.createElement('div');
+                                    toast.textContent = 'PPID copied!';
+                                    toast.className = 'fixed top-4 right-4 bg-green-600 text-white px-4 py-2 rounded shadow-lg z-50';
+                                    document.body.appendChild(toast);
+                                    setTimeout(() => toast.remove(), 2000);
+                                  }}
+                                >
+                                  {task.PPID}
+                                </span>
                               </TooltipTrigger>
-                              {task.PPID && task.PPID.length > 12 && (
-                                <TooltipContent>
-                                  <p>{task.PPID}</p>
-                                </TooltipContent>
-                              )}
+                              <TooltipContent>
+                                <p>Click to copy PPID</p>
+                              </TooltipContent>
                             </Tooltip>
                           </TooltipProvider>
                         </td>
@@ -1120,7 +1301,7 @@ function PastDataPage() {
                           <TooltipProvider>
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <span className="block">{truncateText(task.Created_By || "N/A", 15)}</span>
+                                <span className="block">{truncateText(task.Created_By || "-", 15)}</span>
                               </TooltipTrigger>
                               {task.Created_By && task.Created_By.length > 15 && (
                                 <TooltipContent>
@@ -1131,12 +1312,12 @@ function PastDataPage() {
                           </TooltipProvider>
                         </td>
                         <td className="border border-gray-200 px-2 py-2 text-sm text-center">
-                          {task.PanelImages ? (
+                          {(task.PanelImages || task.PanelImages_Unprocessed) ? (
                             <TooltipProvider>
                               <Tooltip>
                                 <TooltipTrigger asChild>
                                   <Button
-                                    onClick={() => openImagesWindow(task.PanelImages, task.PPID)}
+                                    onClick={() => openImagesWindow(task, task.PPID)}
                                     size="sm"
                                     variant="outline"
                                     className="h-7 px-2 text-sm"

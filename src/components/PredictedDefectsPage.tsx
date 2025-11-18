@@ -177,17 +177,21 @@ function PredictedDefectsPage({
               })}
             </ul>
 
-            {hasCorrections && !feedbackSubmitted && (
+            {!feedbackSubmitted && (
               <button
                 className="mt-6 w-full px-6 py-3 bg-orange-500 text-white rounded hover:bg-orange-600 text-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                 onClick={handleSubmitCorrections}
                 disabled={isSubmittingFeedback}
               >
-                {isSubmittingFeedback ? 'Submitting...' : 'Submit Corrections'}
+                {isSubmittingFeedback
+                  ? 'Submitting...'
+                  : hasCorrections
+                    ? `Submit ${Object.keys(corrections).length} correction${Object.keys(corrections).length > 1 ? 's' : ''}`
+                    : 'Submit with no corrections'}
               </button>
             )}
 
-            {onGoHome && (
+            {onGoHome && feedbackSubmitted && (
               <button
                 className="mt-4 w-full px-6 py-3 bg-green-600 text-white rounded hover:bg-green-700 text-lg font-semibold"
                 onClick={onGoHome}

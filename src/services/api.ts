@@ -484,6 +484,26 @@ export const getTaskStatus = async (taskUuid: string) => {
   );
 };
 
+export const submitSelfLearning = async (data: {
+  ppid: string;
+  panel_images: Array<{
+    panel: string;
+    image_url: string;
+    base_pattern: number;
+  }>;
+  bounding_boxes: { [key: number]: Array<{ x: number; y: number; width: number; height: number }> };
+  test_type: 'test' | 'production';
+}) => {
+  // Dummy API call - simulates submission with 1 second delay
+  // TODO: Replace with actual API endpoint when backend is ready
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      console.log('Self Learning Data Submitted:', data);
+      resolve({ success: true, message: 'Self learning data submitted successfully' });
+    }, 1000);
+  });
+};
+
 export const retryDisplayPanel = async (displayUuid: string) => {
   return apiCallWithErrorHandling(
     () =>
@@ -605,7 +625,8 @@ export const getPastTasksForExport = async (params: {
       if (params.ppid) queryParams.append('ppid', params.ppid);
       if (params.test_type) queryParams.append('test_type', params.test_type);
       queryParams.append('group', (params.group || false).toString());
-      
+      queryParams.append('qa', (params.qa || false).toString());
+
       return api
         .get(`/data/task/past_tasks/?${queryParams.toString()}`)
         .then((response) => response.data);

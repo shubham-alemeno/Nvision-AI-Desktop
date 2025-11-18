@@ -344,8 +344,19 @@ function Dashboard() {
   }
 
   // Render accuracy table with all enhancements
-  const renderAccuracyTable = (data: AccuracyData | null, title: string) => {
+  const renderAccuracyTable = (data: AccuracyData | null, title: string, filterNTFOnly: boolean = false) => {
     if (!data) return null;
+
+    // Filter defect_accuracy to only NTF defects if filterNTFOnly is true
+    let filteredDefectAccuracy = data.defect_accuracy;
+    if (filterNTFOnly && data.defect_accuracy) {
+      filteredDefectAccuracy = Object.entries(data.defect_accuracy)
+        .filter(([defectName]) => defectName.toLowerCase().includes('ntf'))
+        .reduce((acc, [key, value]) => {
+          acc[key] = value;
+          return acc;
+        }, {} as typeof data.defect_accuracy);
+    }
 
     return (
       <div>
@@ -479,8 +490,8 @@ function Dashboard() {
               </tr>
             </thead>
             <tbody>
-              {data.defect_accuracy && Object.keys(data.defect_accuracy).length > 0 ? (
-                Object.entries(data.defect_accuracy).map(([defectName, metrics], idx) => {
+              {filteredDefectAccuracy && Object.keys(filteredDefectAccuracy).length > 0 ? (
+                Object.entries(filteredDefectAccuracy).map(([defectName, metrics], idx) => {
                   const typedMetrics = metrics as DefectMetrics;
                   const rowColorClass = getAccuracyColor(typedMetrics.accuracy);
                   const isTruncated = defectName.length > 30;
@@ -730,11 +741,11 @@ function Dashboard() {
             </TabsList>
 
             <TabsContent value="defect-checker">
-              {renderAccuracyTable(defectCheckerData, "Defect Checker Accuracy")}
+              {renderAccuracyTable(defectCheckerData, "Defect Checker Accuracy", false)}
             </TabsContent>
 
             <TabsContent value="ntf-checker">
-              {renderAccuracyTable(ntfCheckerData, "NTF Checker Accuracy")}
+              {renderAccuracyTable(ntfCheckerData, "NTF Checker Accuracy", true)}
             </TabsContent>
           </Tabs>
         </CardContent>

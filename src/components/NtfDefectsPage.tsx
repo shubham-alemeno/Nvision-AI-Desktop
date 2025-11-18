@@ -50,18 +50,26 @@ const NftDefectsPage: React.FC<NftDefectsPageProps> = ({
     { key: 'def_bleeding', label: 'Bleeding' },
   ],
 }) => {
-  const [isNtfIncorrect, setIsNtfIncorrect] = useState(false);
+  const [corrections, setCorrections] = useState({});
   const [isSubmittingFeedback, setIsSubmittingFeedback] = useState(false);
   const [feedbackSubmitted, setFeedbackSubmitted] = useState(false);
 
   const isNoDefect = defects?.def_ntf === true;
+  const isNtfIncorrect = corrections['def_ntf'] === true;
 
   const handleMarkIncorrect = () => {
-    setIsNtfIncorrect(true);
+    setCorrections((prev) => ({
+      ...prev,
+      def_ntf: true,
+    }));
   };
 
   const handleUndoCorrection = () => {
-    setIsNtfIncorrect(false);
+    setCorrections((prev) => {
+      const newCorrections = { ...prev };
+      delete newCorrections['def_ntf'];
+      return newCorrections;
+    });
   };
 
   const handleSubmitCorrections = async () => {
@@ -75,38 +83,36 @@ const NftDefectsPage: React.FC<NftDefectsPageProps> = ({
     try {
       const feedbackData = {};
 
-      Object.entries(defects).forEach(([defectKey, predictedValue]) => {
-        // Skip def_ntf as it's not a real defect
-        if (defectKey === 'def_ntf') return;
+      // Only send feedback for def_ntf
+      const defectKey = 'def_ntf';
+      const predictedValue = defects[defectKey];
 
-        // For NTF feedback, all defects should match the NTF prediction
-        // If NTF is marked incorrect, all individual defects need feedback based on reversed NTF logic
-        let feedbackValue: string;
-        if (predictedValue === false && !isNtfIncorrect) {
-          feedbackValue = 'True Negative';
-        } else if (predictedValue === false && isNtfIncorrect) {
-          feedbackValue = 'False Negative';
-        } else if (predictedValue === true && !isNtfIncorrect) {
-          feedbackValue = 'True Positive';
-        } else if (predictedValue === true && isNtfIncorrect) {
-          feedbackValue = 'False Positive';
-        }
+      // Determine feedback value based on prediction and user correction
+      let feedbackValue: string;
+      if (predictedValue === false && !isNtfIncorrect) {
+        feedbackValue = 'True Negative';
+      } else if (predictedValue === false && isNtfIncorrect) {
+        feedbackValue = 'False Negative';
+      } else if (predictedValue === true && !isNtfIncorrect) {
+        feedbackValue = 'True Positive';
+      } else if (predictedValue === true && isNtfIncorrect) {
+        feedbackValue = 'False Positive';
+      }
 
-        feedbackData[defectKey] = {
-          feedback: feedbackValue,
-        };
+      feedbackData[defectKey] = {
+        feedback: feedbackValue,
+      };
 
-        console.log(
-          `${defectKey}: predicted=${predictedValue}, ntfIncorrect=${isNtfIncorrect}, feedback=${feedbackValue}`
-        );
-      });
+      console.log(
+        `${defectKey}: predicted=${predictedValue}, ntfIncorrect=${isNtfIncorrect}, feedback=${feedbackValue}`
+      );
 
       console.log('Final feedback payload:', feedbackData);
       const response = await submitFeedback(taskUuid, feedbackData, true);
       console.log('Feedback submitted successfully:', response);
 
       setFeedbackSubmitted(true);
-      setIsNtfIncorrect(false);
+      setCorrections({});
     } catch (error) {
       const apiError = error as ApiError;
       console.error('Failed to submit feedback:', apiError);
@@ -126,6 +132,8 @@ const NftDefectsPage: React.FC<NftDefectsPageProps> = ({
       setIsSubmittingFeedback(false);
     }
   };
+
+  const hasCorrections = Object.keys(corrections).length > 0;
 
   return (
     <div>
@@ -182,17 +190,21 @@ const NftDefectsPage: React.FC<NftDefectsPageProps> = ({
               </div>
             </div>
 
-            {isNtfIncorrect && !feedbackSubmitted && (
+            {!feedbackSubmitted && (
               <button
                 className="mt-6 w-full px-6 py-3 bg-orange-500 text-white rounded hover:bg-orange-600 text-lg font-medium disabled:opacity-50 disabled:cursor-not-allowed"
                 onClick={handleSubmitCorrections}
                 disabled={isSubmittingFeedback}
               >
-                {isSubmittingFeedback ? 'Submitting...' : 'Submit Correction'}
+                {isSubmittingFeedback
+                  ? 'Submitting...'
+                  : hasCorrections
+                    ? `Submit ${Object.keys(corrections).length} correction${Object.keys(corrections).length > 1 ? 's' : ''}`
+                    : 'Submit with no corrections'}
               </button>
             )}
 
-            {onGoHome && (
+            {onGoHome && feedbackSubmitted && (
               <button
                 className="mt-4 w-full px-6 py-3 bg-green-600 text-white rounded hover:bg-green-700 text-lg font-semibold"
                 onClick={onGoHome}

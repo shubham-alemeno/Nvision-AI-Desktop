@@ -1,6 +1,6 @@
 {
   "name": "nvision-ai",
-  "version": "4.9.4",
+  "version": "4.10.2",
   "description": "Nvision AI",
   "author": "Nvision",
   "main": "main.js",
@@ -46,6 +46,7 @@
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
     "react-hot-toast": "^2.5.2",
+    "react-zoom-pan-pinch": "^3.7.0",
     "tailwind-merge": "^3.3.0",
     "tailwindcss-animate": "^1.0.7"
   },

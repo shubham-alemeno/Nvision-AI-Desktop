@@ -47,6 +47,8 @@ import packageInfo from "../package.json";
 import NTFCheckerPage from "./components/NTFChecker";
 import NftDefectsPage from "./components/NtfDefectsPage";
 import Dashboard from "./components/Dashboard";
+import SelfLearningPage from "./components/SelfLearning";
+import BoundingBoxPage from "./components/BoundingBoxPage";
 
 declare global {
   interface Window {
@@ -203,7 +205,7 @@ function App() {
     () => localStorage.getItem("sentinel_dash_username") || ""
   );
   const [routineType, setRoutineType] = useState<
-    "data-collection" | "defect-checker" | "ntf-checker"
+    "data-collection" | "defect-checker" | "ntf-checker" | "self-learning"
   >("defect-checker");
   const [predictedDefects, setPredictedDefects] = useState(null); // for real API result
   const [isPredicting, setIsPredicting] = useState(false);
@@ -450,6 +452,8 @@ function App() {
       setRoutineType("data-collection");
     } else if (routine === "ntf-checker") {
       setRoutineType("ntf-checker");
+    } else if (routine === "self-learning") {
+      setRoutineType("self-learning");
     } else {
       setRoutineType("defect-checker");
     }
@@ -590,10 +594,12 @@ function App() {
     "defect-checker": "Defect Checker",
     "ntf-checker": "NTF Checker",
     "data-collection": "Data Collection",
+    "self-learning": "Self Learning",
     summary: "Data Collection Summary",
     "pattern-ebc": "Pattern EBC Settings",
     review: "Review Images",
     "defect-analysis": "Defect Analysis",
+    "bounding-box-drawing": "Annotate Defects",
     "past-data": "Past Data",
     "predicted-defects": "Predicted Defects",
     "ntf-defects": "NTF Defects",
@@ -1255,6 +1261,43 @@ function App() {
     setActivePage("ntf-checker");
   };
 
+  const resetSelfLearningAndGoBack = () => {
+    setPpid("");
+    setCapturedImages([]);
+    setUploadedImageUrls([]);
+    setCompletedUploads(0);
+    setTotalUploads(0);
+    setIsUploading(false);
+    setFailedUploadIndices([]);
+
+    setActivePage("self-learning");
+  };
+
+  const handleBoundingBoxSubmit = async (boundingBoxes) => {
+    // Import will be added in api.ts
+    const { submitSelfLearning } = await import("./services/api");
+
+    const panel_images = uploadedImageUrls
+      .filter((url) => url !== null)
+      .map((url, index) => ({
+        panel: ppid,
+        image_url: url,
+        base_pattern: index + 1,
+      }));
+
+    const payload = {
+      ppid,
+      panel_images,
+      bounding_boxes: boundingBoxes,
+      test_type: isTestMode
+        ? ("test" as "test")
+        : ("production" as "production"),
+    };
+
+    console.log("Self Learning Payload:", payload);
+    await submitSelfLearning(payload);
+  };
+
   // const retryPrediction = async () => {
   //   setIsPredicting(true);
   //   setPredictedDefects(null);
@@ -1528,6 +1571,8 @@ function App() {
         return <DefectCheckerPage onStartDefectChecker={startDefectChecker} />;
       case "ntf-checker":
         return <NTFCheckerPage onStartDefectChecker={startDefectChecker} />;
+      case "self-learning":
+        return <SelfLearningPage onStartDefectChecker={startDefectChecker} />;
       case "summary":
         return <SummaryPage />;
       case "pattern-ebc":
@@ -1672,7 +1717,9 @@ function App() {
                       ? "Data Collection Review Page"
                       : routineType === "defect-checker"
                       ? "Defect Checker Review Page"
-                      : "NTF Checker Review Page"}
+                      : routineType === "ntf-checker"
+                      ? "NTF Checker Review Page"
+                      : "Self Learning Review Page"}
                   </div>
                 </header>
                 <div className="flex justify-center items-center min-h-screen bg-gray-100">
@@ -1687,6 +1734,8 @@ function App() {
                         } else if (routineType === "ntf-checker") {
                           setActivePage("ntf-defects");
                           await startNftChecker();
+                        } else if (routineType === "self-learning") {
+                          setActivePage("bounding-box-drawing");
                         } else {
                           approveImages();
                         }
@@ -1841,6 +1890,15 @@ function App() {
                   </button>
                 </div>
               ) : null
+            ) : activePage === "bounding-box-drawing" ? (
+              <BoundingBoxPage
+                images={capturedImages}
+                ppid={ppid}
+                uploadedImageUrls={uploadedImageUrls}
+                isTestMode={isTestMode}
+                onSubmit={handleBoundingBoxSubmit}
+                onDiscard={resetSelfLearningAndGoBack}
+              />
             ) : (
               // All other pages remain inside HomePage (with sidebar/header)
               <HomePage

@@ -1,4 +1,4 @@
-import { BookOpen, Bot, CheckCheck, CheckCircle, CheckIcon, CheckLine, CheckSquare, Gpu, History, LayoutDashboard, NotepadText, Settings2, SquareTerminal } from 'lucide-react';
+import { BookOpen, Bot, CheckCheck, CheckCircle, CheckIcon, CheckLine, CheckSquare, Gpu, History, LayoutDashboard, LucideAirVent, LucideFileWarning, NotepadText, PenBox, Settings2, SquareTerminal } from 'lucide-react';
 import React from 'react';
 import {
   Sidebar,
@@ -58,6 +58,13 @@ const data = {
       title: 'Data Collection',
       url: '#data-collection',
       icon: SquareTerminal,
+      isActive: true,
+      section: 'operations',
+    },
+    {
+      title: 'Self Learning',
+      url: '#self-learning',
+      icon: PenBox,
       isActive: true,
       section: 'operations',
     },
