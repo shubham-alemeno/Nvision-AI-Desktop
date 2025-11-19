@@ -361,7 +361,7 @@ function Dashboard() {
     return (
       <div>
         {/* Summary Cards at Top */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+        <div className={`grid grid-cols-1 ${filterNTFOnly ? 'md:grid-cols-2' : 'md:grid-cols-3'} gap-4 mb-6`}>
           <Card className="border-blue-200 bg-blue-50">
             <CardContent className="pt-6">
               <div className="flex items-center justify-between">
@@ -378,21 +378,24 @@ function Dashboard() {
             </CardContent>
           </Card>
 
-          <Card className="border-green-200 bg-green-50">
-            <CardContent className="pt-6">
-              <div className="flex items-center justify-between">
-                <div>
-                  <p className="text-sm font-medium text-green-600 mb-1">Combined Accuracy</p>
-                  <p className="text-2xl font-bold text-green-900">
-                    {data.overall_accuracy?.combined_accuracy
-                      ? formatPercentage(data.overall_accuracy.combined_accuracy)
-                      : "N/A"}
-                  </p>
+          {/* Only show Combined Accuracy for Defect Checker, not NTF */}
+          {!filterNTFOnly && (
+            <Card className="border-green-200 bg-green-50">
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-sm font-medium text-green-600 mb-1">Combined Accuracy</p>
+                    <p className="text-2xl font-bold text-green-900">
+                      {data.overall_accuracy?.combined_accuracy
+                        ? formatPercentage(data.overall_accuracy.combined_accuracy)
+                        : "N/A"}
+                    </p>
+                  </div>
+                  <TrendingUp className="h-8 w-8 text-green-500" />
                 </div>
-                <TrendingUp className="h-8 w-8 text-green-500" />
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          )}
 
           {data.tasks_overview && (
             <Card className="border-purple-200 bg-purple-50">

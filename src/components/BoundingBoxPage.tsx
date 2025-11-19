@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Trash2, ZoomIn, ZoomOut, RotateCcw } from 'lucide-react';
+import { Trash2, ZoomIn, ZoomOut, RotateCcw, Copy } from 'lucide-react';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 
 interface BoundingBox {
@@ -26,22 +26,28 @@ interface BoundingBoxPageProps {
 
 // Defect types matching the app's defect configuration
 const DEFECT_TYPES = [
-  { key: 'def_abnormal_display', label: 'Abnormal Display', color: '#ef4444' },
-  { key: 'def_horizontal_line', label: 'Horizontal Line', color: '#f97316' },
-  { key: 'def_horizontal_band', label: 'Horizontal Band', color: '#f59e0b' },
-  { key: 'def_vertical_line', label: 'Vertical Line', color: '#eab308' },
-  { key: 'def_vertical_band', label: 'Vertical Band', color: '#84cc16' },
-  { key: 'def_particles', label: 'Particles', color: '#22c55e' },
-  { key: 'def_white_patches', label: 'White Patch', color: '#10b981' },
-  { key: 'def_polariser_scratches', label: 'Polariser Scratches', color: '#14b8a6' },
-  { key: 'def_light_leakage', label: 'Light Leakage', color: '#06b6d4' },
-  { key: 'def_mura', label: 'Mura', color: '#0ea5e9' },
-  { key: 'def_incoming_border_patch', label: 'Border Patch', color: '#3b82f6' },
-  { key: 'def_pixel_bright_dot', label: 'Pixel Bright Dot', color: '#6366f1' },
-  { key: 'def_incoming_galaxy', label: 'Incoming Galaxy', color: '#8b5cf6' },
-  { key: 'def_led_off', label: 'LED Off', color: '#a855f7' },
-  { key: 'def_bleeding', label: 'Bleeding', color: '#d946ef' },
+  { key: 'def_abnormal_display', label: 'Abnormal Display', color: '#ef4444', id: 1 },
+  { key: 'def_horizontal_line', label: 'Horizontal Line', color: '#f97316', id: 2 },
+  { key: 'def_horizontal_band', label: 'Horizontal Band', color: '#f59e0b', id: 3 },
+  { key: 'def_vertical_line', label: 'Vertical Line', color: '#eab308', id: 4 },
+  { key: 'def_vertical_band', label: 'Vertical Band', color: '#84cc16', id: 5 },
+  { key: 'def_particles', label: 'Particles', color: '#22c55e', id: 6 },
+  { key: 'def_white_patches', label: 'White Patch', color: '#10b981', id: 7 },
+  { key: 'def_polariser_scratches', label: 'Polariser Scratches', color: '#14b8a6', id: 8 },
+  { key: 'def_light_leakage', label: 'Light Leakage', color: '#06b6d4', id: 9 },
+  { key: 'def_mura', label: 'Mura', color: '#0ea5e9', id: 10 },
+  { key: 'def_incoming_border_patch', label: 'Border Patch', color: '#3b82f6', id: 11 },
+  { key: 'def_pixel_bright_dot', label: 'Pixel Bright Dot', color: '#6366f1', id: 12 },
+  { key: 'def_incoming_galaxy', label: 'Incoming Galaxy', color: '#8b5cf6', id: 13 },
+  { key: 'def_led_off', label: 'LED Off', color: '#a855f7', id: 14 },
+  { key: 'def_bleeding', label: 'Bleeding', color: '#d946ef', id: 15 },
 ];
+
+// Helper function to get defect ID from defect type key
+const getDefectIdFromType = (defectType: string): number => {
+  const defect = DEFECT_TYPES.find(d => d.key === defectType);
+  return defect?.id || 1; // Default to 1 if not found
+};
 
 const BoundingBoxPage: React.FC<BoundingBoxPageProps> = ({
   images,
@@ -61,6 +67,8 @@ const BoundingBoxPage: React.FC<BoundingBoxPageProps> = ({
   const [currentBox, setCurrentBox] = useState<BoundingBox | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [replicateToAll, setReplicateToAll] = useState(true); // Default to true for replication
+  const [submissionResult, setSubmissionResult] = useState<any>(null);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
@@ -187,10 +195,24 @@ const BoundingBoxPage: React.FC<BoundingBoxPageProps> = ({
         height: Math.abs(currentBox.height),
       };
 
-      setBoundingBoxes((prev) => ({
-        ...prev,
-        [currentImageIndex]: [...(prev[currentImageIndex] || []), normalizedBox],
-      }));
+      if (replicateToAll) {
+        // Replicate box to all patterns
+        const newBoxes = { ...boundingBoxes };
+        images.forEach((_, index) => {
+          const boxWithNewId = {
+            ...normalizedBox,
+            id: `box-${Date.now()}-${index}`, // Unique ID for each pattern
+          };
+          newBoxes[index] = [...(newBoxes[index] || []), boxWithNewId];
+        });
+        setBoundingBoxes(newBoxes);
+      } else {
+        // Add box only to current image
+        setBoundingBoxes((prev) => ({
+          ...prev,
+          [currentImageIndex]: [...(prev[currentImageIndex] || []), normalizedBox],
+        }));
+      }
     }
 
     setIsDrawing(false);
@@ -224,11 +246,13 @@ const BoundingBoxPage: React.FC<BoundingBoxPageProps> = ({
   const handleSubmit = async () => {
     setSubmitting(true);
     try {
-      await onSubmit(boundingBoxes);
+      const result = await onSubmit(boundingBoxes);
+      setSubmissionResult(result);
       setShowSuccessModal(true);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error submitting bounding boxes:', error);
-      alert('Failed to submit. Please try again.');
+      const errorMessage = error?.message || 'Failed to submit. Please try again.';
+      alert(errorMessage);
     } finally {
       setSubmitting(false);
     }
@@ -367,6 +391,33 @@ const BoundingBoxPage: React.FC<BoundingBoxPageProps> = ({
         {/* Right Sidebar - Defect Selection & Box List */}
         <div className="w-80 bg-white border-l overflow-y-auto flex-shrink-0">
           <div className="p-4 space-y-4">
+            {/* Replication Toggle */}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <Copy className="w-4 h-4 text-blue-600" />
+                  <span className="text-sm font-medium text-blue-900">Auto-Replicate</span>
+                </div>
+                <button
+                  onClick={() => setReplicateToAll(!replicateToAll)}
+                  className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                    replicateToAll ? 'bg-blue-600' : 'bg-gray-300'
+                  }`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                      replicateToAll ? 'translate-x-6' : 'translate-x-1'
+                    }`}
+                  />
+                </button>
+              </div>
+              <p className="text-xs text-blue-700 mt-1">
+                {replicateToAll
+                  ? 'Boxes will be copied to all 15 patterns'
+                  : 'Boxes only on current pattern'}
+              </p>
+            </div>
+
             {/* Defect Type Selection */}
             <div>
               <h3 className="text-sm font-semibold mb-2">Select Defect Type</h3>
@@ -475,11 +526,27 @@ const BoundingBoxPage: React.FC<BoundingBoxPageProps> = ({
                   />
                 </svg>
               </div>
-              <h2 className="text-xl font-semibold mb-2">Successfully Submitted!</h2>
-              <p className="text-gray-600 mb-6">
-                Annotated {getTotalBoxCount()} defect{getTotalBoxCount() !== 1 ? 's' : ''} across{' '}
-                {Object.keys(boundingBoxes).length} pattern{Object.keys(boundingBoxes).length !== 1 ? 's' : ''} for PPID {ppid}
+              <h2 className="text-xl font-semibold mb-2">
+                {submissionResult?.hasErrors ? 'Partially Submitted' : 'Successfully Submitted!'}
+              </h2>
+              <p className="text-gray-600 mb-4">
+                {submissionResult?.message || `Annotated ${getTotalBoxCount()} defect${getTotalBoxCount() !== 1 ? 's' : ''} across ${Object.keys(boundingBoxes).length} pattern${Object.keys(boundingBoxes).length !== 1 ? 's' : ''} for PPID ${ppid}`}
               </p>
+              {submissionResult?.hasErrors && submissionResult?.annotations?.errors && (
+                <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded text-left text-sm">
+                  <p className="font-semibold text-yellow-800 mb-2">Some annotations failed:</p>
+                  <ul className="text-yellow-700 space-y-1 max-h-32 overflow-y-auto">
+                    {submissionResult.annotations.errors.slice(0, 5).map((err: any, idx: number) => (
+                      <li key={idx} className="text-xs">
+                        Index {err.index}: {Object.values(err.errors || {}).flat().join(', ')}
+                      </li>
+                    ))}
+                    {submissionResult.annotations.errors.length > 5 && (
+                      <li className="text-xs italic">...and {submissionResult.annotations.errors.length - 5} more</li>
+                    )}
+                  </ul>
+                </div>
+              )}
               <Button onClick={onDiscard} className="w-full">
                 Go Back to Self Learning
               </Button>

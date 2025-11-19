@@ -1295,7 +1295,8 @@ function App() {
     };
 
     console.log("Self Learning Payload:", payload);
-    await submitSelfLearning(payload);
+    const result = await submitSelfLearning(payload);
+    return result; // Return the result to BoundingBoxPage
   };
 
   // const retryPrediction = async () => {

@@ -202,8 +202,12 @@ function PastDataPage() {
           task.Correction,
           isNTFMode // Filter to only NTF defects in NTF mode
         );
+
+        // Check if feedback was given (any non-null correction)
+        const hasFeedback = task.Correction && Object.values(task.Correction).some(val => val !== null && val !== undefined);
         return {
           PPID: task.PPID,
+          hasFeedback: hasFeedback, // Add this field to track feedback status
           "Prediction Type": isNTFMode ? "NTF" : "Defect Checker",
           Timestamp: formatTimestamp(task.Timestamp),
           Predictions: predictions,
@@ -279,8 +283,13 @@ function PastDataPage() {
       const predicted = predictions?.[key] === true;
       const correction = corrections?.[key];
 
-      // True Positive - correctly identified
-      if (predicted && correction !== "False Positive") {
+      // Only categorize if correction is not null (feedback was given)
+      if (correction === null || correction === undefined) {
+        return; // Skip items without feedback
+      }
+
+      // True Positive - correctly identified (explicitly marked as TP)
+      if (predicted && correction === "True Positive") {
         result.correctlyIdentified.push(prettyName);
       }
       // False Positive - wrongly identified
@@ -295,7 +304,6 @@ function PastDataPage() {
       else if (!predicted && correction === "True Negative") {
         result.tbd.push(prettyName);
       }
-      // Note: Defects without corrections are not categorized
     });
 
     return result;
@@ -1235,26 +1243,36 @@ function PastDataPage() {
                       isNTFMode // Filter to only NTF defects in NTF mode
                     );
 
+                    // Check if feedback was given (any non-null correction)
+                    const hasFeedback = task.Correction && Object.values(task.Correction).some(val => val !== null && val !== undefined);
+
                     return (
                       <tr key={task.PPID || idx} className="hover:bg-gray-50">
                         <td className="border border-gray-200 px-2 py-2 text-sm font-mono sticky left-0 bg-white hover:bg-gray-50 z-10">
                           <TooltipProvider>
                             <Tooltip>
                               <TooltipTrigger asChild>
-                                <span
-                                  className="block break-words cursor-pointer hover:text-blue-600 transition-colors"
-                                  onClick={() => {
-                                    navigator.clipboard.writeText(task.PPID);
-                                    // Optional: Show a brief notification
-                                    const toast = document.createElement('div');
-                                    toast.textContent = 'PPID copied!';
-                                    toast.className = 'fixed top-4 right-4 bg-green-600 text-white px-4 py-2 rounded shadow-lg z-50';
-                                    document.body.appendChild(toast);
-                                    setTimeout(() => toast.remove(), 2000);
-                                  }}
-                                >
-                                  {task.PPID}
-                                </span>
+                                <div className="flex flex-col">
+                                  <span
+                                    className="block break-words cursor-pointer hover:text-blue-600 transition-colors"
+                                    onClick={() => {
+                                      navigator.clipboard.writeText(task.PPID);
+                                      // Optional: Show a brief notification
+                                      const toast = document.createElement('div');
+                                      toast.textContent = 'PPID copied!';
+                                      toast.className = 'fixed top-4 right-4 bg-green-600 text-white px-4 py-2 rounded shadow-lg z-50';
+                                      document.body.appendChild(toast);
+                                      setTimeout(() => toast.remove(), 2000);
+                                    }}
+                                  >
+                                    {task.PPID}
+                                  </span>
+                                  {!hasFeedback && (
+                                    <span className="text-xs text-gray-400 italic mt-0.5">
+                                      (without feedback)
+                                    </span>
+                                  )}
+                                </div>
                               </TooltipTrigger>
                               <TooltipContent>
                                 <p>Click to copy PPID</p>

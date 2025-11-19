@@ -484,6 +484,52 @@ export const getTaskStatus = async (taskUuid: string) => {
   );
 };
 
+// Helper function to get defect ID from defect type key
+const getDefectIdFromType = (defectType: string): number => {
+  const defectMap: { [key: string]: number } = {
+    'def_abnormal_display': 1,
+    'def_horizontal_line': 2,
+    'def_horizontal_band': 3,
+    'def_vertical_line': 4,
+    'def_vertical_band': 5,
+    'def_particles': 6,
+    'def_white_patches': 7,
+    'def_polariser_scratches': 8,
+    'def_light_leakage': 9,
+    'def_mura': 10,
+    'def_incoming_border_patch': 11,
+    'def_pixel_bright_dot': 12,
+    'def_incoming_galaxy': 13,
+    'def_led_off': 14,
+    'def_bleeding': 15,
+  };
+  return defectMap[defectType] || 1; // Default to 1 if not found
+};
+
+// Bulk create annotations
+export const bulkCreateAnnotations = async (annotations: Array<{
+  panel_image: number;
+  defect: number;
+  base_pattern: number;
+  status: string;
+  coordinates: { x: number; y: number; width: number; height: number };
+  notes: string;
+}>) => {
+  return apiCallWithErrorHandling(
+    () =>
+      api
+        .post('/annotations/bulk_create/', { annotations })
+        .then((response) => response.data),
+    {
+      location: 'bulkCreateAnnotations',
+      operation: 'bulk_annotations_create',
+      extra: {
+        annotations_count: annotations.length,
+      },
+    }
+  );
+};
+
 export const submitSelfLearning = async (data: {
   ppid: string;
   panel_images: Array<{
@@ -491,17 +537,126 @@ export const submitSelfLearning = async (data: {
     image_url: string;
     base_pattern: number;
   }>;
-  bounding_boxes: { [key: number]: Array<{ x: number; y: number; width: number; height: number }> };
+  bounding_boxes: { [key: number]: Array<{
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    defect_type: string;
+  }> };
   test_type: 'test' | 'production';
 }) => {
-  // Dummy API call - simulates submission with 1 second delay
-  // TODO: Replace with actual API endpoint when backend is ready
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      console.log('Self Learning Data Submitted:', data);
-      resolve({ success: true, message: 'Self learning data submitted successfully' });
-    }, 1000);
-  });
+  return apiCallWithErrorHandling(
+    async () => {
+      // Step 1: Create the display panel to get panel_image IDs
+      const panelResponse = await api
+        .post('/data/display-panel/', {
+          ppid: data.ppid,
+          panel_images: data.panel_images,
+          test_type: data.test_type,
+          inference: false, // No inference for self-learning
+          qa: false,
+        })
+        .then((response) => response.data);
+
+      console.log('Panel created:', panelResponse);
+
+      // Step 2: Extract panel_image IDs from response
+      const panelImageIds = panelResponse.panel_images.map((pi: any) => pi.id);
+
+      // Step 3: Transform bounding boxes to annotations format
+      const annotations: Array<{
+        panel_image: number;
+        defect: number;
+        base_pattern: number;
+        status: string;
+        coordinates: { x: number; y: number; width: number; height: number };
+        notes: string;
+      }> = [];
+
+      Object.entries(data.bounding_boxes).forEach(([imageIndex, boxes]) => {
+        const idx = parseInt(imageIndex);
+        const panelImageId = panelImageIds[idx];
+
+        if (panelImageId) {
+          boxes.forEach((box) => {
+            annotations.push({
+              panel_image: panelImageId,
+              defect: getDefectIdFromType(box.defect_type),
+              base_pattern: data.panel_images[idx].base_pattern,
+              status: 'pending',
+              coordinates: {
+                x: Math.round(box.x),
+                y: Math.round(box.y),
+                width: Math.round(box.width),
+                height: Math.round(box.height),
+              },
+              notes: '',
+            });
+          });
+        }
+      });
+
+      console.log('Annotations to submit:', annotations);
+
+      // Step 4: Call bulk annotations endpoint if we have annotations
+      if (annotations.length > 0) {
+        const annotationsResponse = await api
+          .post('/annotations/bulk_create/', { annotations })
+          .then((response) => response.data);
+
+        console.log('Annotations created:', annotationsResponse);
+
+        // Handle partial success or errors
+        if (annotationsResponse.status === 'partial_success') {
+          console.warn(
+            `Partial success: ${annotationsResponse.created_count} created, ${annotationsResponse.error_count} failed`,
+            annotationsResponse.errors
+          );
+
+          return {
+            success: true,
+            message: `Partial success: ${annotationsResponse.created_count} annotations created, ${annotationsResponse.error_count} failed`,
+            panel: panelResponse,
+            annotations: annotationsResponse,
+            hasErrors: true,
+          };
+        }
+
+        if (annotationsResponse.status === 'error') {
+          throw new Error(
+            `Failed to create annotations: ${annotationsResponse.error_count} errors`
+          );
+        }
+
+        return {
+          success: true,
+          message: `Successfully created ${annotationsResponse.created_count} annotations`,
+          panel: panelResponse,
+          annotations: annotationsResponse,
+        };
+      }
+
+      return {
+        success: true,
+        message: 'Panel created successfully (no annotations)',
+        panel: panelResponse,
+      };
+    },
+    {
+      location: 'submitSelfLearning',
+      operation: 'self_learning_submission',
+      extra: {
+        ppid: data.ppid,
+        test_type: data.test_type,
+        images_count: data.panel_images.length,
+        boxes_count: Object.values(data.bounding_boxes).reduce(
+          (sum, boxes) => sum + boxes.length,
+          0
+        ),
+      },
+    }
+  );
 };
 
 export const retryDisplayPanel = async (displayUuid: string) => {
