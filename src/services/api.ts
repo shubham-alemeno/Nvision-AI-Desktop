@@ -487,34 +487,36 @@ export const getTaskStatus = async (taskUuid: string) => {
 // Helper function to get defect ID from defect type key
 const getDefectIdFromType = (defectType: string): number => {
   const defectMap: { [key: string]: number } = {
-    'def_abnormal_display': 1,
-    'def_horizontal_line': 2,
-    'def_horizontal_band': 3,
-    'def_vertical_line': 4,
-    'def_vertical_band': 5,
-    'def_particles': 6,
-    'def_white_patches': 7,
-    'def_polariser_scratches': 8,
-    'def_light_leakage': 9,
-    'def_mura': 10,
-    'def_incoming_border_patch': 11,
-    'def_pixel_bright_dot': 12,
-    'def_incoming_galaxy': 13,
-    'def_led_off': 14,
-    'def_bleeding': 15,
+    def_abnormal_display: 1,
+    def_horizontal_line: 2,
+    def_horizontal_band: 3,
+    def_vertical_line: 4,
+    def_vertical_band: 5,
+    def_particles: 6,
+    def_white_patches: 7,
+    def_polariser_scratches: 8,
+    def_light_leakage: 9,
+    def_mura: 10,
+    def_incoming_border_patch: 11,
+    def_pixel_bright_dot: 12,
+    def_incoming_galaxy: 13,
+    def_led_off: 14,
+    def_bleeding: 15,
   };
   return defectMap[defectType] || 1; // Default to 1 if not found
 };
 
 // Bulk create annotations
-export const bulkCreateAnnotations = async (annotations: Array<{
-  panel_image: number;
-  defect: number;
-  base_pattern: number;
-  status: string;
-  coordinates: { x: number; y: number; width: number; height: number };
-  notes: string;
-}>) => {
+export const bulkCreateAnnotations = async (
+  annotations: Array<{
+    panel_image: number;
+    defect: number;
+    base_pattern: number;
+    status: string;
+    coordinates: { x: number; y: number; width: number; height: number };
+    notes: string;
+  }>
+) => {
   return apiCallWithErrorHandling(
     () =>
       api
@@ -537,13 +539,15 @@ export const submitSelfLearning = async (data: {
     image_url: string;
     base_pattern: number;
   }>;
-  bounding_boxes: { [key: number]: Array<{
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-    defect_type: string;
-  }> };
+  bounding_boxes: {
+    [key: number]: Array<{
+      x: number;
+      y: number;
+      width: number;
+      height: number;
+      defect_type: string;
+    }>;
+  };
   test_type: 'test' | 'production';
 }) => {
   return apiCallWithErrorHandling(
@@ -699,11 +703,11 @@ export const submitFeedback = async (
       const queryParams = new URLSearchParams();
       if (qa) queryParams.append('qa', 'true');
 
-      const url = `/data/task/${taskUuid}/feedback/${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+      const url = `/data/task/${taskUuid}/feedback/${
+        queryParams.toString() ? `?${queryParams.toString()}` : ''
+      }`;
 
-      return api
-        .post(url, { feedback })
-        .then((response) => response.data);
+      return api.post(url, { feedback }).then((response) => response.data);
     },
     {
       location: 'submitFeedback',
@@ -811,16 +815,20 @@ export const getLiveAccuracy = async (params?: {
       const queryParams = new URLSearchParams();
       if (params?.from_date) queryParams.append('from_date', params.from_date);
       if (params?.to_date) queryParams.append('to_date', params.to_date);
-      if (params?.start_date) queryParams.append('start_date', params.start_date);
+      if (params?.start_date)
+        queryParams.append('start_date', params.start_date);
       if (params?.end_date) queryParams.append('end_date', params.end_date);
-      if (params?.ppid_filter) queryParams.append('ppid_filter', params.ppid_filter);
+      if (params?.ppid_filter)
+        queryParams.append('ppid_filter', params.ppid_filter);
       if (params?.ppid) {
-        params.ppid.forEach(p => queryParams.append('ppid', p));
+        params.ppid.forEach((p) => queryParams.append('ppid', p));
       }
-      if (params?.group !== undefined) queryParams.append('group', params.group.toString());
+      if (params?.group !== undefined)
+        queryParams.append('group', params.group.toString());
       if (params?.test_type) queryParams.append('test_type', params.test_type);
       if (params?.status) queryParams.append('status', params.status);
-      if (params?.qa !== undefined) queryParams.append('qa', params.qa.toString());
+      if (params?.qa !== undefined)
+        queryParams.append('qa', params.qa.toString());
 
       return api
         .get(`/data/task/live-accuracy/?${queryParams.toString()}`)
@@ -944,7 +952,10 @@ export const createUser = async (userData) => {
 // Create new supervisor
 export const createSupervisor = async (userData) => {
   return apiCallWithErrorHandling(
-    () => api.post('/data/users/create_supervisor/', userData).then((response) => response.data),
+    () =>
+      api
+        .post('/data/users/create_supervisor/', userData)
+        .then((response) => response.data),
     {
       location: 'createSupervisor',
       operation: 'supervisor_create',

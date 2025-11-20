@@ -1,4 +1,21 @@
-import { BookOpen, Bot, CheckCheck, CheckCircle, CheckIcon, CheckLine, CheckSquare, Gpu, History, LayoutDashboard, LucideAirVent, LucideFileWarning, NotepadText, PenBox, Settings2, SquareTerminal } from 'lucide-react';
+import {
+  BookOpen,
+  Bot,
+  CheckCheck,
+  CheckCircle,
+  CheckIcon,
+  CheckLine,
+  CheckSquare,
+  Gpu,
+  History,
+  LayoutDashboard,
+  LucideAirVent,
+  LucideFileWarning,
+  NotepadText,
+  PenBox,
+  Settings2,
+  SquareTerminal,
+} from 'lucide-react';
 import React from 'react';
 import {
   Sidebar,
@@ -61,13 +78,13 @@ const data = {
       isActive: true,
       section: 'operations',
     },
-    {
-      title: 'Self Learning',
-      url: '#self-learning',
-      icon: PenBox,
-      isActive: true,
-      section: 'operations',
-    },
+    // {
+    //   title: 'Self Learning',
+    //   url: '#self-learning',
+    //   icon: PenBox,
+    //   isActive: true,
+    //   section: 'operations',
+    // },
     // HISTORY & REPORTS Section
     {
       title: 'Past Data',
@@ -117,7 +134,7 @@ const AppSidebar = ({
   activePage: string;
   username?: string;
 }) => {
-  console.log(userData)
+  console.log(userData);
   const { isTestMode, setIsTestMode } = useAppMode();
   const { state } = useSidebar();
   return (
