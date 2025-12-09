@@ -49,6 +49,9 @@ import NftDefectsPage from "./components/NtfDefectsPage";
 import Dashboard from "./components/Dashboard";
 import SelfLearningPage from "./components/SelfLearning";
 import BoundingBoxPage from "./components/BoundingBoxPage";
+import SelfLearningDataPage from "./components/SelfLearningDataPage";
+import NewModelTrainingPage from "./components/NewModelTrainingPage";
+import BatchTrainingSummaryPage from "./components/BatchTrainingSummaryPage";
 
 declare global {
   interface Window {
@@ -125,6 +128,8 @@ function App() {
   const [totalUploads, setTotalUploads] = useState(0);
   const [completedUploads, setCompletedUploads] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
+  const [selectedBatchSlug, setSelectedBatchSlug] = useState<string | undefined>(undefined);
+  const [selectedBatchName, setSelectedBatchName] = useState<string>("");
   const [failedUploadIndices, setFailedUploadIndices] = useState([]);
   const [authToken, setAuthToken] = useState(() =>
     localStorage.getItem("sentinel_dash_token")
@@ -595,6 +600,8 @@ function App() {
     "ntf-checker": "NTF Checker",
     "data-collection": "Data Collection",
     "self-learning": "Self Learning",
+    "self-learning-data": "Self Learning Data",
+    "new-model-training": "New Model Training",
     summary: "Data Collection Summary",
     "pattern-ebc": "Pattern EBC Settings",
     review: "Review Images",
@@ -1274,9 +1281,9 @@ function App() {
   };
 
   const handleBoundingBoxSubmit = async (boundingBoxes) => {
-    // Import will be added in api.ts
     const { submitSelfLearning } = await import("./services/api");
 
+    // Step 1: Create the display panel first to get panel_image IDs
     const panel_images = uploadedImageUrls
       .filter((url) => url !== null)
       .map((url, index) => ({
@@ -1285,17 +1292,33 @@ function App() {
         base_pattern: index + 1,
       }));
 
-    const payload = {
+    const panelPayload = {
       ppid,
       panel_images,
-      bounding_boxes: boundingBoxes,
       test_type: isTestMode
         ? ("test" as "test")
         : ("production" as "production"),
+      inference: false, // No inference for self-learning
+      qa: false,
     };
 
-    console.log("Self Learning Payload:", payload);
-    const result = await submitSelfLearning(payload);
+    // Step 2: Submit annotations directly with bounding boxes
+    // panel_image and base_pattern are just 1, 2, 3, 4, 5... for each pattern
+    const panel_images_with_ids = uploadedImageUrls
+      .filter((url) => url !== null)
+      .map((url, index) => ({
+        id: index + 1,
+        panel: ppid,
+        base_pattern: index + 1,
+        image_url: url,
+      }));
+
+    const result = await submitSelfLearning({
+      ppid,
+      test_type: isTestMode ? "test" : "production",
+      panel_images: panel_images_with_ids,
+      bounding_boxes: boundingBoxes,
+    });
     return result; // Return the result to BoundingBoxPage
   };
 
@@ -1574,6 +1597,43 @@ function App() {
         return <NTFCheckerPage onStartDefectChecker={startDefectChecker} />;
       case "self-learning":
         return <SelfLearningPage onStartDefectChecker={startDefectChecker} />;
+      case "self-learning-data":
+        return (
+          <SelfLearningDataPage
+            onNavigateToTraining={(batchSlug?: string) => {
+              setSelectedBatchSlug(batchSlug);
+              setActivePage("new-model-training");
+            }}
+          />
+        );
+      case "new-model-training":
+        return (
+          <NewModelTrainingPage
+            selectedBatchSlug={selectedBatchSlug}
+            onBackToSelfLearning={() => {
+              setSelectedBatchSlug(undefined);
+              setActivePage("self-learning-data");
+            }}
+            onViewBatchSummary={(batchSlug: string, batchName: string) => {
+              setSelectedBatchSlug(batchSlug);
+              setSelectedBatchName(batchName);
+              setActivePage("batch-training-summary");
+            }}
+          />
+        );
+      case "batch-training-summary":
+        return selectedBatchSlug ? (
+          <BatchTrainingSummaryPage
+            batchSlug={selectedBatchSlug}
+            batchName={selectedBatchName}
+            onBack={() => {
+              setActivePage("new-model-training");
+            }}
+            onTrainingTriggered={() => {
+              setActivePage("new-model-training");
+            }}
+          />
+        ) : null;
       case "summary":
         return <SummaryPage />;
       case "pattern-ebc":

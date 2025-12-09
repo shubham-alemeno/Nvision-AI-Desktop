@@ -484,60 +484,87 @@ export const getTaskStatus = async (taskUuid: string) => {
   );
 };
 
+// Defect mapping
+const DEFECT_MAP: { [key: string]: number } = {
+  def_abnormal_display: 1,
+  def_horizontal_line: 2,
+  def_horizontal_band: 3,
+  def_vertical_line: 4,
+  def_vertical_band: 5,
+  def_particles: 6,
+  def_white_patches: 7,
+  def_polariser_scratches: 8,
+  def_light_leakage: 9,
+  def_mura: 10,
+  def_incoming_border_patch: 11,
+  def_pixel_bright_dot: 12,
+  def_incoming_galaxy: 13,
+  def_led_off: 14,
+  def_bleeding: 15,
+  def_other_defects: 17,
+};
+
+const DEFECT_ID_TO_NAME: { [key: number]: string } = {
+  1: 'Abnormal Display',
+  2: 'Horizontal Line',
+  3: 'Horizontal Band',
+  4: 'Vertical Line',
+  5: 'Vertical Band',
+  6: 'Particles',
+  7: 'White Patches',
+  8: 'Polariser Scratches',
+  9: 'Light Leakage',
+  10: 'Mura',
+  11: 'Incoming Border Patch',
+  12: 'Pixel Bright Dot',
+  13: 'Incoming Galaxy',
+  14: 'LED Off',
+  15: 'Bleeding',
+  17: 'Other Defects',
+};
+
 // Helper function to get defect ID from defect type key
 const getDefectIdFromType = (defectType: string): number => {
-  const defectMap: { [key: string]: number } = {
-    def_abnormal_display: 1,
-    def_horizontal_line: 2,
-    def_horizontal_band: 3,
-    def_vertical_line: 4,
-    def_vertical_band: 5,
-    def_particles: 6,
-    def_white_patches: 7,
-    def_polariser_scratches: 8,
-    def_light_leakage: 9,
-    def_mura: 10,
-    def_incoming_border_patch: 11,
-    def_pixel_bright_dot: 12,
-    def_incoming_galaxy: 13,
-    def_led_off: 14,
-    def_bleeding: 15,
-  };
-  return defectMap[defectType] || 1; // Default to 1 if not found
+  return DEFECT_MAP[defectType] || 1; // Default to 1 if not found
 };
 
 // Bulk create annotations
-export const bulkCreateAnnotations = async (
-  annotations: Array<{
-    panel_image: number;
-    defect: number;
-    base_pattern: number;
-    status: string;
-    coordinates: { x: number; y: number; width: number; height: number };
-    notes: string;
-  }>
-) => {
-  return apiCallWithErrorHandling(
-    () =>
-      api
-        .post('/annotations/bulk_create/', { annotations })
-        .then((response) => response.data),
-    {
-      location: 'bulkCreateAnnotations',
-      operation: 'bulk_annotations_create',
-      extra: {
-        annotations_count: annotations.length,
-      },
-    }
-  );
-};
+// export const bulkCreateAnnotations = async (
+//   annotations: Array<{
+//     panel_image: number;
+//     defect: number;
+//     base_pattern: number;
+//     status: string;
+//     x: number;
+//     y: number;
+//     width: number;
+//     height: number;
+//     notes: string;
+//   }>
+// ) => {
+//   return apiCallWithErrorHandling(
+//     () =>
+//       api
+//         .post('api/self-learning/annotations/bulk_create/', { annotations })
+//         .then((response) => response.data),
+//     {
+//       location: 'bulkCreateAnnotations',
+//       operation: 'bulk_annotations_create',
+//       extra: {
+//         annotations_count: annotations.length,
+//       },
+//     }
+//   );
+// };
 
 export const submitSelfLearning = async (data: {
   ppid: string;
+  test_type: 'test' | 'production';
   panel_images: Array<{
+    id: number;
     panel: string;
-    image_url: string;
     base_pattern: number;
+    image_url: string;
   }>;
   bounding_boxes: {
     [key: number]: Array<{
@@ -548,65 +575,88 @@ export const submitSelfLearning = async (data: {
       defect_type: string;
     }>;
   };
-  test_type: 'test' | 'production';
+  imageWidth?: number;
+  imageHeight?: number;
 }) => {
   return apiCallWithErrorHandling(
     async () => {
-      // Step 1: Create the display panel to get panel_image IDs
-      const panelResponse = await api
-        .post('/data/display-panel/', {
-          ppid: data.ppid,
-          panel_images: data.panel_images,
-          test_type: data.test_type,
-          inference: false, // No inference for self-learning
-          qa: false,
-        })
-        .then((response) => response.data);
-
-      console.log('Panel created:', panelResponse);
-
-      // Step 2: Extract panel_image IDs from response
-      const panelImageIds = panelResponse.panel_images.map((pi: any) => pi.id);
-
-      // Step 3: Transform bounding boxes to annotations format
+      // Transform bounding boxes to annotations format
+      // panel_image and base_pattern are simply 1, 2, 3, 4, 5... (pattern numbers)
       const annotations: Array<{
         panel_image: number;
         defect: number;
         base_pattern: number;
         status: string;
-        coordinates: { x: number; y: number; width: number; height: number };
+        x: number;
+        y: number;
+        width: number;
+        height: number;
         notes: string;
       }> = [];
 
+      // Use provided dimensions or default to common resolution
+      const imageWidth = data.imageWidth || 1920;
+      const imageHeight = data.imageHeight || 1080;
+
+      console.log(
+        `Normalizing coordinates with image dimensions: ${imageWidth}x${imageHeight}`
+      );
+
       Object.entries(data.bounding_boxes).forEach(([imageIndex, boxes]) => {
         const idx = parseInt(imageIndex);
-        const panelImageId = panelImageIds[idx];
+        const patternNumber = idx + 1; // 1, 2, 3, 4, 5... 15
 
-        if (panelImageId) {
-          boxes.forEach((box) => {
-            annotations.push({
-              panel_image: panelImageId,
-              defect: getDefectIdFromType(box.defect_type),
-              base_pattern: data.panel_images[idx].base_pattern,
-              status: 'pending',
-              coordinates: {
-                x: Math.round(box.x),
-                y: Math.round(box.y),
-                width: Math.round(box.width),
-                height: Math.round(box.height),
-              },
-              notes: '',
-            });
+        console.log(
+          `Processing pattern ${patternNumber} (index ${idx}): ${boxes.length} boxes`
+        );
+
+        boxes.forEach((box) => {
+          // Normalize coordinates to 0-1 range
+          const normalizedX = box.x / imageWidth;
+          const normalizedY = box.y / imageHeight;
+          const normalizedWidth = box.width / imageWidth;
+          const normalizedHeight = box.height / imageHeight;
+
+          annotations.push({
+            panel_image: patternNumber, // Just use pattern number 1-15
+            defect: getDefectIdFromType(box.defect_type),
+            base_pattern: patternNumber, // Same as panel_image: 1-15
+            status: 'pending',
+            x: normalizedX,
+            y: normalizedY,
+            width: normalizedWidth,
+            height: normalizedHeight,
+            notes: '',
           });
-        }
+        });
       });
 
       console.log('Annotations to submit:', annotations);
 
-      // Step 4: Call bulk annotations endpoint if we have annotations
+      // Collect unique defects used in annotations
+      const uniqueDefects = new Set<number>();
+      annotations.forEach((ann) => uniqueDefects.add(ann.defect));
+
+      const defects = Array.from(uniqueDefects).map((defectId) => ({
+        id: defectId,
+        name: DEFECT_ID_TO_NAME[defectId] || `Defect ${defectId}`,
+      }));
+
+      // Call bulk annotations endpoint if we have annotations
       if (annotations.length > 0) {
+        // Complete payload structure
+        const payload = {
+          ppid: data.ppid,
+          test_type: data.test_type,
+          defects: defects,
+          panel_images: data.panel_images,
+          annotations: annotations,
+        };
+
+        console.log('Payload to submit:', payload);
+
         const annotationsResponse = await api
-          .post('/annotations/bulk_create/', { annotations })
+          .post('api/self-learning/annotations/bulk_create/', payload)
           .then((response) => response.data);
 
         console.log('Annotations created:', annotationsResponse);
@@ -621,7 +671,6 @@ export const submitSelfLearning = async (data: {
           return {
             success: true,
             message: `Partial success: ${annotationsResponse.created_count} annotations created, ${annotationsResponse.error_count} failed`,
-            panel: panelResponse,
             annotations: annotationsResponse,
             hasErrors: true,
           };
@@ -636,15 +685,13 @@ export const submitSelfLearning = async (data: {
         return {
           success: true,
           message: `Successfully created ${annotationsResponse.created_count} annotations`,
-          panel: panelResponse,
           annotations: annotationsResponse,
         };
       }
 
       return {
         success: true,
-        message: 'Panel created successfully (no annotations)',
-        panel: panelResponse,
+        message: 'No annotations to submit',
       };
     },
     {
@@ -652,8 +699,6 @@ export const submitSelfLearning = async (data: {
       operation: 'self_learning_submission',
       extra: {
         ppid: data.ppid,
-        test_type: data.test_type,
-        images_count: data.panel_images.length,
         boxes_count: Object.values(data.bounding_boxes).reduce(
           (sum, boxes) => sum + boxes.length,
           0
@@ -1053,6 +1098,548 @@ export const getHealthCheck = async () => {
     {
       location: 'getHealthCheck',
       operation: 'health_check',
+    }
+  );
+};
+
+// Self Learning / Annotation Statistics API
+export const getAnnotationStatsOverview = async (params?: {
+  from_date?: string;
+  to_date?: string;
+  annotator?: number;
+  defect?: number;
+  pattern?: number;
+  status?: 'pending' | 'approved' | 'rejected';
+}) => {
+  return apiCallWithErrorHandling(
+    () => {
+      const queryParams = new URLSearchParams();
+      if (params?.from_date) queryParams.append('from_date', params.from_date);
+      if (params?.to_date) queryParams.append('to_date', params.to_date);
+      if (params?.annotator)
+        queryParams.append('annotator', params.annotator.toString());
+      if (params?.defect)
+        queryParams.append('defect', params.defect.toString());
+      if (params?.pattern)
+        queryParams.append('pattern', params.pattern.toString());
+      if (params?.status) queryParams.append('status', params.status);
+
+      return api
+        .get(
+          `api/self-learning/annotations/statistics/?${queryParams.toString()}`
+        )
+        .then((response) => response.data);
+    },
+    {
+      location: 'getAnnotationStatsOverview',
+      operation: 'annotation_stats_overview_fetch',
+    }
+  );
+};
+
+export const getAnnotationStatsPanels = async (params?: {
+  from_date?: string;
+  to_date?: string;
+  defect?: number;
+  pattern?: number;
+  test_type?: 'production' | 'test';
+  annotator?: number;
+}) => {
+  return apiCallWithErrorHandling(
+    () => {
+      const queryParams = new URLSearchParams();
+      if (params?.from_date) queryParams.append('from_date', params.from_date);
+      if (params?.to_date) queryParams.append('to_date', params.to_date);
+      if (params?.defect)
+        queryParams.append('defect', params.defect.toString());
+      if (params?.pattern)
+        queryParams.append('pattern', params.pattern.toString());
+      if (params?.test_type) queryParams.append('test_type', params.test_type);
+      if (params?.annotator)
+        queryParams.append('annotator', params.annotator.toString());
+
+      return api
+        .get(
+          `/api/self-learning/annotation-stats/panels/?${queryParams.toString()}`
+        )
+        .then((response) => response.data);
+    },
+    {
+      location: 'getAnnotationStatsPanels',
+      operation: 'annotation_stats_panels_fetch',
+    }
+  );
+};
+
+export const getAnnotationStatsBreakdown = async (params: {
+  category: 'defect' | 'pattern' | 'annotator' | 'status' | 'date';
+  from_date?: string;
+  to_date?: string;
+  defect?: number;
+  pattern?: number;
+  annotator?: number;
+}) => {
+  return apiCallWithErrorHandling(
+    () => {
+      const queryParams = new URLSearchParams();
+      queryParams.append('category', params.category);
+      if (params?.from_date) queryParams.append('from_date', params.from_date);
+      if (params?.to_date) queryParams.append('to_date', params.to_date);
+      if (params?.defect)
+        queryParams.append('defect', params.defect.toString());
+      if (params?.pattern)
+        queryParams.append('pattern', params.pattern.toString());
+      if (params?.annotator)
+        queryParams.append('annotator', params.annotator.toString());
+
+      return api
+        .get(
+          `/api/self-learning/annotation-stats/breakdown/?${queryParams.toString()}`
+        )
+        .then((response) => response.data);
+    },
+    {
+      location: 'getAnnotationStatsBreakdown',
+      operation: 'annotation_stats_breakdown_fetch',
+    }
+  );
+};
+
+export const getAnnotationStatsTrainingUsage = async (params?: {
+  defect_id?: number;
+  pattern_id?: number;
+  test_type?: 'production' | 'test';
+  page?: number;
+  page_size?: number;
+}) => {
+  return apiCallWithErrorHandling(
+    () => {
+      const queryParams = new URLSearchParams();
+      if (params?.defect_id)
+        queryParams.append('defect_id', params.defect_id.toString());
+      if (params?.pattern_id)
+        queryParams.append('pattern_id', params.pattern_id.toString());
+      if (params?.test_type) queryParams.append('test_type', params.test_type);
+      if (params?.page) queryParams.append('page', params.page.toString());
+      if (params?.page_size)
+        queryParams.append('page_size', params.page_size.toString());
+
+      return api
+        .get(
+          `/api/self-learning/annotation-stats/training-usage/?${queryParams.toString()}`
+        )
+        .then((response) => response.data);
+    },
+    {
+      location: 'getAnnotationStatsTrainingUsage',
+      operation: 'annotation_stats_training_usage_fetch',
+    }
+  );
+};
+
+// PPID Annotation API
+export const getAnnotationPPIDList = async (params?: {
+  ppid?: string;
+  test_type?: 'production' | 'test';
+  status?: 'pending' | 'approved' | 'rejected';
+  defect?: number;
+  pattern?: number;
+  created_by?: number;
+  from_date?: string;
+  to_date?: string;
+  page?: number;
+  page_size?: number;
+}) => {
+  return apiCallWithErrorHandling(
+    () => {
+      const queryParams = new URLSearchParams();
+      if (params?.ppid) queryParams.append('ppid', params.ppid);
+      if (params?.test_type) queryParams.append('test_type', params.test_type);
+      if (params?.status) queryParams.append('status', params.status);
+      if (params?.defect)
+        queryParams.append('defect', params.defect.toString());
+      if (params?.pattern)
+        queryParams.append('pattern', params.pattern.toString());
+      if (params?.created_by)
+        queryParams.append('created_by', params.created_by.toString());
+      if (params?.from_date) queryParams.append('from_date', params.from_date);
+      if (params?.to_date) queryParams.append('to_date', params.to_date);
+      if (params?.page) queryParams.append('page', params.page.toString());
+      if (params?.page_size)
+        queryParams.append('page_size', params.page_size.toString());
+
+      return api
+        .get(
+          `/api/self-learning/annotation-ppid/list/?${queryParams.toString()}`
+        )
+        .then((response) => response.data);
+    },
+    {
+      location: 'getAnnotationPPIDList',
+      operation: 'annotation_ppid_list_fetch',
+    }
+  );
+};
+
+export const getAnnotationPPIDDetails = async (ppid: string) => {
+  return apiCallWithErrorHandling(
+    () =>
+      api
+        .get(`/api/self-learning/annotation-ppid/${ppid}/`)
+        .then((response) => response.data),
+    {
+      location: 'getAnnotationPPIDDetails',
+      operation: 'annotation_ppid_details_fetch',
+      extra: { ppid },
+    }
+  );
+};
+
+export const validateAnnotationPPIDs = async (ppids: string[]) => {
+  return apiCallWithErrorHandling(
+    () =>
+      api
+        .post('/api/self-learning/annotation-ppid/validate/', { ppids })
+        .then((response) => response.data),
+    {
+      location: 'validateAnnotationPPIDs',
+      operation: 'annotation_ppid_validate',
+      extra: { ppids_count: ppids.length },
+    }
+  );
+};
+
+// Bulk update annotation status - flexible API
+export const bulkUpdateAnnotationStatus = async (data: {
+  display_panels: Array<{
+    ppid: string;
+    action?: 'approve' | 'reject';
+    notes?: string;
+    panel_images?: Array<{
+      panel_image_id: number;
+      action: 'approve' | 'reject';
+      notes?: string;
+    }>;
+    annotations?: Array<{
+      annotation_id: number;
+      action: 'approve' | 'reject';
+      notes?: string;
+    }>;
+  }>;
+}) => {
+  return apiCallWithErrorHandling(
+    () =>
+      api
+        .post('/api/self-learning/annotations/bulk_update_annotation_status/', data)
+        .then((response) => response.data),
+    {
+      location: 'bulkUpdateAnnotationStatus',
+      operation: 'bulk_annotation_status_update',
+      extra: { panels_count: data.display_panels.length },
+    }
+  );
+};
+
+// Simple bulk update by annotation IDs
+export const bulkUpdateStatus = async (data: {
+  annotation_ids: number[];
+  status: 'approved' | 'rejected' | 'pending';
+}) => {
+  return apiCallWithErrorHandling(
+    () =>
+      api
+        .post('/api/self-learning/annotations/bulk_update_status/', data)
+        .then((response) => response.data),
+    {
+      location: 'bulkUpdateStatus',
+      operation: 'bulk_status_update',
+      extra: { annotations_count: data.annotation_ids.length },
+    }
+  );
+};
+
+// Batch Training System API
+export const createBatch = async (data: {
+  name: string;
+  description?: string;
+  defect_ids: number[];
+  min_approved_annotations_threshold?: number;
+  tags?: string[];
+  metadata?: Record<string, any>;
+}) => {
+  return apiCallWithErrorHandling(
+    () =>
+      api
+        .post('/api/self-learning/batches/', data)
+        .then((response) => response.data),
+    {
+      location: 'createBatch',
+      operation: 'batch_create',
+      extra: { defects_count: data.defect_ids.length },
+    }
+  );
+};
+
+export const getBatches = async (params?: {
+  status?:
+    | 'draft'
+    | 'in_review'
+    | 'ready_for_training'
+    | 'training'
+    | 'completed';
+  defect_id?: number;
+  is_locked?: boolean;
+  page?: number;
+  page_size?: number;
+}) => {
+  return apiCallWithErrorHandling(
+    () => {
+      const queryParams = new URLSearchParams();
+      if (params?.status) queryParams.append('status', params.status);
+      if (params?.defect_id)
+        queryParams.append('defect_id', params.defect_id.toString());
+      if (params?.is_locked !== undefined)
+        queryParams.append('is_locked', params.is_locked.toString());
+      if (params?.page) queryParams.append('page', params.page.toString());
+      if (params?.page_size)
+        queryParams.append('page_size', params.page_size.toString());
+
+      return api
+        .get(`/api/self-learning/batches/?${queryParams.toString()}`)
+        .then((response) => response.data);
+    },
+    {
+      location: 'getBatches',
+      operation: 'batches_fetch',
+    }
+  );
+};
+
+export const getBatchDetails = async (slug: string) => {
+  return apiCallWithErrorHandling(
+    () =>
+      api
+        .get(`/api/self-learning/batches/${slug}/`)
+        .then((response) => response.data),
+    {
+      location: 'getBatchDetails',
+      operation: 'batch_details_fetch',
+      extra: { slug },
+    }
+  );
+};
+
+export const updateBatch = async (
+  slug: string,
+  data: {
+    name?: string;
+    description?: string;
+    status?: string;
+    min_approved_annotations_threshold?: number;
+    tags?: string[];
+  }
+) => {
+  return apiCallWithErrorHandling(
+    () =>
+      api
+        .patch(`/api/self-learning/batches/${slug}/`, data)
+        .then((response) => response.data),
+    {
+      location: 'updateBatch',
+      operation: 'batch_update',
+      extra: { slug },
+    }
+  );
+};
+
+export const deleteBatch = async (slug: string) => {
+  return apiCallWithErrorHandling(
+    () =>
+      api
+        .delete(`/api/self-learning/batches/${slug}/`)
+        .then((response) => response.data),
+    {
+      location: 'deleteBatch',
+      operation: 'batch_delete',
+      extra: { slug },
+    }
+  );
+};
+
+export const addDefectsToBatch = async (slug: string, defect_ids: number[]) => {
+  return apiCallWithErrorHandling(
+    () =>
+      api
+        .post(`/api/self-learning/batches/${slug}/add_defects/`, { defect_ids })
+        .then((response) => response.data),
+    {
+      location: 'addDefectsToBatch',
+      operation: 'batch_add_defects',
+      extra: { slug, defects_count: defect_ids.length },
+    }
+  );
+};
+
+export const removeDefectsFromBatch = async (
+  slug: string,
+  defect_ids: number[]
+) => {
+  return apiCallWithErrorHandling(
+    () =>
+      api
+        .post(`/api/self-learning/batches/${slug}/remove_defects/`, {
+          defect_ids,
+        })
+        .then((response) => response.data),
+    {
+      location: 'removeDefectsFromBatch',
+      operation: 'batch_remove_defects',
+      extra: { slug, defects_count: defect_ids.length },
+    }
+  );
+};
+
+export const getBatchStatistics = async (slug: string) => {
+  return apiCallWithErrorHandling(
+    () =>
+      api
+        .get(`/api/self-learning/batches/${slug}/statistics/`)
+        .then((response) => response.data),
+    {
+      location: 'getBatchStatistics',
+      operation: 'batch_statistics_fetch',
+      extra: { slug },
+    }
+  );
+};
+
+export const validateTrainingReadiness = async (slug: string) => {
+  return apiCallWithErrorHandling(
+    () =>
+      api
+        .get(`/api/self-learning/batches/${slug}/validate_training_readiness/`)
+        .then((response) => response.data),
+    {
+      location: 'validateTrainingReadiness',
+      operation: 'batch_validate_training',
+      extra: { slug },
+    }
+  );
+};
+
+export const triggerTraining = async (
+  slug: string,
+  params?: {
+    model_display_name?: string;
+    description?: string;
+    model_type?: string;
+    edge_model_type?: string;
+    training_budget_hours?: number;
+    training_parameters?: {
+      epochs?: number;
+      batch_size?: number;
+      learning_rate?: number;
+      optimizer?: string;
+    };
+  }
+) => {
+  // Default values
+  const payload = {
+    model_display_name: params?.model_display_name || `Model Training ${new Date().toLocaleDateString()}`,
+    description: params?.description || `Training model for defect detection`,
+    model_type: params?.model_type || 'object_detection',
+    edge_model_type: params?.edge_model_type || 'MOBILE_TF_VERSATILE_1',
+    training_budget_hours: params?.training_budget_hours || 8,
+    training_parameters: params?.training_parameters || {},
+  };
+
+  return apiCallWithErrorHandling(
+    () =>
+      api
+        .post(`/api/self-learning/batches/${slug}/trigger_training/`, payload)
+        .then((response) => response.data),
+    {
+      location: 'triggerTraining',
+      operation: 'batch_trigger_training',
+      extra: { slug },
+    }
+  );
+};
+
+export const getBatchStatus = async (slug: string) => {
+  return apiCallWithErrorHandling(
+    () =>
+      api
+        .get(`/api/self-learning/batches/${slug}/status/`)
+        .then((response) => response.data),
+    {
+      location: 'getBatchStatus',
+      operation: 'batch_status_fetch',
+      extra: { slug },
+    }
+  );
+};
+
+export const getBatchTrainingLogs = async (slug: string) => {
+  return apiCallWithErrorHandling(
+    () =>
+      api
+        .get(`/api/self-learning/batches/${slug}/training_logs/`)
+        .then((response) => response.data),
+    {
+      location: 'getBatchTrainingLogs',
+      operation: 'batch_training_logs_fetch',
+      extra: { slug },
+    }
+  );
+};
+
+export const lockBatch = async (slug: string) => {
+  return apiCallWithErrorHandling(
+    () =>
+      api
+        .post(`/api/self-learning/batches/${slug}/lock/`)
+        .then((response) => response.data),
+    {
+      location: 'lockBatch',
+      operation: 'batch_lock',
+      extra: { slug },
+    }
+  );
+};
+
+export const getBatchAnnotations = async (
+  slug: string,
+  params?: {
+    status?: 'pending' | 'approved' | 'rejected';
+    defect_id?: number;
+    pattern_id?: number;
+    page?: number;
+    page_size?: number;
+  }
+) => {
+  return apiCallWithErrorHandling(
+    () => {
+      const queryParams = new URLSearchParams();
+      if (params?.status) queryParams.append('status', params.status);
+      if (params?.defect_id)
+        queryParams.append('defect_id', params.defect_id.toString());
+      if (params?.pattern_id)
+        queryParams.append('pattern_id', params.pattern_id.toString());
+      if (params?.page) queryParams.append('page', params.page.toString());
+      if (params?.page_size)
+        queryParams.append('page_size', params.page_size.toString());
+
+      return api
+        .get(
+          `/api/self-learning/batches/${slug}/annotations/?${queryParams.toString()}`
+        )
+        .then((response) => response.data);
+    },
+    {
+      location: 'getBatchAnnotations',
+      operation: 'batch_annotations_fetch',
+      extra: { slug },
     }
   );
 };

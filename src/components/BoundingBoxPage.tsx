@@ -25,27 +25,69 @@ interface BoundingBoxPageProps {
 }
 
 // Defect types matching the app's defect configuration
+// IDs match the backend API defect IDs
 const DEFECT_TYPES = [
-  { key: 'def_abnormal_display', label: 'Abnormal Display', color: '#ef4444', id: 1 },
-  { key: 'def_horizontal_line', label: 'Horizontal Line', color: '#f97316', id: 2 },
-  { key: 'def_horizontal_band', label: 'Horizontal Band', color: '#f59e0b', id: 3 },
+  {
+    key: 'def_abnormal_display',
+    label: 'Abnormal Display',
+    color: '#ef4444',
+    id: 1,
+  },
+  {
+    key: 'def_horizontal_line',
+    label: 'Horizontal Line',
+    color: '#f97316',
+    id: 2,
+  },
+  {
+    key: 'def_horizontal_band',
+    label: 'Horizontal Band',
+    color: '#f59e0b',
+    id: 3,
+  },
   { key: 'def_vertical_line', label: 'Vertical Line', color: '#eab308', id: 4 },
   { key: 'def_vertical_band', label: 'Vertical Band', color: '#84cc16', id: 5 },
   { key: 'def_particles', label: 'Particles', color: '#22c55e', id: 6 },
   { key: 'def_white_patches', label: 'White Patch', color: '#10b981', id: 7 },
-  { key: 'def_polariser_scratches', label: 'Polariser Scratches', color: '#14b8a6', id: 8 },
+  {
+    key: 'def_polariser_scratches',
+    label: 'Polariser Scratches / Dent',
+    color: '#14b8a6',
+    id: 8,
+  },
   { key: 'def_light_leakage', label: 'Light Leakage', color: '#06b6d4', id: 9 },
   { key: 'def_mura', label: 'Mura', color: '#0ea5e9', id: 10 },
-  { key: 'def_incoming_border_patch', label: 'Border Patch', color: '#3b82f6', id: 11 },
-  { key: 'def_pixel_bright_dot', label: 'Pixel Bright Dot', color: '#6366f1', id: 12 },
-  { key: 'def_incoming_galaxy', label: 'Incoming Galaxy', color: '#8b5cf6', id: 13 },
-  { key: 'def_led_off', label: 'LED Off', color: '#a855f7', id: 14 },
+  {
+    key: 'def_incoming_border_patch',
+    label: 'Incoming Border Patch',
+    color: '#3b82f6',
+    id: 11,
+  },
+  {
+    key: 'def_pixel_bright_dot',
+    label: 'Pixel Bright Dot',
+    color: '#6366f1',
+    id: 12,
+  },
+  {
+    key: 'def_incoming_galaxy',
+    label: 'Incoming Galaxy',
+    color: '#8b5cf6',
+    id: 13,
+  },
+  { key: 'def_led_off', label: 'Led Off', color: '#a855f7', id: 14 },
   { key: 'def_bleeding', label: 'Bleeding', color: '#d946ef', id: 15 },
+  {
+    key: 'def_other_defects',
+    label: 'Other Defects',
+    color: '#ec4899',
+    id: 17,
+  },
 ];
 
 // Helper function to get defect ID from defect type key
 const getDefectIdFromType = (defectType: string): number => {
-  const defect = DEFECT_TYPES.find(d => d.key === defectType);
+  const defect = DEFECT_TYPES.find((d) => d.key === defectType);
   return defect?.id || 1; // Default to 1 if not found
 };
 
@@ -61,9 +103,13 @@ const BoundingBoxPage: React.FC<BoundingBoxPageProps> = ({
   const [boundingBoxes, setBoundingBoxes] = useState<{
     [key: number]: BoundingBox[];
   }>({});
-  const [selectedDefectType, setSelectedDefectType] = useState<string>(DEFECT_TYPES[0].key);
+  const [selectedDefectType, setSelectedDefectType] = useState<string>(
+    DEFECT_TYPES[0].key
+  );
   const [isDrawing, setIsDrawing] = useState(false);
-  const [startPos, setStartPos] = useState<{ x: number; y: number } | null>(null);
+  const [startPos, setStartPos] = useState<{ x: number; y: number } | null>(
+    null
+  );
   const [currentBox, setCurrentBox] = useState<BoundingBox | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
@@ -119,7 +165,12 @@ const BoundingBoxPage: React.FC<BoundingBoxPageProps> = ({
 
       // Draw label
       ctx.fillStyle = box.color;
-      ctx.fillRect(box.x, box.y - 24, ctx.measureText(box.defect_label).width + 10, 24);
+      ctx.fillRect(
+        box.x,
+        box.y - 24,
+        ctx.measureText(box.defect_label).width + 10,
+        24
+      );
       ctx.fillStyle = '#ffffff';
       ctx.font = '14px sans-serif';
       ctx.fillText(box.defect_label, box.x + 5, box.y - 6);
@@ -130,7 +181,12 @@ const BoundingBoxPage: React.FC<BoundingBoxPageProps> = ({
       ctx.strokeStyle = currentBox.color;
       ctx.lineWidth = 3;
       ctx.setLineDash([5, 5]);
-      ctx.strokeRect(currentBox.x, currentBox.y, currentBox.width, currentBox.height);
+      ctx.strokeRect(
+        currentBox.x,
+        currentBox.y,
+        currentBox.width,
+        currentBox.height
+      );
       ctx.setLineDash([]);
     }
   };
@@ -154,7 +210,9 @@ const BoundingBoxPage: React.FC<BoundingBoxPageProps> = ({
     setIsDrawing(true);
     setStartPos(pos);
 
-    const selectedDefect = DEFECT_TYPES.find((d) => d.key === selectedDefectType);
+    const selectedDefect = DEFECT_TYPES.find(
+      (d) => d.key === selectedDefectType
+    );
     if (!selectedDefect) return;
 
     setCurrentBox({
@@ -189,8 +247,12 @@ const BoundingBoxPage: React.FC<BoundingBoxPageProps> = ({
     if (Math.abs(currentBox.width) > 10 && Math.abs(currentBox.height) > 10) {
       const normalizedBox = {
         ...currentBox,
-        x: currentBox.width < 0 ? currentBox.x + currentBox.width : currentBox.x,
-        y: currentBox.height < 0 ? currentBox.y + currentBox.height : currentBox.y,
+        x:
+          currentBox.width < 0 ? currentBox.x + currentBox.width : currentBox.x,
+        y:
+          currentBox.height < 0
+            ? currentBox.y + currentBox.height
+            : currentBox.y,
         width: Math.abs(currentBox.width),
         height: Math.abs(currentBox.height),
       };
@@ -210,7 +272,10 @@ const BoundingBoxPage: React.FC<BoundingBoxPageProps> = ({
         // Add box only to current image
         setBoundingBoxes((prev) => ({
           ...prev,
-          [currentImageIndex]: [...(prev[currentImageIndex] || []), normalizedBox],
+          [currentImageIndex]: [
+            ...(prev[currentImageIndex] || []),
+            normalizedBox,
+          ],
         }));
       }
     }
@@ -250,8 +315,25 @@ const BoundingBoxPage: React.FC<BoundingBoxPageProps> = ({
       setSubmissionResult(result);
       setShowSuccessModal(true);
     } catch (error: any) {
-      console.error('Error submitting bounding boxes:', error);
-      const errorMessage = error?.message || 'Failed to submit. Please try again.';
+      console.group('📦 Error submitting bounding boxes');
+
+      console.error('➡️ Full error object:', error);
+
+      console.log('➡️ error.message:', error?.message);
+      console.log('➡️ error.type:', error?.type);
+      console.log('➡️ error.status:', error?.status);
+      console.log('➡️ error.details:', error?.details);
+
+      console.log('➡️ Axios error response:', error?.response);
+      console.log('➡️ Axios error data:', error?.response?.data);
+      console.log('➡️ Axios error status:', error?.response?.status);
+      console.log('➡️ Axios error headers:', error?.response?.headers);
+
+      console.log('➡️ Axios request config:', error?.config);
+
+      console.groupEnd();
+      const errorMessage =
+        error?.message || 'Failed to submit. Please try again.';
       alert(errorMessage);
     } finally {
       setSubmitting(false);
@@ -262,7 +344,10 @@ const BoundingBoxPage: React.FC<BoundingBoxPageProps> = ({
   const selectedDefect = DEFECT_TYPES.find((d) => d.key === selectedDefectType);
 
   return (
-    <div className="bg-gray-100 flex flex-col" style={{ height: 'calc(100vh - 32px)' }}>
+    <div
+      className="bg-gray-100 flex flex-col"
+      style={{ height: 'calc(100vh - 32px)' }}
+    >
       {/* Header */}
       <header className="flex-shrink-0 flex h-14 items-center justify-between border-b bg-white px-4 shadow-sm">
         <div className="flex items-center gap-4">
@@ -272,7 +357,12 @@ const BoundingBoxPage: React.FC<BoundingBoxPageProps> = ({
           </span>
         </div>
         <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={onDiscard} disabled={submitting}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={onDiscard}
+            disabled={submitting}
+          >
             Discard
           </Button>
           <Button size="sm" onClick={handleSubmit} disabled={submitting}>
@@ -286,7 +376,9 @@ const BoundingBoxPage: React.FC<BoundingBoxPageProps> = ({
         {/* Left Sidebar - Thumbnails */}
         <div className="w-48 bg-white border-r overflow-y-auto flex-shrink-0">
           <div className="p-2">
-            <h3 className="text-xs font-semibold text-gray-600 mb-2 px-2">PATTERNS</h3>
+            <h3 className="text-xs font-semibold text-gray-600 mb-2 px-2">
+              PATTERNS
+            </h3>
             <div className="space-y-1">
               {images.map((img, idx) => (
                 <button
@@ -359,7 +451,9 @@ const BoundingBoxPage: React.FC<BoundingBoxPageProps> = ({
                   </Button>
                 </div>
 
-                <TransformComponent wrapperStyle={{ width: '100%', height: '100%' }}>
+                <TransformComponent
+                  wrapperStyle={{ width: '100%', height: '100%' }}
+                >
                   <div className="relative inline-block">
                     <img
                       ref={imageRef}
@@ -396,7 +490,9 @@ const BoundingBoxPage: React.FC<BoundingBoxPageProps> = ({
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Copy className="w-4 h-4 text-blue-600" />
-                  <span className="text-sm font-medium text-blue-900">Auto-Replicate</span>
+                  <span className="text-sm font-medium text-blue-900">
+                    Auto-Replicate
+                  </span>
                 </div>
                 <button
                   onClick={() => setReplicateToAll(!replicateToAll)}
@@ -484,10 +580,12 @@ const BoundingBoxPage: React.FC<BoundingBoxPageProps> = ({
                         style={{ backgroundColor: box.color }}
                       />
                       <div className="flex-1 min-w-0">
-                        <div className="font-medium truncate">{box.defect_label}</div>
+                        <div className="font-medium truncate">
+                          {box.defect_label}
+                        </div>
                         <div className="text-gray-500 text-xs">
-                          {Math.round(box.x)}, {Math.round(box.y)} · {Math.round(box.width)}×
-                          {Math.round(box.height)}
+                          {Math.round(box.x)}, {Math.round(box.y)} ·{' '}
+                          {Math.round(box.width)}×{Math.round(box.height)}
                         </div>
                       </div>
                       <Button
@@ -527,26 +625,44 @@ const BoundingBoxPage: React.FC<BoundingBoxPageProps> = ({
                 </svg>
               </div>
               <h2 className="text-xl font-semibold mb-2">
-                {submissionResult?.hasErrors ? 'Partially Submitted' : 'Successfully Submitted!'}
+                {submissionResult?.hasErrors
+                  ? 'Partially Submitted'
+                  : 'Successfully Submitted!'}
               </h2>
               <p className="text-gray-600 mb-4">
-                {submissionResult?.message || `Annotated ${getTotalBoxCount()} defect${getTotalBoxCount() !== 1 ? 's' : ''} across ${Object.keys(boundingBoxes).length} pattern${Object.keys(boundingBoxes).length !== 1 ? 's' : ''} for PPID ${ppid}`}
+                {submissionResult?.message ||
+                  `Annotated ${getTotalBoxCount()} defect${
+                    getTotalBoxCount() !== 1 ? 's' : ''
+                  } across ${Object.keys(boundingBoxes).length} pattern${
+                    Object.keys(boundingBoxes).length !== 1 ? 's' : ''
+                  } for PPID ${ppid}`}
               </p>
-              {submissionResult?.hasErrors && submissionResult?.annotations?.errors && (
-                <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded text-left text-sm">
-                  <p className="font-semibold text-yellow-800 mb-2">Some annotations failed:</p>
-                  <ul className="text-yellow-700 space-y-1 max-h-32 overflow-y-auto">
-                    {submissionResult.annotations.errors.slice(0, 5).map((err: any, idx: number) => (
-                      <li key={idx} className="text-xs">
-                        Index {err.index}: {Object.values(err.errors || {}).flat().join(', ')}
-                      </li>
-                    ))}
-                    {submissionResult.annotations.errors.length > 5 && (
-                      <li className="text-xs italic">...and {submissionResult.annotations.errors.length - 5} more</li>
-                    )}
-                  </ul>
-                </div>
-              )}
+              {submissionResult?.hasErrors &&
+                submissionResult?.annotations?.errors && (
+                  <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded text-left text-sm">
+                    <p className="font-semibold text-yellow-800 mb-2">
+                      Some annotations failed:
+                    </p>
+                    <ul className="text-yellow-700 space-y-1 max-h-32 overflow-y-auto">
+                      {submissionResult.annotations.errors
+                        .slice(0, 5)
+                        .map((err: any, idx: number) => (
+                          <li key={idx} className="text-xs">
+                            Index {err.index}:{' '}
+                            {Object.values(err.errors || {})
+                              .flat()
+                              .join(', ')}
+                          </li>
+                        ))}
+                      {submissionResult.annotations.errors.length > 5 && (
+                        <li className="text-xs italic">
+                          ...and{' '}
+                          {submissionResult.annotations.errors.length - 5} more
+                        </li>
+                      )}
+                    </ul>
+                  </div>
+                )}
               <Button onClick={onDiscard} className="w-full">
                 Go Back to Self Learning
               </Button>

@@ -78,13 +78,27 @@ const data = {
       isActive: true,
       section: 'operations',
     },
-    // {
-    //   title: 'Self Learning',
-    //   url: '#self-learning',
-    //   icon: PenBox,
-    //   isActive: true,
-    //   section: 'operations',
-    // },
+    {
+      title: 'Self Learning',
+      url: '#self-learning',
+      icon: PenBox,
+      isActive: true,
+      section: 'operations',
+      items: [
+        {
+          title: 'Self Learning',
+          url: '#self-learning',
+        },
+        {
+          title: 'Self Learning Data',
+          url: '#self-learning-data',
+        },
+        {
+          title: 'New Model Training',
+          url: '#new-model-training',
+        },
+      ],
+    },
     // HISTORY & REPORTS Section
     {
       title: 'Past Data',
