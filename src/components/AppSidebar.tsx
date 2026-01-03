@@ -94,6 +94,10 @@ const data = {
           url: '#self-learning-data',
         },
         {
+          title: 'Self Learning Summary',
+          url: '#self-learning-summary',
+        },
+        {
           title: 'New Model Training',
           url: '#new-model-training',
         },

@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Trash2, ZoomIn, ZoomOut, RotateCcw, Copy } from 'lucide-react';
+import { Trash2, ZoomIn, ZoomOut, RotateCcw, Copy, Eye, EyeOff } from 'lucide-react';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 
 interface BoundingBox {
@@ -13,6 +13,7 @@ interface BoundingBox {
   color: string;
   defect_type: string;
   defect_label: string;
+  drawn_on_pattern: number; // Track which pattern index this was drawn on
 }
 
 interface BoundingBoxPageProps {
@@ -20,7 +21,10 @@ interface BoundingBoxPageProps {
   ppid: string;
   uploadedImageUrls: (string | null)[];
   isTestMode: boolean;
-  onSubmit: (boundingBoxes: { [key: number]: BoundingBox[] }) => void;
+  onSubmit: (
+    boundingBoxes: { [key: number]: BoundingBox[] },
+    imageDimensions?: { width: number; height: number }
+  ) => void;
   onDiscard: () => void;
 }
 
@@ -115,15 +119,16 @@ const BoundingBoxPage: React.FC<BoundingBoxPageProps> = ({
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [replicateToAll, setReplicateToAll] = useState(true); // Default to true for replication
   const [submissionResult, setSubmissionResult] = useState<any>(null);
+  const [annotationsVisible, setAnnotationsVisible] = useState(true);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
   const transformRef = useRef<any>(null);
 
-  // Redraw canvas whenever boxes or zoom changes
+  // Redraw canvas whenever boxes, visibility, or current image changes
   useEffect(() => {
     redrawCanvas();
-  }, [boundingBoxes, currentBox, currentImageIndex]);
+  }, [boundingBoxes, currentBox, currentImageIndex, annotationsVisible]);
 
   // Setup canvas on image load
   useEffect(() => {
@@ -132,6 +137,7 @@ const BoundingBoxPage: React.FC<BoundingBoxPageProps> = ({
     if (!img || !canvas) return;
 
     const handleImageLoad = () => {
+      // Set canvas to exact image dimensions
       canvas.width = img.naturalWidth;
       canvas.height = img.naturalHeight;
       redrawCanvas();
@@ -149,34 +155,40 @@ const BoundingBoxPage: React.FC<BoundingBoxPageProps> = ({
 
   const redrawCanvas = () => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    const img = imageRef.current;
+    if (!canvas || !img) return;
 
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
+    // Draw the image onto the canvas first
     ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
 
-    // Draw existing boxes
-    const boxes = boundingBoxes[currentImageIndex] || [];
-    boxes.forEach((box) => {
-      ctx.strokeStyle = box.color;
-      ctx.lineWidth = 3;
-      ctx.strokeRect(box.x, box.y, box.width, box.height);
+    // Only draw if annotations are visible
+    if (annotationsVisible) {
+      // Draw existing boxes
+      const boxes = boundingBoxes[currentImageIndex] || [];
+      boxes.forEach((box) => {
+        ctx.strokeStyle = box.color;
+        ctx.lineWidth = 3;
+        ctx.strokeRect(box.x, box.y, box.width, box.height);
 
-      // Draw label
-      ctx.fillStyle = box.color;
-      ctx.fillRect(
-        box.x,
-        box.y - 24,
-        ctx.measureText(box.defect_label).width + 10,
-        24
-      );
-      ctx.fillStyle = '#ffffff';
-      ctx.font = '14px sans-serif';
-      ctx.fillText(box.defect_label, box.x + 5, box.y - 6);
-    });
+        // Draw label
+        ctx.fillStyle = box.color;
+        ctx.fillRect(
+          box.x,
+          box.y - 24,
+          ctx.measureText(box.defect_label).width + 10,
+          24
+        );
+        ctx.fillStyle = '#ffffff';
+        ctx.font = '14px sans-serif';
+        ctx.fillText(box.defect_label, box.x + 5, box.y - 6);
+      });
+    }
 
-    // Draw current box being drawn
+    // Always draw current box being drawn
     if (currentBox) {
       ctx.strokeStyle = currentBox.color;
       ctx.lineWidth = 3;
@@ -193,7 +205,7 @@ const BoundingBoxPage: React.FC<BoundingBoxPageProps> = ({
 
   const getCanvasCoordinates = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
-    if (!canvas) return { x: 0, y: 0 };
+    if (!canvas) return null;
 
     const rect = canvas.getBoundingClientRect();
     const scaleX = canvas.width / rect.width;
@@ -207,6 +219,8 @@ const BoundingBoxPage: React.FC<BoundingBoxPageProps> = ({
 
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const pos = getCanvasCoordinates(e);
+    if (!pos) return; // Ignore clicks outside image
+
     setIsDrawing(true);
     setStartPos(pos);
 
@@ -224,6 +238,7 @@ const BoundingBoxPage: React.FC<BoundingBoxPageProps> = ({
       color: selectedDefect.color,
       defect_type: selectedDefect.key,
       defect_label: selectedDefect.label,
+      drawn_on_pattern: currentImageIndex,
     });
   };
 
@@ -231,6 +246,8 @@ const BoundingBoxPage: React.FC<BoundingBoxPageProps> = ({
     if (!isDrawing || !startPos || !currentBox) return;
 
     const pos = getCanvasCoordinates(e);
+    if (!pos) return; // Ignore if mouse is outside image
+
     const width = pos.x - startPos.x;
     const height = pos.y - startPos.y;
 
@@ -264,6 +281,7 @@ const BoundingBoxPage: React.FC<BoundingBoxPageProps> = ({
           const boxWithNewId = {
             ...normalizedBox,
             id: `box-${Date.now()}-${index}`, // Unique ID for each pattern
+            drawn_on_pattern: currentImageIndex, // Keep track of original pattern
           };
           newBoxes[index] = [...(newBoxes[index] || []), boxWithNewId];
         });
@@ -286,19 +304,45 @@ const BoundingBoxPage: React.FC<BoundingBoxPageProps> = ({
   };
 
   const handleDeleteBox = (boxId: string) => {
-    setBoundingBoxes((prev) => ({
-      ...prev,
-      [currentImageIndex]: (prev[currentImageIndex] || []).filter(
-        (box) => box.id !== boxId
-      ),
-    }));
+    // Extract the base ID (without the pattern-specific suffix)
+    const baseId = boxId.split('-').slice(0, -1).join('-');
+
+    // Delete from all patterns if this is a replicated box
+    setBoundingBoxes((prev) => {
+      const updated = { ...prev };
+      Object.keys(updated).forEach((key) => {
+        updated[Number(key)] = updated[Number(key)].filter(
+          (box) => box.id !== boxId && !box.id.startsWith(baseId + '-')
+        );
+      });
+      return updated;
+    });
   };
 
   const handleClearAll = () => {
-    setBoundingBoxes((prev) => ({
-      ...prev,
-      [currentImageIndex]: [],
-    }));
+    // Clear all boxes from all patterns globally
+    setBoundingBoxes({});
+  };
+
+  const handleCanvasDoubleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    const pos = getCanvasCoordinates(e);
+    if (!pos) return; // Ignore if click is outside image
+
+    const boxes = boundingBoxes[currentImageIndex] || [];
+
+    // Find the box that was clicked (in reverse order to prioritize top boxes)
+    for (let i = boxes.length - 1; i >= 0; i--) {
+      const box = boxes[i];
+      if (
+        pos.x >= box.x &&
+        pos.x <= box.x + box.width &&
+        pos.y >= box.y &&
+        pos.y <= box.y + box.height
+      ) {
+        handleDeleteBox(box.id);
+        return;
+      }
+    }
   };
 
   const getTotalBoxCount = () => {
@@ -311,7 +355,16 @@ const BoundingBoxPage: React.FC<BoundingBoxPageProps> = ({
   const handleSubmit = async () => {
     setSubmitting(true);
     try {
-      const result = await onSubmit(boundingBoxes);
+      // Get actual image dimensions from the canvas
+      const canvas = canvasRef.current;
+      const imageDimensions = canvas ? {
+        width: canvas.width,
+        height: canvas.height
+      } : undefined;
+
+      console.log('Submitting with image dimensions:', imageDimensions);
+
+      const result = await onSubmit(boundingBoxes, imageDimensions);
       setSubmissionResult(result);
       setShowSuccessModal(true);
     } catch (error: any) {
@@ -390,11 +443,11 @@ const BoundingBoxPage: React.FC<BoundingBoxPageProps> = ({
                       : 'border-gray-200 hover:border-gray-300'
                   }`}
                 >
-                  <div className="relative">
+                  <div className="relative bg-white rounded" style={{ height: '80px' }}>
                     <img
                       src={img}
                       alt={`Pattern ${idx + 1}`}
-                      className="w-full h-20 object-cover rounded"
+                      className="w-full h-full object-contain rounded"
                     />
                     {(boundingBoxes[idx]?.length || 0) > 0 && (
                       <div className="absolute top-1 right-1 bg-green-500 text-white text-xs px-1.5 py-0.5 rounded">
@@ -412,14 +465,17 @@ const BoundingBoxPage: React.FC<BoundingBoxPageProps> = ({
         </div>
 
         {/* Center - Image with Zoom/Pan */}
-        <div className="flex-1 bg-gray-200 relative flex items-center justify-center min-w-0">
+        <div className="flex-1 bg-gray-200 relative flex items-center justify-center min-w-0 overflow-hidden">
           <TransformWrapper
             ref={transformRef}
-            initialScale={1}
-            minScale={0.5}
+            initialScale={0.5}
+            minScale={0.1}
             maxScale={5}
             doubleClick={{ disabled: true }}
-            panning={{ disabled: isDrawing }}
+            panning={{ disabled: true }}
+            wheel={{ disabled: false }}
+            centerOnInit={true}
+            limitToBounds={false}
           >
             {({ zoomIn, zoomOut, resetTransform }) => (
               <>
@@ -449,31 +505,42 @@ const BoundingBoxPage: React.FC<BoundingBoxPageProps> = ({
                   >
                     <RotateCcw className="w-4 h-4" />
                   </Button>
+                  <div className="h-px bg-gray-300 my-1" />
+                  <Button
+                    size="sm"
+                    variant={annotationsVisible ? "secondary" : "outline"}
+                    onClick={() => setAnnotationsVisible(!annotationsVisible)}
+                    className="shadow-lg"
+                    title={annotationsVisible ? "Hide Annotations" : "Show Annotations"}
+                  >
+                    {annotationsVisible ? (
+                      <Eye className="w-4 h-4" />
+                    ) : (
+                      <EyeOff className="w-4 h-4" />
+                    )}
+                  </Button>
                 </div>
 
                 <TransformComponent
                   wrapperStyle={{ width: '100%', height: '100%' }}
                 >
-                  <div className="relative inline-block">
+                  <div className="inline-block">
+                    {/* Hidden image for loading */}
                     <img
                       ref={imageRef}
                       src={images[currentImageIndex]}
                       alt={`Pattern ${currentImageIndex + 1}`}
-                      className="max-w-none"
-                      draggable={false}
-                      style={{ display: 'block' }}
+                      style={{ display: 'none' }}
                     />
+                    {/* Canvas with image and annotations */}
                     <canvas
                       ref={canvasRef}
-                      className="absolute top-0 left-0 cursor-crosshair"
+                      className="cursor-crosshair"
                       onMouseDown={handleMouseDown}
                       onMouseMove={handleMouseMove}
                       onMouseUp={handleMouseUp}
                       onMouseLeave={handleMouseUp}
-                      style={{
-                        width: imageRef.current?.width || 'auto',
-                        height: imageRef.current?.height || 'auto',
-                      }}
+                      onDoubleClick={handleCanvasDoubleClick}
                     />
                   </div>
                 </TransformComponent>
@@ -486,7 +553,7 @@ const BoundingBoxPage: React.FC<BoundingBoxPageProps> = ({
         <div className="w-80 bg-white border-l overflow-y-auto flex-shrink-0">
           <div className="p-4 space-y-4">
             {/* Replication Toggle */}
-            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+            {/* <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <Copy className="w-4 h-4 text-blue-600" />
@@ -512,7 +579,7 @@ const BoundingBoxPage: React.FC<BoundingBoxPageProps> = ({
                   ? 'Boxes will be copied to all 15 patterns'
                   : 'Boxes only on current pattern'}
               </p>
-            </div>
+            </div> */}
 
             {/* Defect Type Selection */}
             <div>

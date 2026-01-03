@@ -4,8 +4,11 @@ import { Button } from '@/components/ui/button';
 import { ArrowLeft, AlertCircle } from 'lucide-react';
 import {
   getBatchStatistics,
+  getBatchPPIDs,
+  createDataset,
   triggerTraining,
 } from '@/services/api';
+import { useAppMode } from '@/contexts/appModeContext';
 
 interface DefectStatistic {
   defect_id: number;
@@ -44,6 +47,7 @@ const BatchTrainingSummaryPage: React.FC<BatchTrainingSummaryPageProps> = ({
   onBack,
   onTrainingTriggered,
 }) => {
+  const { isTestMode } = useAppMode();
   const [loading, setLoading] = useState(true);
   const [statistics, setStatistics] = useState<BatchStatistics | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -71,13 +75,46 @@ const BatchTrainingSummaryPage: React.FC<BatchTrainingSummaryPageProps> = ({
     setTriggering(true);
     setError(null);
     try {
-      // Trigger training with complete parameters
+      // Step 1: Get batch PPIDs and defects
+      console.log('Fetching batch PPIDs...');
+      const batchPPIDsData = await getBatchPPIDs(batchSlug);
+      console.log('Batch PPIDs data:', batchPPIDsData);
+
+      const ppids = batchPPIDsData.ppids || [];
+      const defectNames = batchPPIDsData.defects?.map((d: any) => d.defect_name) || [];
+
+      if (ppids.length === 0) {
+        throw new Error('No PPIDs found in this batch');
+      }
+
+      // Step 2: Create dataset
+      console.log('Creating dataset...');
+      const datasetResponse = await createDataset({
+        dataset_name: `dataset_${batchName}`,
+        description: `Dataset for defect detection - ${batchName}`,
+        test_type: isTestMode ? 'test' : 'production',
+        ppids: ppids,
+        defect_names: defectNames,
+        start_date: new Date().toISOString(),
+      });
+
+      console.log('Dataset created:', datasetResponse);
+
+      const vertexDatasetId = datasetResponse.vertex_dataset_id;
+
+      if (!vertexDatasetId) {
+        throw new Error('Dataset creation did not return vertex_dataset_id. Please wait for dataset processing to complete.');
+      }
+
+      // Step 3: Trigger training with vertex_dataset_id
+      console.log('Triggering training with vertex_dataset_id:', vertexDatasetId);
       const trainingResponse = await triggerTraining(batchSlug, {
         model_display_name: `${batchName} - ${new Date().toLocaleDateString()}`,
         description: `Training model for defect detection - ${batchName}`,
         model_type: 'object_detection',
         edge_model_type: 'MOBILE_TF_VERSATILE_1',
         training_budget_hours: 8,
+        vertex_dataset_id: vertexDatasetId,
         training_parameters: {
           epochs: 50,
           batch_size: 16,
@@ -89,13 +126,13 @@ const BatchTrainingSummaryPage: React.FC<BatchTrainingSummaryPageProps> = ({
       console.log('Training triggered:', trainingResponse);
 
       alert(
-        `Training triggered successfully for ${batchName}!\nTraining Log UUID: ${trainingResponse.training_log_uuid}`
+        `Training triggered successfully for ${batchName}!\nDataset: ${datasetResponse.dataset_name}\nTraining Log UUID: ${trainingResponse.training_log_uuid}`
       );
 
       // Navigate back to the training page
       onTrainingTriggered();
     } catch (err: any) {
-      console.error('Error triggering training:', err);
+      console.error('Error in training flow:', err);
       setError(err.message || 'Failed to trigger training');
     } finally {
       setTriggering(false);

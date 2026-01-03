@@ -1,19 +1,32 @@
-import React, { useState, useEffect } from "react";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
-import { Input } from "@/components/ui/input";
-import { RotateCcw, Cpu, Search, ChevronDown, ChevronUp, X, TrendingUp } from "lucide-react";
-import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
-import { Badge } from "@/components/ui/badge";
+import React, { useState, useEffect } from 'react';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Label } from '@/components/ui/label';
+import { Input } from '@/components/ui/input';
+import {
+  RotateCcw,
+  Cpu,
+  Search,
+  ChevronDown,
+  ChevronUp,
+  X,
+  TrendingUp,
+} from 'lucide-react';
+import {
+  Collapsible,
+  CollapsibleTrigger,
+  CollapsibleContent,
+} from '@/components/ui/collapsible';
+import { Badge } from '@/components/ui/badge';
 import {
   getAnnotationStatsOverview,
   getAnnotationStatsPanels,
   getAnnotationPPIDList,
   getDefects,
   bulkUpdateAnnotationStatus,
-} from "@/services/api";
-import AnnotationReviewModal from "./AnnotationReviewModal";
+} from '@/services/api';
+import AnnotationReviewModal from './AnnotationReviewModal';
+import ImageViewerModal from './ImageViewerModal';
 
 interface OverviewStats {
   status: string;
@@ -120,29 +133,48 @@ interface Defect {
 
 interface SelfLearningDataPageProps {
   onNavigateToTraining?: (batchSlug?: string) => void;
+  userData?: any; // User data from token
 }
 
 const SelfLearningDataPage: React.FC<SelfLearningDataPageProps> = ({
   onNavigateToTraining,
+  userData,
 }) => {
+  // Check if user is from alemeno group
+  // console.log(userData.groups[0].name)
+  const isAlemenoUser = userData.groups[0].name === 'alemeno';
   const [loading, setLoading] = useState(false);
-  const [overviewStats, setOverviewStats] = useState<OverviewStats | null>(null);
+  const [overviewStats, setOverviewStats] = useState<OverviewStats | null>(
+    null
+  );
   const [panelStats, setPanelStats] = useState<PanelStats | null>(null);
-  const [ppidListData, setPpidListData] = useState<PPIDListResponse | null>(null);
+  const [ppidListData, setPpidListData] = useState<PPIDListResponse | null>(
+    null
+  );
   const [defects, setDefects] = useState<Defect[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [filtersOpen, setFiltersOpen] = useState(false);
   const [reviewModalOpen, setReviewModalOpen] = useState(false);
+  const [viewerModalOpen, setViewerModalOpen] = useState(false);
   const [selectedPPID, setSelectedPPID] = useState<PPIDItem | null>(null);
+
+  // Pagination states
+  const [currentPage, setCurrentPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalRecords, setTotalRecords] = useState(0);
+  const [pageSize, setPageSize] = useState(20);
+  const [hasNext, setHasNext] = useState(false);
+  const [hasPrevious, setHasPrevious] = useState(false);
+  const [jumpToPage, setJumpToPage] = useState('');
 
   // Filter states
   const [filters, setFilters] = useState({
-    ppid: "",
-    test_type: "" as "" | "production" | "test",
-    status: "" as "" | "pending" | "approved" | "rejected",
-    defect: "" as string,
-    from_date: "",
-    to_date: "",
+    ppid: '',
+    test_type: '' as '' | 'production' | 'test',
+    status: '' as '' | 'pending' | 'approved' | 'rejected',
+    defect: '' as string,
+    from_date: '',
+    to_date: '',
   });
 
   const fetchDefects = async () => {
@@ -150,11 +182,11 @@ const SelfLearningDataPage: React.FC<SelfLearningDataPageProps> = ({
       const defectsData = await getDefects();
       setDefects(defectsData);
     } catch (err: any) {
-      console.error("Error fetching defects:", err);
+      console.error('Error fetching defects:', err);
     }
   };
 
-  const fetchOverviewData = async () => {
+  const fetchOverviewData = async (page = 1) => {
     setLoading(true);
     setError(null);
     try {
@@ -171,8 +203,11 @@ const SelfLearningDataPage: React.FC<SelfLearningDataPageProps> = ({
       const panels = await getAnnotationStatsPanels(params);
       setPanelStats(panels);
 
-      // Fetch PPID list with filters
-      const ppidParams: any = {};
+      // Fetch PPID list with filters and pagination
+      const ppidParams: any = {
+        page,
+        page_size: pageSize,
+      };
       if (filters.ppid) ppidParams.ppid = filters.ppid;
       if (filters.test_type) ppidParams.test_type = filters.test_type;
       if (filters.status) ppidParams.status = filters.status;
@@ -182,9 +217,25 @@ const SelfLearningDataPage: React.FC<SelfLearningDataPageProps> = ({
 
       const ppidData = await getAnnotationPPIDList(ppidParams);
       setPpidListData(ppidData);
+
+      // Update pagination state from response
+      if (ppidData.pagination) {
+        setTotalRecords(ppidData.pagination.total_records || 0);
+        setTotalPages(ppidData.pagination.total_pages || 1);
+        setCurrentPage(ppidData.pagination.current_page || 1);
+        setHasNext(ppidData.pagination.has_next || false);
+        setHasPrevious(ppidData.pagination.has_previous || false);
+      } else {
+        // Fallback if pagination data is missing
+        setTotalRecords(ppidData.ppids?.length || 0);
+        setTotalPages(1);
+        setCurrentPage(1);
+        setHasNext(false);
+        setHasPrevious(false);
+      }
     } catch (err: any) {
-      console.error("Error fetching overview data:", err);
-      setError(err.message || "Failed to load overview data");
+      console.error('Error fetching overview data:', err);
+      setError(err.message || 'Failed to load overview data');
     } finally {
       setLoading(false);
     }
@@ -192,27 +243,81 @@ const SelfLearningDataPage: React.FC<SelfLearningDataPageProps> = ({
 
   useEffect(() => {
     fetchDefects();
-    fetchOverviewData();
+    fetchOverviewData(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Handle pagination changes (only when user navigates pages)
+  useEffect(() => {
+    if (currentPage > 1) {
+      fetchOverviewData(currentPage);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentPage]);
+
   const handleRefresh = () => {
-    fetchOverviewData();
+    fetchOverviewData(currentPage);
   };
 
   const handleSearch = () => {
-    fetchOverviewData();
+    // Scroll to top when searching
+    window.scrollTo(0, 0);
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+
+    setCurrentPage(1); // Reset to first page when searching
+    fetchOverviewData(1);
   };
 
   const handleReset = () => {
+    // Scroll to top when resetting
+    window.scrollTo(0, 0);
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
+
     setFilters({
-      ppid: "",
-      test_type: "",
-      status: "",
-      defect: "",
-      from_date: "",
-      to_date: "",
+      ppid: '',
+      test_type: '',
+      status: '',
+      defect: '',
+      from_date: '',
+      to_date: '',
     });
-    setTimeout(() => fetchOverviewData(), 0);
+    setCurrentPage(1); // Reset to first page
+    setTimeout(() => fetchOverviewData(1), 0);
+  };
+
+  // Pagination handlers
+  const handleNextPage = () => {
+    if (hasNext && currentPage < totalPages) {
+      window.scrollTo(0, 0);
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+
+      setCurrentPage((prev) => prev + 1);
+    }
+  };
+
+  const handlePreviousPage = () => {
+    if (hasPrevious && currentPage > 1) {
+      window.scrollTo(0, 0);
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+
+      setCurrentPage((prev) => prev - 1);
+    }
+  };
+
+  const handlePageJump = () => {
+    const pageNum = parseInt(jumpToPage);
+    if (pageNum && pageNum > 0 && pageNum <= totalPages) {
+      window.scrollTo(0, 0);
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+
+      setCurrentPage(pageNum);
+      setJumpToPage('');
+    }
   };
 
   // Helper function to count active filters
@@ -230,21 +335,40 @@ const SelfLearningDataPage: React.FC<SelfLearningDataPageProps> = ({
   // Helper function to get active filter summary
   const getActiveFilterSummary = () => {
     const filtersList = [];
-    if (filters.ppid) filtersList.push({ label: "PPID", value: filters.ppid, key: "ppid" });
-    if (filters.test_type) filtersList.push({ label: "Test Type", value: filters.test_type, key: "test_type" });
-    if (filters.status) filtersList.push({ label: "Status", value: filters.status, key: "status" });
+    if (filters.ppid)
+      filtersList.push({ label: 'PPID', value: filters.ppid, key: 'ppid' });
+    if (filters.test_type)
+      filtersList.push({
+        label: 'Test Type',
+        value: filters.test_type,
+        key: 'test_type',
+      });
+    if (filters.status)
+      filtersList.push({
+        label: 'Status',
+        value: filters.status,
+        key: 'status',
+      });
     if (filters.defect) {
-      const defectName = defects.find(d => d.id.toString() === filters.defect)?.defect_name || filters.defect;
-      filtersList.push({ label: "Defect", value: defectName, key: "defect" });
+      const defectName =
+        defects.find((d) => d.id.toString() === filters.defect)?.defect_name ||
+        filters.defect;
+      filtersList.push({ label: 'Defect', value: defectName, key: 'defect' });
     }
-    if (filters.from_date) filtersList.push({ label: "From", value: filters.from_date, key: "from_date" });
-    if (filters.to_date) filtersList.push({ label: "To", value: filters.to_date, key: "to_date" });
+    if (filters.from_date)
+      filtersList.push({
+        label: 'From',
+        value: filters.from_date,
+        key: 'from_date',
+      });
+    if (filters.to_date)
+      filtersList.push({ label: 'To', value: filters.to_date, key: 'to_date' });
     return filtersList;
   };
 
   // Helper function to clear individual filter
   const clearFilter = (key: string) => {
-    setFilters(prev => ({ ...prev, [key]: "" }));
+    setFilters((prev) => ({ ...prev, [key]: '' }));
   };
 
   // Open review modal for a specific PPID
@@ -253,29 +377,79 @@ const SelfLearningDataPage: React.FC<SelfLearningDataPageProps> = ({
     setReviewModalOpen(true);
   };
 
+  // Open viewer modal for a specific PPID
+  const handleOpenViewer = (ppidItem: PPIDItem) => {
+    setSelectedPPID(ppidItem);
+    setViewerModalOpen(true);
+  };
+
+  // Get overall status for PPID
+  const getOverallStatus = (statusBreakdown: {
+    approved?: number;
+    pending?: number;
+    rejected?: number;
+  }) => {
+    const approved = statusBreakdown.approved || 0;
+    const pending = statusBreakdown.pending || 0;
+    const rejected = statusBreakdown.rejected || 0;
+
+    if (pending > 0) {
+      return {
+        label: 'Pending Review',
+        color: 'bg-yellow-100 text-yellow-700',
+      };
+    } else if (approved > 0 && rejected === 0) {
+      return {
+        label: 'Approved',
+        color: 'bg-green-100 text-green-700',
+      };
+    } else if (rejected > 0) {
+      return {
+        label: 'Rejected',
+        color: 'bg-red-100 text-red-700',
+      };
+    }
+    return { label: 'Pending Review', color: 'bg-yellow-100 text-yellow-700' };
+  };
+
   // Handle approve annotations
-  const handleApprove = async (ppid: string, annotationIds?: number[], notes?: string) => {
+  const handleApprove = async (
+    ppid: string,
+    annotationIds?: number[],
+    notes?: string
+  ) => {
     try {
       if (annotationIds && annotationIds.length > 0) {
         // Approve specific annotations
-        await bulkUpdateAnnotationStatus({
-          display_panels: [{
-            ppid,
-            annotations: annotationIds.map(id => ({
-              annotation_id: id,
-              action: 'approve',
-              notes,
-            })),
-          }],
-        });
+        const payload = {
+          display_panels: [
+            {
+              ppid,
+              annotations: annotationIds.map((id) => {
+                const ann: any = {
+                  annotation_id: id,
+                  action: 'approve',
+                };
+                if (notes && notes.trim() !== '') {
+                  ann.notes = notes;
+                }
+                return ann;
+              }),
+            },
+          ],
+        };
+        console.log('Sending approve payload:', JSON.stringify(payload, null, 2));
+        await bulkUpdateAnnotationStatus(payload);
       } else {
         // Approve entire PPID
         await bulkUpdateAnnotationStatus({
-          display_panels: [{
-            ppid,
-            action: 'approve',
-            notes,
-          }],
+          display_panels: [
+            {
+              ppid,
+              action: 'approve',
+              ...(notes && notes.trim() !== '' ? { notes } : {}),
+            },
+          ],
         });
       }
 
@@ -286,33 +460,43 @@ const SelfLearningDataPage: React.FC<SelfLearningDataPageProps> = ({
       alert(`Successfully approved annotations for ${ppid}`);
     } catch (err: any) {
       console.error('Error approving annotations:', err);
-      alert(`Failed to approve: ${err.message}`);
+      console.error('Full error details:', JSON.stringify(err, null, 2));
+      console.error('Error response:', err.response?.data);
+      alert(`Failed to approve: ${err.message}\n\nDetails: ${JSON.stringify(err.response?.data || err.details || {})}`);
     }
   };
 
   // Handle reject annotations
-  const handleReject = async (ppid: string, annotationIds?: number[], notes?: string) => {
+  const handleReject = async (
+    ppid: string,
+    annotationIds?: number[],
+    notes?: string
+  ) => {
     try {
       if (annotationIds && annotationIds.length > 0) {
         // Reject specific annotations
         await bulkUpdateAnnotationStatus({
-          display_panels: [{
-            ppid,
-            annotations: annotationIds.map(id => ({
-              annotation_id: id,
-              action: 'reject',
-              notes,
-            })),
-          }],
+          display_panels: [
+            {
+              ppid,
+              annotations: annotationIds.map((id) => ({
+                annotation_id: id,
+                action: 'reject',
+                ...(notes && notes.trim() !== '' ? { notes } : {}),
+              })),
+            },
+          ],
         });
       } else {
         // Reject entire PPID
         await bulkUpdateAnnotationStatus({
-          display_panels: [{
-            ppid,
-            action: 'reject',
-            notes,
-          }],
+          display_panels: [
+            {
+              ppid,
+              action: 'reject',
+              ...(notes && notes.trim() !== '' ? { notes } : {}),
+            },
+          ],
         });
       }
 
@@ -323,7 +507,9 @@ const SelfLearningDataPage: React.FC<SelfLearningDataPageProps> = ({
       alert(`Successfully rejected annotations for ${ppid}`);
     } catch (err: any) {
       console.error('Error rejecting annotations:', err);
-      alert(`Failed to reject: ${err.message}`);
+      console.error('Full error details:', JSON.stringify(err, null, 2));
+      console.error('Error response:', err.response?.data);
+      alert(`Failed to reject: ${err.message}\n\nDetails: ${JSON.stringify(err.response?.data || err.details || {})}`);
     }
   };
 
@@ -334,7 +520,7 @@ const SelfLearningDataPage: React.FC<SelfLearningDataPageProps> = ({
           <CardHeader>
             <CardTitle className="flex justify-between items-center">
               <span>Self Learning Data</span>
-              {onNavigateToTraining && (
+              {/* {onNavigateToTraining && (
                 <Button
                   onClick={() => onNavigateToTraining()}
                   className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2"
@@ -342,7 +528,7 @@ const SelfLearningDataPage: React.FC<SelfLearningDataPageProps> = ({
                   <Cpu className="mr-2 w-5 h-5" />
                   Model Training
                 </Button>
-              )}
+              )} */}
             </CardTitle>
           </CardHeader>
           <CardContent>
@@ -353,10 +539,17 @@ const SelfLearningDataPage: React.FC<SelfLearningDataPageProps> = ({
             )}
 
             {/* Collapsible Filters */}
-            <Collapsible open={filtersOpen} onOpenChange={setFiltersOpen} className="mb-6">
+            <Collapsible
+              open={filtersOpen}
+              onOpenChange={setFiltersOpen}
+              className="mb-6"
+            >
               <div className="flex items-center justify-between">
                 <CollapsibleTrigger asChild>
-                  <Button variant="outline" className="flex items-center gap-2 mb-2">
+                  <Button
+                    variant="outline"
+                    className="flex items-center gap-2 mb-2"
+                  >
                     <Search className="h-4 w-4" />
                     Filters
                     {getActiveFilterCount() > 0 && (
@@ -379,7 +572,9 @@ const SelfLearningDataPage: React.FC<SelfLearningDataPageProps> = ({
                     disabled={loading}
                     className="flex items-center gap-2"
                   >
-                    <RotateCcw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
+                    <RotateCcw
+                      className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`}
+                    />
                     Refresh
                   </Button>
                 </div>
@@ -395,7 +590,8 @@ const SelfLearningDataPage: React.FC<SelfLearningDataPageProps> = ({
                       className="flex items-center gap-1 px-2 py-1"
                     >
                       <span className="text-xs">
-                        <span className="font-semibold">{filter.label}:</span> {filter.value}
+                        <span className="font-semibold">{filter.label}:</span>{' '}
+                        {filter.value}
                       </span>
                       <button
                         onClick={(e) => {
@@ -415,20 +611,31 @@ const SelfLearningDataPage: React.FC<SelfLearningDataPageProps> = ({
                 {/* Row 1: PPID and Test Type */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label className="block text-sm font-medium mb-1">PPID</Label>
+                    <Label className="block text-sm font-medium mb-1">
+                      PPID
+                    </Label>
                     <Input
                       type="text"
                       value={filters.ppid}
-                      onChange={(e) => setFilters({ ...filters, ppid: e.target.value })}
+                      onChange={(e) =>
+                        setFilters({ ...filters, ppid: e.target.value })
+                      }
                       placeholder="Search PPID"
                       className="w-full"
                     />
                   </div>
                   <div>
-                    <Label className="block text-sm font-medium mb-1">Test Type</Label>
+                    <Label className="block text-sm font-medium mb-1">
+                      Test Type
+                    </Label>
                     <select
                       value={filters.test_type}
-                      onChange={(e) => setFilters({ ...filters, test_type: e.target.value as any })}
+                      onChange={(e) =>
+                        setFilters({
+                          ...filters,
+                          test_type: e.target.value as any,
+                        })
+                      }
                       className="w-full border border-gray-300 rounded-md p-2 h-10"
                     >
                       <option value="">All</option>
@@ -441,10 +648,17 @@ const SelfLearningDataPage: React.FC<SelfLearningDataPageProps> = ({
                 {/* Row 2: Status and Defect */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label className="block text-sm font-medium mb-1">Status</Label>
+                    <Label className="block text-sm font-medium mb-1">
+                      Status
+                    </Label>
                     <select
                       value={filters.status}
-                      onChange={(e) => setFilters({ ...filters, status: e.target.value as any })}
+                      onChange={(e) =>
+                        setFilters({
+                          ...filters,
+                          status: e.target.value as any,
+                        })
+                      }
                       className="w-full border border-gray-300 rounded-md p-2 h-10"
                     >
                       <option value="">All</option>
@@ -454,10 +668,14 @@ const SelfLearningDataPage: React.FC<SelfLearningDataPageProps> = ({
                     </select>
                   </div>
                   <div>
-                    <Label className="block text-sm font-medium mb-1">Defect</Label>
+                    <Label className="block text-sm font-medium mb-1">
+                      Defect
+                    </Label>
                     <select
                       value={filters.defect}
-                      onChange={(e) => setFilters({ ...filters, defect: e.target.value })}
+                      onChange={(e) =>
+                        setFilters({ ...filters, defect: e.target.value })
+                      }
                       className="w-full border border-gray-300 rounded-md p-2 h-10"
                     >
                       <option value="">All</option>
@@ -473,20 +691,28 @@ const SelfLearningDataPage: React.FC<SelfLearningDataPageProps> = ({
                 {/* Row 3: Date Filters */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label className="block text-sm font-medium mb-1">From Date</Label>
+                    <Label className="block text-sm font-medium mb-1">
+                      From Date
+                    </Label>
                     <Input
                       type="date"
                       value={filters.from_date}
-                      onChange={(e) => setFilters({ ...filters, from_date: e.target.value })}
+                      onChange={(e) =>
+                        setFilters({ ...filters, from_date: e.target.value })
+                      }
                       className="w-full"
                     />
                   </div>
                   <div>
-                    <Label className="block text-sm font-medium mb-1">To Date</Label>
+                    <Label className="block text-sm font-medium mb-1">
+                      To Date
+                    </Label>
                     <Input
                       type="date"
                       value={filters.to_date}
-                      onChange={(e) => setFilters({ ...filters, to_date: e.target.value })}
+                      onChange={(e) =>
+                        setFilters({ ...filters, to_date: e.target.value })
+                      }
                       className="w-full"
                     />
                   </div>
@@ -500,9 +726,13 @@ const SelfLearningDataPage: React.FC<SelfLearningDataPageProps> = ({
                     className="h-10 flex items-center justify-center gap-2"
                   >
                     <Search className="h-4 w-4" />
-                    {loading ? "Searching..." : "Search"}
+                    {loading ? 'Searching...' : 'Search'}
                   </Button>
-                  <Button variant="outline" onClick={handleReset} className="h-10">
+                  <Button
+                    variant="outline"
+                    onClick={handleReset}
+                    className="h-10"
+                  >
                     Reset
                   </Button>
                 </div>
@@ -521,7 +751,9 @@ const SelfLearningDataPage: React.FC<SelfLearningDataPageProps> = ({
                     <CardContent className="pt-6">
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="text-sm font-medium text-blue-600 mb-1">Total Annotated Panels</p>
+                          <p className="text-sm font-medium text-blue-600 mb-1">
+                            Total Annotated Panels
+                          </p>
                           <p className="text-3xl font-bold text-blue-900">
                             {panelStats.panel_summary.total_panels_annotated}
                           </p>
@@ -535,7 +767,9 @@ const SelfLearningDataPage: React.FC<SelfLearningDataPageProps> = ({
                     <CardContent className="pt-6">
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="text-sm font-medium text-yellow-600 mb-1">Pending Review Panels</p>
+                          <p className="text-sm font-medium text-yellow-600 mb-1">
+                            Pending Review Panels
+                          </p>
                           <p className="text-3xl font-bold text-yellow-900">
                             {panelStats.panel_summary.panels_pending_review}
                           </p>
@@ -549,7 +783,9 @@ const SelfLearningDataPage: React.FC<SelfLearningDataPageProps> = ({
                     <CardContent className="pt-6">
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="text-sm font-medium text-green-600 mb-1">Approved Panels</p>
+                          <p className="text-sm font-medium text-green-600 mb-1">
+                            Approved Panels
+                          </p>
                           <p className="text-3xl font-bold text-green-900">
                             {panelStats.panel_summary.panels_fully_approved}
                           </p>
@@ -566,7 +802,9 @@ const SelfLearningDataPage: React.FC<SelfLearningDataPageProps> = ({
                     <CardContent className="pt-6">
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="text-sm font-medium text-red-600 mb-1">Discarded Panels</p>
+                          <p className="text-sm font-medium text-red-600 mb-1">
+                            Discarded Panels
+                          </p>
                           <p className="text-3xl font-bold text-red-900">
                             {panelStats.panel_summary.panels_discarded}
                           </p>
@@ -580,7 +818,9 @@ const SelfLearningDataPage: React.FC<SelfLearningDataPageProps> = ({
                     <CardContent className="pt-6">
                       <div className="flex items-center justify-between">
                         <div>
-                          <p className="text-sm font-medium text-purple-600 mb-1">Used Panels</p>
+                          <p className="text-sm font-medium text-purple-600 mb-1">
+                            Used Panels
+                          </p>
                           <p className="text-3xl font-bold text-purple-900">
                             {panelStats.panel_summary.panels_used_in_training}
                           </p>
@@ -594,7 +834,9 @@ const SelfLearningDataPage: React.FC<SelfLearningDataPageProps> = ({
                 {/* PPID List Table */}
                 {ppidListData && (
                   <div className="mt-6">
-                    <h3 className="text-lg font-semibold mb-4">PPID List ({ppidListData.total_ppids} total)</h3>
+                    <h3 className="text-lg font-semibold mb-4">
+                      PPID List ({totalRecords} total)
+                    </h3>
                     {ppidListData.ppids.length === 0 ? (
                       <div className="text-center py-8 text-gray-500 border rounded-lg">
                         No PPIDs found with the current filters
@@ -608,76 +850,155 @@ const SelfLearningDataPage: React.FC<SelfLearningDataPageProps> = ({
                                 PPID
                               </th>
                               <th className="border border-gray-200 px-4 py-3 text-left font-semibold text-sm">
-                                Test Type
+                                Annotated On
                               </th>
                               <th className="border border-gray-200 px-4 py-3 text-center font-semibold text-sm">
-                                Total Annotations
+                                Status
                               </th>
+                              {isAlemenoUser && (
+                                <th className="border border-gray-200 px-4 py-3 text-center font-semibold text-sm">
+                                  Review
+                                </th>
+                              )}
                               <th className="border border-gray-200 px-4 py-3 text-center font-semibold text-sm">
-                                Approved
-                              </th>
-                              <th className="border border-gray-200 px-4 py-3 text-center font-semibold text-sm">
-                                Pending
-                              </th>
-                              <th className="border border-gray-200 px-4 py-3 text-center font-semibold text-sm">
-                                Rejected
-                              </th>
-                              <th className="border border-gray-200 px-4 py-3 text-left font-semibold text-sm">
-                                Created At
-                              </th>
-                              <th className="border border-gray-200 px-4 py-3 text-center font-semibold text-sm">
-                                Actions
+                                Images
                               </th>
                             </tr>
                           </thead>
                           <tbody>
-                            {ppidListData.ppids.map((item, index) => (
-                              <tr
-                                key={item.ppid}
-                                className={`${
-                                  index % 2 === 0 ? "bg-white" : "bg-gray-50"
-                                } hover:bg-gray-100`}
-                              >
-                                <td className="border border-gray-200 px-4 py-3 text-sm font-medium">
-                                  {item.ppid}
-                                </td>
-                                <td className="border border-gray-200 px-4 py-3 text-sm">
-                                  <Badge
-                                    variant={item.test_type === "production" ? "default" : "secondary"}
-                                    className="text-xs"
-                                  >
-                                    {item.test_type}
-                                  </Badge>
-                                </td>
-                                <td className="border border-gray-200 px-4 py-3 text-center font-semibold text-sm">
-                                  {item.annotation_summary.total_annotations}
-                                </td>
-                                <td className="border border-gray-200 px-4 py-3 text-center text-green-600 font-semibold text-sm">
-                                  {item.annotation_summary.status_breakdown.approved || 0}
-                                </td>
-                                <td className="border border-gray-200 px-4 py-3 text-center text-yellow-600 font-semibold text-sm">
-                                  {item.annotation_summary.status_breakdown.pending || 0}
-                                </td>
-                                <td className="border border-gray-200 px-4 py-3 text-center text-red-600 font-semibold text-sm">
-                                  {item.annotation_summary.status_breakdown.rejected || 0}
-                                </td>
-                                <td className="border border-gray-200 px-4 py-3 text-sm text-gray-600">
-                                  {new Date(item.panel_created_at).toLocaleDateString()}
-                                </td>
-                                <td className="border border-gray-200 px-4 py-3 text-center">
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => handleOpenReview(item)}
-                                    className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
-                                  >
-                                    Review
-                                  </Button>
-                                </td>
-                              </tr>
-                            ))}
+                            {ppidListData.ppids.map((item, index) => {
+                              const status = getOverallStatus(
+                                item.annotation_summary.status_breakdown
+                              );
+                              return (
+                                <tr
+                                  key={item.ppid}
+                                  className={`${
+                                    index % 2 === 0 ? 'bg-white' : 'bg-gray-50'
+                                  } hover:bg-gray-100`}
+                                >
+                                  <td className="border border-gray-200 px-4 py-3 text-sm font-medium">
+                                    {item.ppid}
+                                  </td>
+                                  <td className="border border-gray-200 px-4 py-3 text-sm text-gray-600">
+                                    {new Date(
+                                      item.annotation_summary.first_annotated ||
+                                        item.panel_created_at
+                                    ).toLocaleDateString()}
+                                  </td>
+                                  <td className="border border-gray-200 px-4 py-3 text-center">
+                                    <span
+                                      className={`inline-block px-2 py-1 rounded text-xs font-medium ${status.color}`}
+                                    >
+                                      {status.label}
+                                    </span>
+                                  </td>
+                                  {isAlemenoUser && (
+                                    <td className="border border-gray-200 px-4 py-3 text-center">
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        onClick={() => handleOpenReview(item)}
+                                        className="text-purple-600 hover:text-purple-700 hover:bg-purple-50"
+                                      >
+                                        Review
+                                      </Button>
+                                    </td>
+                                  )}
+                                  <td className="border border-gray-200 px-4 py-3 text-center">
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      onClick={() => handleOpenViewer(item)}
+                                      className="text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+                                    >
+                                      View Images
+                                    </Button>
+                                  </td>
+                                </tr>
+                              );
+                            })}
                           </tbody>
                         </table>
+                      </div>
+                    )}
+
+                    {/* Pagination UI */}
+                    {ppidListData.ppids.length > 0 && (
+                      <div className="mt-6 space-y-4">
+                        {/* Pagination Info and Controls */}
+                        <div className="flex flex-col sm:flex-row justify-between items-center gap-4">
+                          {/* Results Count */}
+                          <div className="text-sm text-gray-600">
+                            Showing{' '}
+                            <span className="font-semibold">
+                              {totalRecords > 0 ? (currentPage - 1) * pageSize + 1 : 0}
+                            </span>{' '}
+                            to{' '}
+                            <span className="font-semibold">
+                              {Math.min(currentPage * pageSize, totalRecords)}
+                            </span>{' '}
+                            of <span className="font-semibold">{totalRecords.toLocaleString()}</span> results
+                          </div>
+
+                          {/* Page Navigation */}
+                          <div className="flex items-center gap-2 flex-wrap justify-center">
+                            <Button
+                              onClick={handlePreviousPage}
+                              disabled={!hasPrevious || loading}
+                              variant="outline"
+                              size="sm"
+                            >
+                              Previous
+                            </Button>
+
+                            <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-50 rounded border">
+                              <span className="text-sm text-gray-600">
+                                Page {currentPage} of {totalPages}
+                              </span>
+                            </div>
+
+                            <Button
+                              onClick={handleNextPage}
+                              disabled={!hasNext || loading}
+                              variant="outline"
+                              size="sm"
+                            >
+                              Next
+                            </Button>
+                          </div>
+
+                          {/* Jump to Page */}
+                          <div className="flex items-center gap-2">
+                            <Label htmlFor="jump-to-page" className="text-sm whitespace-nowrap">
+                              Jump to:
+                            </Label>
+                            <Input
+                              id="jump-to-page"
+                              type="number"
+                              min="1"
+                              max={totalPages}
+                              value={jumpToPage}
+                              onChange={(e) => setJumpToPage(e.target.value)}
+                              onKeyPress={(e) => e.key === 'Enter' && handlePageJump()}
+                              placeholder="Page"
+                              className="w-20 h-9"
+                            />
+                            <Button
+                              onClick={handlePageJump}
+                              disabled={!jumpToPage || loading}
+                              variant="outline"
+                              size="sm"
+                            >
+                              Go
+                            </Button>
+                          </div>
+                        </div>
+
+                        {/* Note about items per page */}
+                        <div className="text-sm text-gray-500 text-center">
+                          Showing {pageSize} items per page
+                        </div>
                       </div>
                     )}
                   </div>
@@ -703,6 +1024,34 @@ const SelfLearningDataPage: React.FC<SelfLearningDataPageProps> = ({
             panelImages={selectedPPID.panel_images}
             onApprove={handleApprove}
             onReject={handleReject}
+            onRefresh={async () => {
+              // Refresh the overview data
+              await fetchOverviewData(currentPage);
+
+              // Find and update the selected PPID with fresh data
+              const freshData = await getAnnotationPPIDList({
+                ppid: selectedPPID.ppid,
+                page: 1,
+                page_size: 1,
+              });
+
+              if (freshData.ppids && freshData.ppids.length > 0) {
+                setSelectedPPID(freshData.ppids[0]);
+              }
+            }}
+          />
+        )}
+
+        {/* Image Viewer Modal (Read-only) */}
+        {selectedPPID && (
+          <ImageViewerModal
+            isOpen={viewerModalOpen}
+            onClose={() => {
+              setViewerModalOpen(false);
+              setSelectedPPID(null);
+            }}
+            ppid={selectedPPID.ppid}
+            panelImages={selectedPPID.panel_images}
           />
         )}
       </div>

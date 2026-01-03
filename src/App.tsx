@@ -1,36 +1,36 @@
-import React, { useState, useEffect, useRef } from "react";
-import * as Sentry from "@sentry/react";
-import HomePage from "./components/HomePage";
-import ReviewImagesPage from "./components/ReviewImagesPage";
-import DefectAnalysisPage from "./components/DefectAnalysisPage";
-import ImageCaptureProcess from "./components/ImageCaptureProcess";
-import CustomTitlebar from "./components/customTitlebar";
-import { CameraProvider } from "./contexts/cameraContext";
-import { LoginPage } from "./components/LoginPage";
-import SignUpPage from "./components/SignUpPage";
-import white_AAA from "./assets/white_AAA.bmp";
-import black_BBB from "./assets/black_BBB.bmp";
-import cyan_CCC from "./assets/cyan_CCC.bmp";
-import gray50_DDD from "./assets/gray50_DDD.bmp";
-import red_EEE from "./assets/red_EEE.bmp";
-import green_FFF from "./assets/green_FFF.bmp";
-import blue_GGG from "./assets/blue_GGG.bmp";
-import gray75_HHH from "./assets/gray75_HHH.bmp";
-import grayVertical_III from "./assets/grayVertical_III.bmp";
-import colorBars_JJJ from "./assets/colorBars_JJJ.bmp";
-import focus_KKK from "./assets/focus_KKK.bmp";
-import blackWithWhiteBorder_LLL from "./assets/blackWithWhiteBorder_LLL.jpg";
-import crossHatch_MMM from "./assets/crossHatch_MMM.bmp";
-import barGray_NNN from "./assets/16BarGray_NNN.bmp";
-import blackWhite_OOO from "./assets/black&White_OOO.bmp";
-import SummaryPage from "./components/SummaryPage";
-import PatternEBCPage from "./components/PatternEBCPage";
-import DataCollectionPage from "./components/DataCollectionPage";
-import DefectCheckerPage from "./components/DefectCheckerPage";
-import { AppModeProvider } from "./contexts/appModeContext";
-import PastDataPage from "./components/PastDataPage";
-import PredictedDefectsPage from "./components/PredictedDefectsPage";
-import UsageDataPage from "./components/UsageDataPage";
+import React, { useState, useEffect, useRef } from 'react';
+import * as Sentry from '@sentry/react';
+import HomePage from './components/HomePage';
+import ReviewImagesPage from './components/ReviewImagesPage';
+import DefectAnalysisPage from './components/DefectAnalysisPage';
+import ImageCaptureProcess from './components/ImageCaptureProcess';
+import CustomTitlebar from './components/customTitlebar';
+import { CameraProvider } from './contexts/cameraContext';
+import { LoginPage } from './components/LoginPage';
+import SignUpPage from './components/SignUpPage';
+import white_AAA from './assets/white_AAA.bmp';
+import black_BBB from './assets/black_BBB.bmp';
+import cyan_CCC from './assets/cyan_CCC.bmp';
+import gray50_DDD from './assets/gray50_DDD.bmp';
+import red_EEE from './assets/red_EEE.bmp';
+import green_FFF from './assets/green_FFF.bmp';
+import blue_GGG from './assets/blue_GGG.bmp';
+import gray75_HHH from './assets/gray75_HHH.bmp';
+import grayVertical_III from './assets/grayVertical_III.bmp';
+import colorBars_JJJ from './assets/colorBars_JJJ.bmp';
+import focus_KKK from './assets/focus_KKK.bmp';
+import blackWithWhiteBorder_LLL from './assets/blackWithWhiteBorder_LLL.jpg';
+import crossHatch_MMM from './assets/crossHatch_MMM.bmp';
+import barGray_NNN from './assets/16BarGray_NNN.bmp';
+import blackWhite_OOO from './assets/black&White_OOO.bmp';
+import SummaryPage from './components/SummaryPage';
+import PatternEBCPage from './components/PatternEBCPage';
+import DataCollectionPage from './components/DataCollectionPage';
+import DefectCheckerPage from './components/DefectCheckerPage';
+import { AppModeProvider } from './contexts/appModeContext';
+import PastDataPage from './components/PastDataPage';
+import PredictedDefectsPage from './components/PredictedDefectsPage';
+import UsageDataPage from './components/UsageDataPage';
 import {
   createDisplayPanel,
   getLatestTask,
@@ -39,19 +39,20 @@ import {
   initializeAPI,
   retryDisplayPanel,
   setLogoutCallback,
-} from "./services/api";
-import { EnvironmentIndicator } from "./hooks/useEnvironment";
-import DefectConfiguration from "./components/DefectConfiguration";
-import AdminUserManagement from "./components/AdminSettingsPage";
-import packageInfo from "../package.json";
-import NTFCheckerPage from "./components/NTFChecker";
-import NftDefectsPage from "./components/NtfDefectsPage";
-import Dashboard from "./components/Dashboard";
-import SelfLearningPage from "./components/SelfLearning";
-import BoundingBoxPage from "./components/BoundingBoxPage";
-import SelfLearningDataPage from "./components/SelfLearningDataPage";
-import NewModelTrainingPage from "./components/NewModelTrainingPage";
-import BatchTrainingSummaryPage from "./components/BatchTrainingSummaryPage";
+} from './services/api';
+import { EnvironmentIndicator } from './hooks/useEnvironment';
+import DefectConfiguration from './components/DefectConfiguration';
+import AdminUserManagement from './components/AdminSettingsPage';
+import packageInfo from '../package.json';
+import NTFCheckerPage from './components/NTFChecker';
+import NftDefectsPage from './components/NtfDefectsPage';
+import Dashboard from './components/Dashboard';
+import SelfLearningPage from './components/SelfLearning';
+import BoundingBoxPage from './components/BoundingBoxPage';
+import SelfLearningDataPage from './components/SelfLearningDataPage';
+import SelfLearningSummaryPage from './components/SelfLearningSummaryPage';
+import NewModelTrainingPage from './components/NewModelTrainingPage';
+import BatchTrainingSummaryPage from './components/BatchTrainingSummaryPage';
 
 declare global {
   interface Window {
@@ -99,28 +100,28 @@ declare global {
 }
 
 const testPatterns = [
-  { name: "white_AAA", src: white_AAA },
-  { name: "black_BBB", src: black_BBB },
-  { name: "cyan_CCC", src: cyan_CCC },
-  { name: "gray50_DDD", src: gray50_DDD },
-  { name: "red_EEE", src: red_EEE },
-  { name: "green_FFF", src: green_FFF },
-  { name: "blue_GGG", src: blue_GGG },
-  { name: "gray75_HHH", src: gray75_HHH },
-  { name: "grayVertical_III", src: grayVertical_III },
-  { name: "colorBars_JJJ", src: colorBars_JJJ },
-  { name: "focus_KKK", src: focus_KKK },
-  { name: "blackWithWhiteBorder_LLL", src: blackWithWhiteBorder_LLL },
-  { name: "crossHatch_MMM", src: crossHatch_MMM },
-  { name: "16BarGray_NNN", src: barGray_NNN },
-  { name: "black&White_OOO", src: blackWhite_OOO },
+  { name: 'white_AAA', src: white_AAA },
+  { name: 'black_BBB', src: black_BBB },
+  { name: 'cyan_CCC', src: cyan_CCC },
+  { name: 'gray50_DDD', src: gray50_DDD },
+  { name: 'red_EEE', src: red_EEE },
+  { name: 'green_FFF', src: green_FFF },
+  { name: 'blue_GGG', src: blue_GGG },
+  { name: 'gray75_HHH', src: gray75_HHH },
+  { name: 'grayVertical_III', src: grayVertical_III },
+  { name: 'colorBars_JJJ', src: colorBars_JJJ },
+  { name: 'focus_KKK', src: focus_KKK },
+  { name: 'blackWithWhiteBorder_LLL', src: blackWithWhiteBorder_LLL },
+  { name: 'crossHatch_MMM', src: crossHatch_MMM },
+  { name: '16BarGray_NNN', src: barGray_NNN },
+  { name: 'black&White_OOO', src: blackWhite_OOO },
 ];
 
 function App() {
-  const [activePage, setActivePage] = useState("dashboard");
+  const [activePage, setActivePage] = useState('dashboard');
   const [isCapturing, setIsCapturing] = useState(false);
-  const [ppid, setPpid] = useState("");
-  const [userData, setUserData] = useState("");
+  const [ppid, setPpid] = useState('');
+  const [userData, setUserData] = useState('');
   const [focusDistance, setFocusDistance] = useState();
   const [isTestMode, setIsTestMode] = useState(false);
   const [capturedImages, setCapturedImages] = useState([]);
@@ -128,75 +129,77 @@ function App() {
   const [totalUploads, setTotalUploads] = useState(0);
   const [completedUploads, setCompletedUploads] = useState(0);
   const [isUploading, setIsUploading] = useState(false);
-  const [selectedBatchSlug, setSelectedBatchSlug] = useState<string | undefined>(undefined);
-  const [selectedBatchName, setSelectedBatchName] = useState<string>("");
+  const [selectedBatchSlug, setSelectedBatchSlug] = useState<
+    string | undefined
+  >(undefined);
+  const [selectedBatchName, setSelectedBatchName] = useState<string>('');
   const [failedUploadIndices, setFailedUploadIndices] = useState([]);
   const [authToken, setAuthToken] = useState(() =>
-    localStorage.getItem("sentinel_dash_token")
+    localStorage.getItem('sentinel_dash_token')
   );
   // const [showSignup, setShowSignup] = useState(false);
   const [patternEBC, setPatternEBC] = useState(() => {
-    const saved = localStorage.getItem("patternEBC");
+    const saved = localStorage.getItem('patternEBC');
     if (saved) return JSON.parse(saved);
     const testPatternsDefault = [
       {
-        name: "white_AAA",
+        name: 'white_AAA',
         settings: { exposure: 0, brightness: 145, contrast: 145 },
       },
       {
-        name: "black_BBB",
+        name: 'black_BBB',
         settings: { exposure: 100, brightness: 120, contrast: 145 },
       },
       {
-        name: "cyan_CCC",
+        name: 'cyan_CCC',
         settings: { exposure: 0, brightness: 145, contrast: 145 },
       },
       {
-        name: "gray50_DDD",
+        name: 'gray50_DDD',
         settings: { exposure: 20, brightness: 125, contrast: 125 },
       },
       {
-        name: "red_EEE",
+        name: 'red_EEE',
         settings: { exposure: 45, brightness: 85, contrast: 125 },
       },
       {
-        name: "green_FFF",
+        name: 'green_FFF',
         settings: { exposure: 45, brightness: 85, contrast: 145 },
       },
       {
-        name: "blue_GGG",
+        name: 'blue_GGG',
         settings: { exposure: 100, brightness: 125, contrast: 145 },
       },
       {
-        name: "gray75_HHH",
+        name: 'gray75_HHH',
         settings: { exposure: 45, brightness: 85, contrast: 145 },
       },
       {
-        name: "grayVertical_III",
+        name: 'grayVertical_III',
         settings: { exposure: 20, brightness: 125, contrast: 145 },
       },
       {
-        name: "colorBars_JJJ",
+        name: 'colorBars_JJJ',
         settings: { exposure: 45, brightness: 85, contrast: 125 },
       },
       {
-        name: "focus_KKK",
+        name: 'focus_KKK',
         settings: { exposure: 10, brightness: 80, contrast: 125 },
       },
       {
-        name: "blackWithWhiteBorder_LLL",
+        name: 'blackWithWhiteBorder_LLL',
         settings: { exposure: 10, brightness: 100, contrast: 80 },
       },
       {
-        name: "crossHatch_MMM",
+        name: 'crossHatch_MMM',
         settings: { exposure: 45, brightness: 145, contrast: 145 },
       },
       {
-        name: "16BarGray_NNN",
+        name: '16BarGray_NNN',
         settings: { exposure: 20, brightness: 125, contrast: 125 },
       },
       {
-        name: "black&White_OOO",
+        name: 'black&White_OOO',
         settings: { exposure: 0, brightness: 145, contrast: 145 },
       },
     ];
@@ -207,11 +210,11 @@ function App() {
     return obj;
   });
   const [username, setUsername] = useState(
-    () => localStorage.getItem("sentinel_dash_username") || ""
+    () => localStorage.getItem('sentinel_dash_username') || ''
   );
   const [routineType, setRoutineType] = useState<
-    "data-collection" | "defect-checker" | "ntf-checker" | "self-learning"
-  >("defect-checker");
+    'data-collection' | 'defect-checker' | 'ntf-checker' | 'self-learning'
+  >('defect-checker');
   const [predictedDefects, setPredictedDefects] = useState(null); // for real API result
   const [isPredicting, setIsPredicting] = useState(false);
   const [predictionError, setPredictionError] = useState(null);
@@ -222,14 +225,14 @@ function App() {
   const pollCountRef = useRef(0);
 
   useEffect(() => {
-    const VERSION_KEY = "app_version";
+    const VERSION_KEY = 'app_version';
     const CURRENT_VERSION = packageInfo.version; // "4.7.0"
     const storedVersion = localStorage.getItem(VERSION_KEY);
 
     if (storedVersion !== CURRENT_VERSION) {
       console.log(
         `Version update: ${
-          storedVersion || "first install"
+          storedVersion || 'first install'
         } → ${CURRENT_VERSION}`
       );
       localStorage.clear();
@@ -243,7 +246,7 @@ function App() {
     // Load defectDisplayMap from localStorage on app startup
     const loadDefectDisplayMap = () => {
       try {
-        const savedDefects = localStorage.getItem("selectedDefects");
+        const savedDefects = localStorage.getItem('selectedDefects');
 
         // // Default defects that should be selected if no saved configuration exists
         // const defaultDefects = [
@@ -254,24 +257,24 @@ function App() {
 
         // Complete defect list matching DefectConfiguration.tsx
         const defectsList = [
-          { name: "Abnormal Display", key: "def_abnormal_display" },
-          { name: "Horizontal Line", key: "def_horizontal_line" },
-          { name: "Horizontal Band", key: "def_horizontal_band" },
-          { name: "Vertical Line", key: "def_vertical_line" },
-          { name: "Vertical Band", key: "def_vertical_band" },
-          { name: "Particles", key: "def_particles" },
-          { name: "White Patch", key: "def_white_patches" },
+          { name: 'Abnormal Display', key: 'def_abnormal_display' },
+          { name: 'Horizontal Line', key: 'def_horizontal_line' },
+          { name: 'Horizontal Band', key: 'def_horizontal_band' },
+          { name: 'Vertical Line', key: 'def_vertical_line' },
+          { name: 'Vertical Band', key: 'def_vertical_band' },
+          { name: 'Particles', key: 'def_particles' },
+          { name: 'White Patch', key: 'def_white_patches' },
           {
-            name: "Polariser Scratches / Dent",
-            key: "def_polariser_scratches",
+            name: 'Polariser Scratches / Dent',
+            key: 'def_polariser_scratches',
           },
-          { name: "Light Leakage", key: "def_light_leakage" },
-          { name: "Mura", key: "def_mura" },
-          { name: "Incoming Border Patch", key: "def_incoming_border_patch" },
-          { name: "Pixel Bright Dot", key: "def_pixel_bright_dot" },
-          { name: "Incoming Galaxy", key: "def_incoming_galaxy" },
-          { name: "Led Off", key: "def_led_off" },
-          { name: "Bleeding", key: "def_bleeding" },
+          { name: 'Light Leakage', key: 'def_light_leakage' },
+          { name: 'Mura', key: 'def_mura' },
+          { name: 'Incoming Border Patch', key: 'def_incoming_border_patch' },
+          { name: 'Pixel Bright Dot', key: 'def_pixel_bright_dot' },
+          { name: 'Incoming Galaxy', key: 'def_incoming_galaxy' },
+          { name: 'Led Off', key: 'def_led_off' },
+          { name: 'Bleeding', key: 'def_bleeding' },
           // { name: 'No Trouble Found', key: 'def_no_trouble_found' },
         ];
 
@@ -283,9 +286,9 @@ function App() {
           if (parsedDefects.length > 0) {
             // If the saved defects are objects, convert to keys
             if (
-              typeof parsedDefects[0] === "object" &&
+              typeof parsedDefects[0] === 'object' &&
               parsedDefects[0] !== null &&
-              "key" in parsedDefects[0]
+              'key' in parsedDefects[0]
             ) {
               defectsToUse = parsedDefects.map((d: any) => d.key);
             } else {
@@ -294,14 +297,14 @@ function App() {
           } else {
             // If saved defects exist but are empty, save the defaults
             localStorage.setItem(
-              "selectedDefects",
+              'selectedDefects',
               JSON.stringify(defectsList.map((d) => d.key))
             );
           }
         } else {
           // No saved defects, save the defaults
           localStorage.setItem(
-            "selectedDefects",
+            'selectedDefects',
             JSON.stringify(defectsList.map((d) => d.key))
           );
         }
@@ -317,10 +320,10 @@ function App() {
 
         setSelectedDefects(defectsToUse);
         setDefectDisplayMap(displayMap);
-        console.log("Loaded defectDisplayMap from localStorage:", displayMap);
+        console.log('Loaded defectDisplayMap from localStorage:', displayMap);
       } catch (error) {
         console.error(
-          "Error loading defectDisplayMap from localStorage:",
+          'Error loading defectDisplayMap from localStorage:',
           error
         );
         // Fallback to defaults on error
@@ -335,31 +338,31 @@ function App() {
     };
 
     const initializeUser = async () => {
-      const storedUserData = localStorage.getItem("sentinel_dash_user");
+      const storedUserData = localStorage.getItem('sentinel_dash_user');
       if (storedUserData) {
         try {
           const parsedUserData = JSON.parse(storedUserData);
           setUserData(parsedUserData);
         } catch (error) {
-          console.error("Error parsing stored user data:", error);
-          localStorage.removeItem("sentinel_dash_user");
+          console.error('Error parsing stored user data:', error);
+          localStorage.removeItem('sentinel_dash_user');
         }
       }
 
-      const token = localStorage.getItem("sentinel_dash_token");
+      const token = localStorage.getItem('sentinel_dash_token');
       if (token) {
         try {
-          console.log("called");
+          console.log('called');
           const userData = await getUserFromToken(token);
           setUserData(userData.user);
           localStorage.setItem(
-            "sentinel_dash_user",
+            'sentinel_dash_user',
             JSON.stringify(userData.user)
           );
         } catch (error) {
-          console.error("Error refreshing user data:", error);
-          localStorage.removeItem("sentinel_dash_user");
-          localStorage.removeItem("sentinel_dash_token");
+          console.error('Error refreshing user data:', error);
+          localStorage.removeItem('sentinel_dash_user');
+          localStorage.removeItem('sentinel_dash_token');
         }
       }
     };
@@ -369,61 +372,61 @@ function App() {
   }, []);
 
   useEffect(() => {
-    localStorage.setItem("patternEBC", JSON.stringify(patternEBC));
+    localStorage.setItem('patternEBC', JSON.stringify(patternEBC));
   }, [patternEBC]);
 
   useEffect(() => {
-    const token = localStorage.getItem("sentinel_dash_token");
+    const token = localStorage.getItem('sentinel_dash_token');
     setAuthToken(token);
   }, []);
 
   const handleDefectsSelected = (defects, displayMap) => {
     setSelectedDefects(defects);
     setDefectDisplayMap(displayMap);
-    console.log("Defects configured:", defects);
+    console.log('Defects configured:', defects);
   };
 
   console.log(defectDisplayMap);
 
   const handleLogin = async (token) => {
     try {
-      localStorage.setItem("sentinel_dash_token", token);
+      localStorage.setItem('sentinel_dash_token', token);
       setAuthToken(token);
-      console.log("called1");
+      console.log('called1');
 
       // Fetch user data from token
       const userData = await getUserFromToken(token);
 
       // Store user data in state and localStorage
       setUserData(userData.user);
-      localStorage.setItem("sentinel_dash_user", JSON.stringify(userData.user));
+      localStorage.setItem('sentinel_dash_user', JSON.stringify(userData.user));
 
-      setActivePage("dashboard");
+      setActivePage('dashboard');
       const savedUsername =
-        localStorage.getItem("sentinel_dash_username") ||
+        localStorage.getItem('sentinel_dash_username') ||
         userData.user.username ||
-        "";
+        '';
       setUsername(savedUsername);
     } catch (error) {
-      console.error("Failed to fetch user data:", error);
+      console.error('Failed to fetch user data:', error);
       // Handle error - maybe clear token and show error
-      localStorage.removeItem("sentinel_dash_token");
+      localStorage.removeItem('sentinel_dash_token');
       setAuthToken(null);
     }
   };
 
   const handleLogout = () => {
-    localStorage.removeItem("sentinel_dash_token");
-    localStorage.removeItem("sentinel_dash_username");
-    localStorage.removeItem("sentinel_dash_refresh");
+    localStorage.removeItem('sentinel_dash_token');
+    localStorage.removeItem('sentinel_dash_username');
+    localStorage.removeItem('sentinel_dash_refresh');
     setAuthToken(null);
-    setActivePage("login");
+    setActivePage('login');
   };
 
   useEffect(() => {
     setLogoutCallback(() => {
       setAuthToken(null);
-      setActivePage("login");
+      setActivePage('login');
     });
   }, []);
 
@@ -453,14 +456,14 @@ function App() {
     setFocusDistance(focusDistance);
 
     // Set routine type based on the routine parameter
-    if (routine === "data-collection") {
-      setRoutineType("data-collection");
-    } else if (routine === "ntf-checker") {
-      setRoutineType("ntf-checker");
-    } else if (routine === "self-learning") {
-      setRoutineType("self-learning");
+    if (routine === 'data-collection') {
+      setRoutineType('data-collection');
+    } else if (routine === 'ntf-checker') {
+      setRoutineType('ntf-checker');
+    } else if (routine === 'self-learning') {
+      setRoutineType('self-learning');
     } else {
-      setRoutineType("defect-checker");
+      setRoutineType('defect-checker');
     }
 
     setIsCapturing(true);
@@ -473,7 +476,7 @@ function App() {
     setTotalUploads(totalToUpload);
     setIsUploading(true);
     setIsCapturing(false);
-    setActivePage("review");
+    setActivePage('review');
   };
 
   // Update upload progress
@@ -523,12 +526,12 @@ function App() {
           console.error(`Failed to re-upload image at index ${index}:`, error);
           Sentry.captureException(error, {
             tags: {
-              location: "retryFailedUploads",
-              operation: "image_reupload",
+              location: 'retryFailedUploads',
+              operation: 'image_reupload',
             },
             extra: {
               imageIndex: index,
-              patternName: testPatterns[index]?.name || "unknown",
+              patternName: testPatterns[index]?.name || 'unknown',
             },
           });
           // Leave as null in the array
@@ -541,7 +544,7 @@ function App() {
     setIsUploading(false);
   };
 
-  const approveImages = () => setActivePage("defect-analysis");
+  const approveImages = () => setActivePage('defect-analysis');
   const retakeImages = () => {
     setUploadedImageUrls([]);
     setCompletedUploads(0);
@@ -553,7 +556,7 @@ function App() {
 
   // Submit defect analysis and go back to home page
   const submitDefectAnalysis = () => {
-    setPpid("");
+    setPpid('');
     setCapturedImages([]);
     setUploadedImageUrls([]);
     setCompletedUploads(0);
@@ -565,7 +568,7 @@ function App() {
 
   // Discard session
   const discardSession = () => {
-    setPpid("");
+    setPpid('');
     setCapturedImages([]);
     setUploadedImageUrls([]);
     setCompletedUploads(0);
@@ -595,24 +598,24 @@ function App() {
 
   // Map activePage to page title
   const pageTitles = {
-    dashboard: "Dashboard",
-    "defect-checker": "Defect Checker",
-    "ntf-checker": "NTF Checker",
-    "data-collection": "Data Collection",
-    "self-learning": "Self Learning",
-    "self-learning-data": "Self Learning Data",
-    "new-model-training": "New Model Training",
-    summary: "Data Collection Summary",
-    "pattern-ebc": "Pattern EBC Settings",
-    review: "Review Images",
-    "defect-analysis": "Defect Analysis",
-    "bounding-box-drawing": "Annotate Defects",
-    "past-data": "Past Data",
-    "predicted-defects": "Predicted Defects",
-    "ntf-defects": "NTF Defects",
-    "usage-data": "Defect Checker Usage",
-    "select-defects": "Select Defects",
-    "admin-settings": "Admin Settings",
+    dashboard: 'Dashboard',
+    'defect-checker': 'Defect Checker',
+    'ntf-checker': 'NTF Checker',
+    'data-collection': 'Data Collection',
+    'self-learning': 'Self Learning',
+    'self-learning-data': 'Self Learning Data',
+    'new-model-training': 'New Model Training',
+    summary: 'Data Collection Summary',
+    'pattern-ebc': 'Pattern EBC Settings',
+    review: 'Review Images',
+    'defect-analysis': 'Defect Analysis',
+    'bounding-box-drawing': 'Annotate Defects',
+    'past-data': 'Past Data',
+    'predicted-defects': 'Predicted Defects',
+    'ntf-defects': 'NTF Defects',
+    'usage-data': 'Defect Checker Usage',
+    'select-defects': 'Select Defects',
+    'admin-settings': 'Admin Settings',
     // Add more as needed
   };
 
@@ -839,47 +842,47 @@ function App() {
         isTestMode
       );
 
-      console.log("NTF Response:", response);
+      console.log('NTF Response:', response);
 
       // Fix: Get task_uuid from the nested tasks array
       const taskUuid = response?.tasks?.[0]?.task_uuid;
 
       if (taskUuid) {
-        console.log("Task UUID received:", taskUuid);
+        console.log('Task UUID received:', taskUuid);
         setTaskid(taskUuid);
         pollCountRef.current = 0;
         pollForNftResults(taskUuid);
       } else {
-        console.log("No task_uuid in response");
+        console.log('No task_uuid in response');
         setIsPredicting(false); // Important!
-        setPredictionError("failed");
+        setPredictionError('failed');
         setPredictedDefects({
-          error: "Failed to start NTF checking",
-          message: "No task ID received from server",
+          error: 'Failed to start NTF checking',
+          message: 'No task ID received from server',
         });
       }
     } catch (error: any) {
-      console.error("Error in startNftChecker:", error);
+      console.error('Error in startNftChecker:', error);
       setIsPredicting(false);
-      setPredictionError("failed");
+      setPredictionError('failed');
       setPredictedDefects({
-        error: error.message || "Failed to start NTF checking",
+        error: error.message || 'Failed to start NTF checking',
         message:
-          error.message || "An error occurred while starting NTF checking",
+          error.message || 'An error occurred while starting NTF checking',
       });
     }
   };
 
   const pollForNftResults = async (task_uuid: string) => {
     try {
-      const token = localStorage.getItem("sentinel_dash_token");
+      const token = localStorage.getItem('sentinel_dash_token');
       if (!token) {
         setIsPredicting(false);
         setPredictedDefects({
-          error: "No authentication token found. Please log in again.",
+          error: 'No authentication token found. Please log in again.',
         });
         setPredictionError(
-          "No authentication token found. Please log in again."
+          'No authentication token found. Please log in again.'
         );
         return;
       }
@@ -889,11 +892,11 @@ function App() {
           if (pollCountRef.current >= 10) {
             setIsPredicting(false);
             setPredictedDefects({
-              error: "timeout",
+              error: 'timeout',
               message:
-                "Prediction is taking longer than expected. This might be due to high server load.",
+                'Prediction is taking longer than expected. This might be due to high server load.',
             });
-            setPredictionError("timeout");
+            setPredictionError('timeout');
             if (pollingRef.current) clearTimeout(pollingRef.current);
             return;
           }
@@ -901,52 +904,52 @@ function App() {
           const data = await getTaskStatus(task_uuid);
           const status = data.task?.status;
 
-          if (status === "completed") {
+          if (status === 'completed') {
             setIsPredicting(false);
 
             // Check for errors in defect_details
             const defectDetails = data.task.results?.defect_details || {};
             console.log(defectDetails);
             const hasErrors = Object.values(defectDetails).some(
-              (detail: any) => detail.processing_status === "error"
+              (detail: any) => detail.processing_status === 'error'
             );
 
             if (hasErrors) {
               // Find the first error for display
               const errorDetail = Object.values(defectDetails).find(
-                (detail: any) => detail.processing_status === "error"
+                (detail: any) => detail.processing_status === 'error'
               ) as any;
 
               setPredictedDefects({
-                error: "processing_failed",
+                error: 'processing_failed',
                 message: `Defect analysis failed`,
               });
-              setPredictionError("processing_failed");
+              setPredictionError('processing_failed');
             } else {
               setPredictedDefects(data.task.results?.defects || {});
               setPredictionError(null);
             }
 
             if (pollingRef.current) clearTimeout(pollingRef.current);
-          } else if (status === "failed") {
+          } else if (status === 'failed') {
             setIsPredicting(false);
             setPredictedDefects({
-              error: "failed",
-              message: "Task processing failed. Please try again.",
+              error: 'failed',
+              message: 'Task processing failed. Please try again.',
             });
-            setPredictionError("failed");
+            setPredictionError('failed');
             if (pollingRef.current) clearTimeout(pollingRef.current);
           } else {
             pollCountRef.current += 1;
             pollingRef.current = setTimeout(() => poll(), 5000);
           }
         } catch (error) {
-          let errMsg = "Failed to poll status";
+          let errMsg = 'Failed to poll status';
           if (
             error.response?.status === 401 ||
             error.response?.status === 403
           ) {
-            errMsg = "Unauthorized. Please log in again.";
+            errMsg = 'Unauthorized. Please log in again.';
           } else {
             // Use the error detail if available, otherwise fallback to message or default
             errMsg = error.response?.data?.detail || error.message || errMsg;
@@ -956,8 +959,8 @@ function App() {
           setPredictionError(errMsg);
           Sentry.captureException(error, {
             tags: {
-              location: "pollPredictionStatus",
-              operation: "status_polling",
+              location: 'pollPredictionStatus',
+              operation: 'status_polling',
             },
             extra: {
               taskUuid: task_uuid,
@@ -972,13 +975,13 @@ function App() {
     } catch (err) {
       setIsPredicting(false);
       setPredictedDefects({
-        error: err.message || "Prediction polling failed",
+        error: err.message || 'Prediction polling failed',
       });
-      setPredictionError(err.message || "Prediction polling failed");
+      setPredictionError(err.message || 'Prediction polling failed');
       Sentry.captureException(err, {
         tags: {
-          location: "pollPredictionStatus",
-          operation: "polling_initialization",
+          location: 'pollPredictionStatus',
+          operation: 'polling_initialization',
         },
         extra: {
           taskUuid: task_uuid,
@@ -992,9 +995,9 @@ function App() {
     uploadedImageUrls: (string | null)[],
     isTestMode: boolean
   ) => {
-    const token = localStorage.getItem("sentinel_dash_token");
+    const token = localStorage.getItem('sentinel_dash_token');
     if (!token) {
-      throw new Error("No authentication token found. Please log in again.");
+      throw new Error('No authentication token found. Please log in again.');
     }
 
     const panel_images = uploadedImageUrls.map((url, idx) => ({
@@ -1007,8 +1010,8 @@ function App() {
       ppid,
       panel_images,
       test_type: isTestMode
-        ? ("test" as "test")
-        : ("production" as "production"),
+        ? ('test' as 'test')
+        : ('production' as 'production'),
       inference: true,
       qa: true,
     };
@@ -1021,9 +1024,9 @@ function App() {
     uploadedImageUrls: (string | null)[],
     isTestMode: boolean
   ) => {
-    const token = localStorage.getItem("sentinel_dash_token");
+    const token = localStorage.getItem('sentinel_dash_token');
     if (!token) {
-      throw new Error("No authentication token found. Please log in again.");
+      throw new Error('No authentication token found. Please log in again.');
     }
 
     const panel_images = uploadedImageUrls.map((url, idx) => ({
@@ -1036,8 +1039,8 @@ function App() {
       ppid,
       panel_images,
       test_type: isTestMode
-        ? ("test" as "test")
-        : ("production" as "production"),
+        ? ('test' as 'test')
+        : ('production' as 'production'),
       inference: true,
     };
 
@@ -1057,20 +1060,20 @@ function App() {
         isTestMode
       );
       const task_uuid = data.tasks?.[0]?.task_uuid;
-      if (!task_uuid) throw new Error("No task_uuid returned");
+      if (!task_uuid) throw new Error('No task_uuid returned');
 
       setTaskid(task_uuid);
       pollPredictionStatus(task_uuid);
     } catch (err) {
       setIsPredicting(false);
       const errorDetail =
-        err.response?.data?.detail || err.message || "Prediction failed";
+        err.response?.data?.detail || err.message || 'Prediction failed';
       setPredictedDefects({ error: errorDetail });
       setPredictionError(errorDetail);
       Sentry.captureException(err, {
         tags: {
-          location: "startPrediction",
-          operation: "prediction_start",
+          location: 'startPrediction',
+          operation: 'prediction_start',
         },
         extra: {
           ppid: ppid,
@@ -1083,14 +1086,14 @@ function App() {
 
   const pollPredictionStatus = async (task_uuid) => {
     try {
-      const token = localStorage.getItem("sentinel_dash_token");
+      const token = localStorage.getItem('sentinel_dash_token');
       if (!token) {
         setIsPredicting(false);
         setPredictedDefects({
-          error: "No authentication token found. Please log in again.",
+          error: 'No authentication token found. Please log in again.',
         });
         setPredictionError(
-          "No authentication token found. Please log in again."
+          'No authentication token found. Please log in again.'
         );
         return;
       }
@@ -1100,11 +1103,11 @@ function App() {
           if (pollCountRef.current >= 10) {
             setIsPredicting(false);
             setPredictedDefects({
-              error: "timeout",
+              error: 'timeout',
               message:
-                "Prediction is taking longer than expected. This might be due to high server load.",
+                'Prediction is taking longer than expected. This might be due to high server load.',
             });
-            setPredictionError("timeout");
+            setPredictionError('timeout');
             if (pollingRef.current) clearTimeout(pollingRef.current);
             return;
           }
@@ -1112,51 +1115,51 @@ function App() {
           const data = await getTaskStatus(task_uuid);
           const status = data.task?.status;
 
-          if (status === "completed") {
+          if (status === 'completed') {
             setIsPredicting(false);
 
             // Check for errors in defect_details
             const defectDetails = data.task.results?.defect_details || {};
             const hasErrors = Object.values(defectDetails).some(
-              (detail: any) => detail.processing_status === "error"
+              (detail: any) => detail.processing_status === 'error'
             );
 
             if (hasErrors) {
               // Find the first error for display
               const errorDetail = Object.values(defectDetails).find(
-                (detail: any) => detail.processing_status === "error"
+                (detail: any) => detail.processing_status === 'error'
               ) as any;
 
               setPredictedDefects({
-                error: "processing_failed",
+                error: 'processing_failed',
                 message: `Defect analysis failed`,
               });
-              setPredictionError("processing_failed");
+              setPredictionError('processing_failed');
             } else {
               setPredictedDefects(data.task.results?.defects || {});
               setPredictionError(null);
             }
 
             if (pollingRef.current) clearTimeout(pollingRef.current);
-          } else if (status === "failed") {
+          } else if (status === 'failed') {
             setIsPredicting(false);
             setPredictedDefects({
-              error: "failed",
-              message: "Task processing failed. Please try again.",
+              error: 'failed',
+              message: 'Task processing failed. Please try again.',
             });
-            setPredictionError("failed");
+            setPredictionError('failed');
             if (pollingRef.current) clearTimeout(pollingRef.current);
           } else {
             pollCountRef.current += 1;
             pollingRef.current = setTimeout(() => poll(), 5000);
           }
         } catch (error) {
-          let errMsg = "Failed to poll status";
+          let errMsg = 'Failed to poll status';
           if (
             error.response?.status === 401 ||
             error.response?.status === 403
           ) {
-            errMsg = "Unauthorized. Please log in again.";
+            errMsg = 'Unauthorized. Please log in again.';
           } else {
             // Use the error detail if available, otherwise fallback to message or default
             errMsg = error.response?.data?.detail || error.message || errMsg;
@@ -1166,8 +1169,8 @@ function App() {
           setPredictionError(errMsg);
           Sentry.captureException(error, {
             tags: {
-              location: "pollPredictionStatus",
-              operation: "status_polling",
+              location: 'pollPredictionStatus',
+              operation: 'status_polling',
             },
             extra: {
               taskUuid: task_uuid,
@@ -1182,13 +1185,13 @@ function App() {
     } catch (err) {
       setIsPredicting(false);
       setPredictedDefects({
-        error: err.message || "Prediction polling failed",
+        error: err.message || 'Prediction polling failed',
       });
-      setPredictionError(err.message || "Prediction polling failed");
+      setPredictionError(err.message || 'Prediction polling failed');
       Sentry.captureException(err, {
         tags: {
-          location: "pollPredictionStatus",
-          operation: "polling_initialization",
+          location: 'pollPredictionStatus',
+          operation: 'polling_initialization',
         },
         extra: {
           taskUuid: task_uuid,
@@ -1198,12 +1201,12 @@ function App() {
   };
 
   const ErrorDisplay = ({
-    title = "Error",
+    title = 'Error',
     message,
     onRetry,
     onGoHome,
-    retryButtonText = "Retry",
-    homeButtonText = "Go to Defect Checker Home",
+    retryButtonText = 'Retry',
+    homeButtonText = 'Go to Defect Checker Home',
   }) => (
     <div className="text-center p-6 max-w-3xl mx-auto mt-10">
       <div className="mb-6">
@@ -1230,7 +1233,7 @@ function App() {
   );
 
   const resetAndGoBack = () => {
-    setPpid("");
+    setPpid('');
     setCapturedImages([]);
     setUploadedImageUrls([]);
     setCompletedUploads(0);
@@ -1246,11 +1249,11 @@ function App() {
     pollCountRef.current = 0;
     setTaskid(null); // Clear the task ID
 
-    setActivePage("defect-checker");
+    setActivePage('defect-checker');
   };
 
   const resetNftAndGoBack = () => {
-    setPpid("");
+    setPpid('');
     setCapturedImages([]);
     setUploadedImageUrls([]);
     setCompletedUploads(0);
@@ -1265,11 +1268,11 @@ function App() {
     pollCountRef.current = 0;
     setTaskid(null);
 
-    setActivePage("ntf-checker");
+    setActivePage('ntf-checker');
   };
 
   const resetSelfLearningAndGoBack = () => {
-    setPpid("");
+    setPpid('');
     setCapturedImages([]);
     setUploadedImageUrls([]);
     setCompletedUploads(0);
@@ -1277,11 +1280,14 @@ function App() {
     setIsUploading(false);
     setFailedUploadIndices([]);
 
-    setActivePage("self-learning");
+    setActivePage('self-learning');
   };
 
-  const handleBoundingBoxSubmit = async (boundingBoxes) => {
-    const { submitSelfLearning } = await import("./services/api");
+  const handleBoundingBoxSubmit = async (
+    boundingBoxes: any,
+    imageDimensions?: { width: number; height: number }
+  ) => {
+    const { submitSelfLearning } = await import('./services/api');
 
     // Step 1: Create the display panel first to get panel_image IDs
     const panel_images = uploadedImageUrls
@@ -1296,8 +1302,8 @@ function App() {
       ppid,
       panel_images,
       test_type: isTestMode
-        ? ("test" as "test")
-        : ("production" as "production"),
+        ? ('test' as 'test')
+        : ('production' as 'production'),
       inference: false, // No inference for self-learning
       qa: false,
     };
@@ -1315,9 +1321,11 @@ function App() {
 
     const result = await submitSelfLearning({
       ppid,
-      test_type: isTestMode ? "test" : "production",
+      test_type: isTestMode ? 'test' : 'production',
       panel_images: panel_images_with_ids,
       bounding_boxes: boundingBoxes,
+      imageWidth: imageDimensions?.width,
+      imageHeight: imageDimensions?.height,
     });
     return result; // Return the result to BoundingBoxPage
   };
@@ -1381,7 +1389,7 @@ function App() {
       if (!ppid) {
         setIsPredicting(false);
         setPredictionError(
-          "No Panel ID available for retry. Please start NTF check again."
+          'No Panel ID available for retry. Please start NTF check again.'
         );
         return;
       }
@@ -1394,7 +1402,7 @@ function App() {
         if (!latestTask || !latestTask.task_uuid) {
           setIsPredicting(false);
           setPredictionError(
-            "No valid task returned from retry. Please try again."
+            'No valid task returned from retry. Please try again.'
           );
           return;
         }
@@ -1402,29 +1410,29 @@ function App() {
         setTaskid(latestTask.task_uuid);
         pollForNftResults(latestTask.task_uuid);
       } catch (retryError) {
-        console.log("Retry error:", retryError);
+        console.log('Retry error:', retryError);
 
         // Check if it's a 404 error (DisplayPanel not found)
         const is404Error =
           retryError.status === 404 ||
           retryError.response?.status === 404 ||
           (retryError.message &&
-            retryError.message.includes("Resource not found"));
+            retryError.message.includes('Resource not found'));
 
         // Additional check for the specific DisplayPanel not found case
         const errorMessage =
           retryError.response?.data?.error ||
           retryError.response?.data?.detail ||
           retryError.message ||
-          "";
+          '';
 
         const isDisplayPanelNotFound =
           is404Error ||
-          (errorMessage.includes("DisplayPanel") &&
-            errorMessage.includes("not found"));
+          (errorMessage.includes('DisplayPanel') &&
+            errorMessage.includes('not found'));
 
         if (isDisplayPanelNotFound) {
-          console.log("DisplayPanel not found (404), creating new panel...");
+          console.log('DisplayPanel not found (404), creating new panel...');
 
           try {
             // Fallback: create new panel with qa: true
@@ -1437,13 +1445,13 @@ function App() {
             const task_uuid = data.tasks?.[0]?.task_uuid;
 
             if (!task_uuid) {
-              throw new Error("No task_uuid returned from new panel creation");
+              throw new Error('No task_uuid returned from new panel creation');
             }
 
             setTaskid(task_uuid);
             pollForNftResults(task_uuid);
           } catch (createError) {
-            console.error("Failed to create new panel after 404:", createError);
+            console.error('Failed to create new panel after 404:', createError);
             throw createError;
           }
         } else {
@@ -1452,30 +1460,30 @@ function App() {
         }
       }
     } catch (error) {
-      console.error("Final retry error:", error);
+      console.error('Final retry error:', error);
       setIsPredicting(false);
 
       const errorDetail =
         error.response?.data?.detail ||
         error.response?.data?.error ||
         error.message ||
-        "Retry failed";
+        'Retry failed';
 
       setPredictedDefects({ error: errorDetail });
       setPredictionError(errorDetail);
 
       Sentry.captureException(error, {
         tags: {
-          location: "retryNftChecker",
-          operation: "nft_check_retry",
+          location: 'retryNftChecker',
+          operation: 'nft_check_retry',
         },
         extra: {
           ppid: ppid,
           errorStatus: error.response?.status || error.status,
           errorType:
             error.status === 404 || error.response?.status === 404
-              ? "display_panel_not_found"
-              : "other_error",
+              ? 'display_panel_not_found'
+              : 'other_error',
           originalError: error.message,
         },
       });
@@ -1492,7 +1500,7 @@ function App() {
       if (!ppid) {
         setIsPredicting(false);
         setPredictionError(
-          "No Panel ID available for retry. Please start prediction again."
+          'No Panel ID available for retry. Please start prediction again.'
         );
         return;
       }
@@ -1504,7 +1512,7 @@ function App() {
         if (!latestTask || !latestTask.task_uuid) {
           setIsPredicting(false);
           setPredictionError(
-            "No valid task returned from retry. Please try again."
+            'No valid task returned from retry. Please try again.'
           );
           return;
         }
@@ -1512,7 +1520,7 @@ function App() {
         setTaskid(latestTask.task_uuid);
         pollPredictionStatus(latestTask.task_uuid);
       } catch (retryError) {
-        console.log("Retry error:", retryError);
+        console.log('Retry error:', retryError);
 
         // Check if it's a 404 error (DisplayPanel not found)
         // Your apiCallWithErrorHandling is wrapping the original error
@@ -1520,22 +1528,22 @@ function App() {
           retryError.status === 404 ||
           retryError.response?.status === 404 ||
           (retryError.message &&
-            retryError.message.includes("Resource not found"));
+            retryError.message.includes('Resource not found'));
 
         // Additional check for the specific DisplayPanel not found case
         const errorMessage =
           retryError.response?.data?.error ||
           retryError.response?.data?.detail ||
           retryError.message ||
-          "";
+          '';
 
         const isDisplayPanelNotFound =
           is404Error ||
-          (errorMessage.includes("DisplayPanel") &&
-            errorMessage.includes("not found"));
+          (errorMessage.includes('DisplayPanel') &&
+            errorMessage.includes('not found'));
 
         if (isDisplayPanelNotFound) {
-          console.log("DisplayPanel not found (404), creating new panel...");
+          console.log('DisplayPanel not found (404), creating new panel...');
 
           try {
             // Fallback: create new panel
@@ -1546,12 +1554,12 @@ function App() {
             );
             const task_uuid = data.tasks?.[0]?.task_uuid;
             if (!task_uuid)
-              throw new Error("No task_uuid returned from new panel creation");
+              throw new Error('No task_uuid returned from new panel creation');
 
             setTaskid(task_uuid);
             pollPredictionStatus(task_uuid);
           } catch (createError) {
-            console.error("Failed to create new panel after 404:", createError);
+            console.error('Failed to create new panel after 404:', createError);
             throw createError;
           }
         } else {
@@ -1560,27 +1568,27 @@ function App() {
         }
       }
     } catch (error) {
-      console.error("Final retry error:", error);
+      console.error('Final retry error:', error);
       setIsPredicting(false);
       const errorDetail =
         error.response?.data?.detail ||
         error.response?.data?.error ||
         error.message ||
-        "Retry failed";
+        'Retry failed';
       setPredictedDefects({ error: errorDetail });
       setPredictionError(errorDetail);
       Sentry.captureException(error, {
         tags: {
-          location: "retryPrediction",
-          operation: "prediction_retry",
+          location: 'retryPrediction',
+          operation: 'prediction_retry',
         },
         extra: {
           ppid: ppid,
           errorStatus: error.response?.status || error.status,
           errorType:
             error.status === 404 || error.response?.status === 404
-              ? "display_panel_not_found"
-              : "other_error",
+              ? 'display_panel_not_found'
+              : 'other_error',
           originalError: error.message,
         },
       });
@@ -1589,54 +1597,58 @@ function App() {
 
   const renderActivePage = () => {
     switch (activePage) {
-      case "data-collection":
+      case 'data-collection':
         return <DataCollectionPage onStartDefectChecker={startDefectChecker} />;
-      case "defect-checker":
+      case 'defect-checker':
         return <DefectCheckerPage onStartDefectChecker={startDefectChecker} />;
-      case "ntf-checker":
+      case 'ntf-checker':
         return <NTFCheckerPage onStartDefectChecker={startDefectChecker} />;
-      case "self-learning":
+      case 'self-learning':
         return <SelfLearningPage onStartDefectChecker={startDefectChecker} />;
-      case "self-learning-data":
+      case 'self-learning-data':
         return (
           <SelfLearningDataPage
             onNavigateToTraining={(batchSlug?: string) => {
               setSelectedBatchSlug(batchSlug);
-              setActivePage("new-model-training");
+              setActivePage('new-model-training');
+            }}
+            userData={userData}
+          />
+        );
+      case 'self-learning-summary':
+        return (
+          <SelfLearningSummaryPage
+            onNavigateToTraining={() => {
+              setActivePage('new-model-training');
             }}
           />
         );
-      case "new-model-training":
+      case 'new-model-training':
         return (
           <NewModelTrainingPage
             selectedBatchSlug={selectedBatchSlug}
             onBackToSelfLearning={() => {
               setSelectedBatchSlug(undefined);
-              setActivePage("self-learning-data");
-            }}
-            onViewBatchSummary={(batchSlug: string, batchName: string) => {
-              setSelectedBatchSlug(batchSlug);
-              setSelectedBatchName(batchName);
-              setActivePage("batch-training-summary");
+              setActivePage('self-learning-data');
             }}
           />
         );
-      case "batch-training-summary":
+      case 'batch-training-summary':
         return selectedBatchSlug ? (
           <BatchTrainingSummaryPage
             batchSlug={selectedBatchSlug}
             batchName={selectedBatchName}
             onBack={() => {
-              setActivePage("new-model-training");
+              setActivePage('new-model-training');
             }}
             onTrainingTriggered={() => {
-              setActivePage("new-model-training");
+              setActivePage('new-model-training');
             }}
           />
         ) : null;
-      case "summary":
+      case 'summary':
         return <SummaryPage />;
-      case "pattern-ebc":
+      case 'pattern-ebc':
         return (
           <PatternEBCPage
             patternEBC={patternEBC}
@@ -1645,63 +1657,63 @@ function App() {
             handleResetPatternEBC={() => {
               const testPatternsDefault = [
                 {
-                  name: "white_AAA",
+                  name: 'white_AAA',
                   settings: { exposure: 0, brightness: 145, contrast: 145 },
                 },
                 {
-                  name: "black_BBB",
+                  name: 'black_BBB',
                   settings: { exposure: 100, brightness: 120, contrast: 145 },
                 },
                 {
-                  name: "cyan_CCC",
+                  name: 'cyan_CCC',
                   settings: { exposure: 0, brightness: 145, contrast: 145 },
                 },
                 {
-                  name: "gray50_DDD",
+                  name: 'gray50_DDD',
                   settings: { exposure: 20, brightness: 125, contrast: 125 },
                 },
                 {
-                  name: "red_EEE",
+                  name: 'red_EEE',
                   settings: { exposure: 45, brightness: 85, contrast: 125 },
                 },
                 {
-                  name: "green_FFF",
+                  name: 'green_FFF',
                   settings: { exposure: 45, brightness: 85, contrast: 145 },
                 },
                 {
-                  name: "blue_GGG",
+                  name: 'blue_GGG',
                   settings: { exposure: 100, brightness: 125, contrast: 145 },
                 },
                 {
-                  name: "gray75_HHH",
+                  name: 'gray75_HHH',
                   settings: { exposure: 45, brightness: 85, contrast: 145 },
                 },
                 {
-                  name: "grayVertical_III",
+                  name: 'grayVertical_III',
                   settings: { exposure: 20, brightness: 125, contrast: 145 },
                 },
                 {
-                  name: "colorBars_JJJ",
+                  name: 'colorBars_JJJ',
                   settings: { exposure: 45, brightness: 85, contrast: 125 },
                 },
                 {
-                  name: "focus_KKK",
+                  name: 'focus_KKK',
                   settings: { exposure: 10, brightness: 80, contrast: 125 },
                 },
                 {
-                  name: "blackWithWhiteBorder_LLL",
+                  name: 'blackWithWhiteBorder_LLL',
                   settings: { exposure: 10, brightness: 100, contrast: 80 },
                 },
                 {
-                  name: "crossHatch_MMM",
+                  name: 'crossHatch_MMM',
                   settings: { exposure: 45, brightness: 145, contrast: 145 },
                 },
                 {
-                  name: "16BarGray_NNN",
+                  name: '16BarGray_NNN',
                   settings: { exposure: 20, brightness: 125, contrast: 125 },
                 },
                 {
-                  name: "black&White_OOO",
+                  name: 'black&White_OOO',
                   settings: { exposure: 0, brightness: 145, contrast: 145 },
                 },
               ];
@@ -1713,15 +1725,15 @@ function App() {
             }}
           />
         );
-      case "past-data":
+      case 'past-data':
         return <PastDataPage />;
-      case "dashboard":
+      case 'dashboard':
         return <Dashboard />;
-      case "usage-data":
+      case 'usage-data':
         return <UsageDataPage />;
-      case "admin-settings":
+      case 'admin-settings':
         return <AdminUserManagement />;
-      case "defect-configuration":
+      case 'defect-configuration':
         return (
           <DefectConfiguration
             onDefectsSelected={handleDefectsSelected}
@@ -1729,7 +1741,7 @@ function App() {
           />
         );
       default:
-        return <div>Welcome!</div>;
+        return <div></div>;
     }
   };
 
@@ -1747,7 +1759,7 @@ function App() {
               />
             </div>
           )}
-          <div className={`content-area ${authToken ? "pt-8" : ""}`}>
+          <div className={`content-area ${authToken ? 'pt-8' : ''}`}>
             {!authToken ? (
               // showSignup ? (
               //   <SignUpPage
@@ -1770,17 +1782,17 @@ function App() {
                 patternEBC={patternEBC}
               />
             ) : // subpages without sidebar/header
-            activePage === "review" ? (
+            activePage === 'review' ? (
               <>
                 <header className="sticky w-screen top-0 z-10 flex h-16 shrink-0 items-center gap-2 border-b bg-background px-4">
                   <div className="text-xl font-semibold">
-                    {routineType === "data-collection"
-                      ? "Data Collection Review Page"
-                      : routineType === "defect-checker"
-                      ? "Defect Checker Review Page"
-                      : routineType === "ntf-checker"
-                      ? "NTF Checker Review Page"
-                      : "Self Learning Review Page"}
+                    {routineType === 'data-collection'
+                      ? 'Data Collection Review Page'
+                      : routineType === 'defect-checker'
+                      ? 'Defect Checker Review Page'
+                      : routineType === 'ntf-checker'
+                      ? 'NTF Checker Review Page'
+                      : 'Self Learning Review Page'}
                   </div>
                 </header>
                 <div className="flex justify-center items-center min-h-screen bg-gray-100">
@@ -1789,14 +1801,14 @@ function App() {
                       ppid={ppid}
                       capturedImages={capturedImages}
                       onApprove={async () => {
-                        if (routineType === "defect-checker") {
-                          setActivePage("predicted-defects");
+                        if (routineType === 'defect-checker') {
+                          setActivePage('predicted-defects');
                           await startPredictionRefactored();
-                        } else if (routineType === "ntf-checker") {
-                          setActivePage("ntf-defects");
+                        } else if (routineType === 'ntf-checker') {
+                          setActivePage('ntf-defects');
                           await startNftChecker();
-                        } else if (routineType === "self-learning") {
-                          setActivePage("bounding-box-drawing");
+                        } else if (routineType === 'self-learning') {
+                          setActivePage('bounding-box-drawing');
                         } else {
                           approveImages();
                         }
@@ -1807,7 +1819,7 @@ function App() {
                   </div>
                 </div>
               </>
-            ) : activePage === "predicted-defects" ? (
+            ) : activePage === 'predicted-defects' ? (
               isPredicting ? (
                 <div className="flex flex-col items-center justify-center min-h-[300px]">
                   <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mb-4"></div>
@@ -1817,16 +1829,16 @@ function App() {
                 </div>
               ) : predictionError &&
                 predictionError !==
-                  "No authentication token found. Please log in again." ? (
+                  'No authentication token found. Please log in again.' ? (
                 <ErrorDisplay
                   title={
-                    predictionError === "timeout"
-                      ? "Prediction Timeout"
-                      : predictionError === "failed"
-                      ? "Task Failed"
-                      : predictionError === "processing_failed"
-                      ? "Processing Failed"
-                      : "Error"
+                    predictionError === 'timeout'
+                      ? 'Prediction Timeout'
+                      : predictionError === 'failed'
+                      ? 'Task Failed'
+                      : predictionError === 'processing_failed'
+                      ? 'Processing Failed'
+                      : 'Error'
                   }
                   message={predictedDefects.message || predictedDefects.error}
                   onRetry={retryPredictionRefactored}
@@ -1836,9 +1848,9 @@ function App() {
                 <>
                   <header className="sticky w-screen top-0 z-10 flex h-16 shrink-0 items-center gap-2 border-b bg-background px-4">
                     <div className="text-xl font-semibold">
-                      {routineType === "data-collection"
-                        ? "Data Collection Predicted Defects"
-                        : "Defect Checker Predicted Defects"}
+                      {routineType === 'data-collection'
+                        ? 'Data Collection Predicted Defects'
+                        : 'Defect Checker Predicted Defects'}
                     </div>
                   </header>
                   <div className="flex justify-center items-center min-h-screen bg-gray-100">
@@ -1854,7 +1866,7 @@ function App() {
                 </>
               ) : predictedDefects &&
                 predictedDefects.error ===
-                  "No authentication token found. Please log in again." ? (
+                  'No authentication token found. Please log in again.' ? (
                 <div className="flex flex-col items-center justify-center min-h-[300px]">
                   <div className="text-red-600 text-center p-8">
                     {predictedDefects.message || predictedDefects.error}
@@ -1867,13 +1879,13 @@ function App() {
                   </button>
                 </div>
               ) : null
-            ) : activePage === "defect-analysis" ? (
+            ) : activePage === 'defect-analysis' ? (
               <>
                 <header className="sticky w-screen top-0 z-10 flex h-16 shrink-0 items-center gap-2 border-b bg-background px-4">
                   <div className="text-xl font-semibold">
-                    {routineType === "data-collection"
-                      ? "Data Collection Defect Analysis"
-                      : "Defect Checker Defect Analysis"}
+                    {routineType === 'data-collection'
+                      ? 'Data Collection Defect Analysis'
+                      : 'Defect Checker Defect Analysis'}
                   </div>
                 </header>
                 <div className="flex justify-center items-center min-h-screen bg-gray-100">
@@ -1893,7 +1905,7 @@ function App() {
                   </div>
                 </div>
               </>
-            ) : activePage === "ntf-defects" ? (
+            ) : activePage === 'ntf-defects' ? (
               isPredicting ? (
                 <div className="flex flex-col items-center justify-center min-h-[300px]">
                   <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-primary mb-4"></div>
@@ -1903,16 +1915,16 @@ function App() {
                 </div>
               ) : predictionError &&
                 predictionError !==
-                  "No authentication token found. Please log in again." ? (
+                  'No authentication token found. Please log in again.' ? (
                 <ErrorDisplay
                   title={
-                    predictionError === "timeout"
-                      ? "NTF Check Timeout"
-                      : predictionError === "failed"
-                      ? "Task Failed"
-                      : predictionError === "processing_failed"
-                      ? "Processing Failed"
-                      : "Error"
+                    predictionError === 'timeout'
+                      ? 'NTF Check Timeout'
+                      : predictionError === 'failed'
+                      ? 'Task Failed'
+                      : predictionError === 'processing_failed'
+                      ? 'Processing Failed'
+                      : 'Error'
                   }
                   message={predictedDefects.message || predictedDefects.error}
                   onRetry={retryNftChecker} // Changed from startNftChecker to retryNftChecker
@@ -1938,7 +1950,7 @@ function App() {
                 </>
               ) : predictedDefects &&
                 predictedDefects.error ===
-                  "No authentication token found. Please log in again." ? (
+                  'No authentication token found. Please log in again.' ? (
                 <div className="flex flex-col items-center justify-center min-h-[300px]">
                   <div className="text-red-600 text-center p-8">
                     {predictedDefects.message || predictedDefects.error}
@@ -1951,7 +1963,7 @@ function App() {
                   </button>
                 </div>
               ) : null
-            ) : activePage === "bounding-box-drawing" ? (
+            ) : activePage === 'bounding-box-drawing' ? (
               <BoundingBoxPage
                 images={capturedImages}
                 ppid={ppid}
@@ -1966,7 +1978,7 @@ function App() {
                 handleLogout={handleLogout}
                 onNavigate={handleNavigate}
                 activePage={activePage}
-                pageTitle={pageTitles[activePage] || ""}
+                pageTitle={pageTitles[activePage] || ''}
                 username={username}
                 userData={userData}
               >

@@ -5,7 +5,12 @@ import { RotateCcw, ArrowLeft } from 'lucide-react';
 import {
   getBatches,
   getBatchStatistics,
+  getBatchPPIDs,
+  createDataset,
+  getDatasetCreationTaskStatus,
+  triggerTraining,
 } from '@/services/api';
+import { useAppMode } from '@/contexts/appModeContext';
 
 interface DefectStatistic {
   defect_id: number;
@@ -44,18 +49,25 @@ interface Batch {
 interface NewModelTrainingPageProps {
   onBackToSelfLearning?: () => void;
   selectedBatchSlug?: string;
-  onViewBatchSummary?: (batchSlug: string, batchName: string) => void;
 }
 
 const NewModelTrainingPage: React.FC<NewModelTrainingPageProps> = ({
   onBackToSelfLearning,
   selectedBatchSlug,
-  onViewBatchSummary,
 }) => {
+  const { isTestMode } = useAppMode();
   const [loading, setLoading] = useState(false);
   const [batches, setBatches] = useState<Batch[]>([]);
   const [batchStatistics, setBatchStatistics] = useState<Record<string, BatchStatistics>>({});
+  const [batchAnnotations, setBatchAnnotations] = useState<Record<string, any>>({});
   const [error, setError] = useState<string | null>(null);
+
+  // Training flow states
+  const [trainingBatchSlug, setTrainingBatchSlug] = useState<string | null>(null);
+  const [datasetCreationStatus, setDatasetCreationStatus] = useState<string>('');
+  const [datasetCreationStatusDisplay, setDatasetCreationStatusDisplay] = useState<string>('');
+  const [datasetProgressPercentage, setDatasetProgressPercentage] = useState<number>(0);
+  const [isCreatingDataset, setIsCreatingDataset] = useState(false);
 
   const fetchBatchesAndStatistics = async () => {
     setLoading(true);
@@ -68,27 +80,35 @@ const NewModelTrainingPage: React.FC<NewModelTrainingPageProps> = ({
       const batchesData = Array.isArray(response) ? response : (response.results || []);
       setBatches(batchesData);
 
-      // Step 2: Get statistics for each batch
-      const statisticsPromises = batchesData.map(async (batch: Batch) => {
+      // Step 2: Get statistics and PPIDs for each batch
+      const dataPromises = batchesData.map(async (batch: Batch) => {
         try {
-          const stats = await getBatchStatistics(batch.slug);
-          return { slug: batch.slug, stats };
+          const [stats, annotations] = await Promise.all([
+            getBatchStatistics(batch.slug),
+            getBatchPPIDs(batch.slug),
+          ]);
+          return { slug: batch.slug, stats, annotations };
         } catch (err) {
-          console.error(`Error fetching statistics for ${batch.slug}:`, err);
-          return { slug: batch.slug, stats: null };
+          console.error(`Error fetching data for ${batch.slug}:`, err);
+          return { slug: batch.slug, stats: null, annotations: null };
         }
       });
 
-      const statisticsResults = await Promise.all(statisticsPromises);
+      const dataResults = await Promise.all(dataPromises);
       const statsMap: Record<string, BatchStatistics> = {};
+      const annotationsMap: Record<string, any> = {};
 
-      statisticsResults.forEach(({ slug, stats }) => {
+      dataResults.forEach(({ slug, stats, annotations }) => {
         if (stats) {
           statsMap[slug] = stats;
+        }
+        if (annotations) {
+          annotationsMap[slug] = annotations;
         }
       });
 
       setBatchStatistics(statsMap);
+      setBatchAnnotations(annotationsMap);
 
       // If a specific batch is selected, scroll to it
       if (selectedBatchSlug) {
@@ -113,9 +133,144 @@ const NewModelTrainingPage: React.FC<NewModelTrainingPageProps> = ({
     fetchBatchesAndStatistics();
   };
 
-  const handleViewBatchSummary = (batch: Batch) => {
-    if (onViewBatchSummary) {
-      onViewBatchSummary(batch.slug, batch.name);
+  // Get user-friendly status message
+  const getStatusMessage = (status: string, statusDisplay?: string): string => {
+    // Prefer status_display from API if available
+    if (statusDisplay) {
+      return statusDisplay;
+    }
+
+    // Fallback formatting: convert snake_case to Title Case
+    return status
+      .split('_')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+      .join(' ');
+  };
+
+  // Poll dataset creation task status
+  const pollDatasetCreationStatus = async (taskUuid: string): Promise<string | null> => {
+    const maxAttempts = 40; // Poll for up to 20 minutes (30s intervals)
+    const pollInterval = 30000; // 30 seconds
+
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      try {
+        const taskStatus = await getDatasetCreationTaskStatus(taskUuid);
+        console.log('Dataset creation status:', taskStatus);
+
+        setDatasetCreationStatus(taskStatus.status || 'processing');
+        setDatasetCreationStatusDisplay(taskStatus.status_display || '');
+        setDatasetProgressPercentage(taskStatus.progress_percentage || 0);
+
+        if (taskStatus.status === 'completed') {
+          return taskStatus.vertex_dataset_id;
+        } else if (taskStatus.status === 'failed' || taskStatus.status === 'cancelled') {
+          throw new Error(`Dataset creation ${taskStatus.status}: ${taskStatus.error_message || 'Unknown error'}`);
+        }
+
+        // Wait before next poll
+        await new Promise(resolve => setTimeout(resolve, pollInterval));
+      } catch (err: any) {
+        console.error('Error polling dataset creation status:', err);
+        throw err;
+      }
+    }
+
+    throw new Error('Dataset creation timed out after 20 minutes');
+  };
+
+  const handleRequestTraining = async (batch: Batch) => {
+    setTrainingBatchSlug(batch.slug);
+    setIsCreatingDataset(true);
+    setDatasetCreationStatus('pending');
+    setDatasetCreationStatusDisplay('Pending');
+    setDatasetProgressPercentage(0);
+    setError(null);
+
+    try {
+      // Step 1: Get batch PPIDs and defects
+      console.log('Fetching batch PPIDs...');
+      const batchPPIDsData = await getBatchPPIDs(batch.slug);
+      console.log('Batch PPIDs data:', batchPPIDsData);
+
+      const ppids = batchPPIDsData.ppids || [];
+      const defectNames = batchPPIDsData.defects?.map((d: any) => d.defect_name) || [];
+
+      if (ppids.length === 0) {
+        throw new Error('No PPIDs found in this batch');
+      }
+
+      // Step 2: Create dataset
+      console.log('Creating dataset...');
+      setDatasetCreationStatus('preparing');
+      const datasetResponse = await createDataset({
+        dataset_name: `dataset_${batch.name}`,
+        description: `Dataset for defect detection - ${batch.name}`,
+        test_type: isTestMode ? 'test' : 'production',
+        ppids: ppids,
+        defect_names: defectNames,
+        start_date: new Date().toISOString(),
+      });
+
+      console.log('Dataset creation initiated:', datasetResponse);
+
+      const taskUuid = datasetResponse.task_uuid;
+      if (!taskUuid) {
+        throw new Error('Dataset creation did not return task_uuid');
+      }
+
+      // Step 3: Poll for dataset completion
+      console.log('Polling for dataset creation completion...');
+      const vertexDatasetId = await pollDatasetCreationStatus(taskUuid);
+
+      if (!vertexDatasetId) {
+        throw new Error('Dataset creation completed but did not return vertex_dataset_id');
+      }
+
+      console.log('Dataset created successfully. Vertex Dataset ID:', vertexDatasetId);
+
+      // Step 4: Trigger training with vertex_dataset_id
+      setDatasetCreationStatus('triggering_training');
+      console.log('Triggering training with vertex_dataset_id:', vertexDatasetId);
+      const trainingResponse = await triggerTraining(batch.slug, {
+        model_display_name: `${batch.name} - ${new Date().toLocaleDateString()}`,
+        description: `Training model for defect detection - ${batch.name}`,
+        model_type: 'object_detection',
+        edge_model_type: 'MOBILE_TF_VERSATILE_1',
+        training_budget_hours: 8,
+        vertex_dataset_id: vertexDatasetId,
+        training_parameters: {
+          epochs: 50,
+          batch_size: 16,
+          learning_rate: 0.001,
+          optimizer: 'adam',
+        },
+      });
+
+      console.log('Training triggered:', trainingResponse);
+
+      // Show success message
+      const successMessage = [
+        `Training triggered successfully for ${batch.name}!`,
+        ``,
+        `Dataset: ${datasetResponse.dataset_name}`,
+        `Training Log UUID: ${trainingResponse.training_log_uuid || 'N/A'}`,
+        ``,
+        `You will be notified when training is complete.`
+      ].join('\n');
+
+      alert(successMessage);
+
+      // Refresh batches to update status
+      await fetchBatchesAndStatistics();
+    } catch (err: any) {
+      console.error('Error in training flow:', err);
+      setError(err.message || 'Failed to trigger training');
+    } finally {
+      setIsCreatingDataset(false);
+      setTrainingBatchSlug(null);
+      setDatasetCreationStatus('');
+      setDatasetCreationStatusDisplay('');
+      setDatasetProgressPercentage(0);
     }
   };
 
@@ -188,7 +343,10 @@ const NewModelTrainingPage: React.FC<NewModelTrainingPageProps> = ({
                 <tbody>
                   {batches.map((batch) => {
                     const stats = batchStatistics[batch.slug];
+                    const annotations = batchAnnotations[batch.slug];
                     const defectStats = stats?.statistics?.defect_statistics || [];
+                    const ppidCount = annotations?.total_ppids || 0;
+                    const totalAnnotations = annotations?.total_annotations || 0;
 
                     // If statistics are still loading (not fetched yet)
                     if (!stats) {
@@ -254,6 +412,11 @@ const NewModelTrainingPage: React.FC<NewModelTrainingPageProps> = ({
                                 rowSpan={defectStats.length}
                               >
                                 <div className="font-semibold text-lg">{batch.name}</div>
+                                {ppidCount > 0 && (
+                                  <div className="text-xs text-gray-500 mt-1">
+                                    {ppidCount} PPIDs • {totalAnnotations} annotations
+                                  </div>
+                                )}
                               </td>
                             )}
                             <td className="border border-gray-300 dark:border-gray-700 px-6 py-4">
@@ -295,12 +458,34 @@ const NewModelTrainingPage: React.FC<NewModelTrainingPageProps> = ({
                                     </div>
                                   </div>
                                 ) : allDefectsMeetThreshold ? (
-                                  <Button
-                                    className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 text-base font-medium"
-                                    onClick={() => handleViewBatchSummary(batch)}
-                                  >
-                                    Request new model training for {batch.name}
-                                  </Button>
+                                  <div className="flex flex-col items-center gap-2">
+                                    <Button
+                                      className="bg-green-600 hover:bg-green-700 text-white px-6 py-3 text-base font-medium"
+                                      onClick={() => handleRequestTraining(batch)}
+                                      disabled={isCreatingDataset && trainingBatchSlug === batch.slug}
+                                    >
+                                      {isCreatingDataset && trainingBatchSlug === batch.slug ? (
+                                        <span className="flex items-center gap-2">
+                                          <div className="animate-spin rounded-full h-4 w-4 border-t-2 border-b-2 border-white"></div>
+                                          Processing...
+                                        </span>
+                                      ) : (
+                                        `Request new model training for ${batch.name}`
+                                      )}
+                                    </Button>
+                                    {isCreatingDataset && trainingBatchSlug === batch.slug && datasetCreationStatus && (
+                                      <div className="text-sm text-gray-600 dark:text-gray-400 mt-1 text-center">
+                                        <div className="font-medium">
+                                          {getStatusMessage(datasetCreationStatus, datasetCreationStatusDisplay)}
+                                        </div>
+                                        {datasetProgressPercentage > 0 && (
+                                          <div className="text-xs mt-1">
+                                            {datasetProgressPercentage.toFixed(1)}% complete
+                                          </div>
+                                        )}
+                                      </div>
+                                    )}
+                                  </div>
                                 ) : (
                                   <div className="text-center py-4">
                                     <Button

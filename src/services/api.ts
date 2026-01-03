@@ -573,6 +573,7 @@ export const submitSelfLearning = async (data: {
       width: number;
       height: number;
       defect_type: string;
+      drawn_on_pattern: number;
     }>;
   };
   imageWidth?: number;
@@ -580,20 +581,6 @@ export const submitSelfLearning = async (data: {
 }) => {
   return apiCallWithErrorHandling(
     async () => {
-      // Transform bounding boxes to annotations format
-      // panel_image and base_pattern are simply 1, 2, 3, 4, 5... (pattern numbers)
-      const annotations: Array<{
-        panel_image: number;
-        defect: number;
-        base_pattern: number;
-        status: string;
-        x: number;
-        y: number;
-        width: number;
-        height: number;
-        notes: string;
-      }> = [];
-
       // Use provided dimensions or default to common resolution
       const imageWidth = data.imageWidth || 1920;
       const imageHeight = data.imageHeight || 1080;
@@ -602,96 +589,100 @@ export const submitSelfLearning = async (data: {
         `Normalizing coordinates with image dimensions: ${imageWidth}x${imageHeight}`
       );
 
-      Object.entries(data.bounding_boxes).forEach(([imageIndex, boxes]) => {
-        const idx = parseInt(imageIndex);
-        const patternNumber = idx + 1; // 1, 2, 3, 4, 5... 15
-
-        console.log(
-          `Processing pattern ${patternNumber} (index ${idx}): ${boxes.length} boxes`
-        );
-
-        boxes.forEach((box) => {
-          // Normalize coordinates to 0-1 range
-          const normalizedX = box.x / imageWidth;
-          const normalizedY = box.y / imageHeight;
-          const normalizedWidth = box.width / imageWidth;
-          const normalizedHeight = box.height / imageHeight;
-
-          annotations.push({
-            panel_image: patternNumber, // Just use pattern number 1-15
-            defect: getDefectIdFromType(box.defect_type),
-            base_pattern: patternNumber, // Same as panel_image: 1-15
-            status: 'pending',
-            x: normalizedX,
-            y: normalizedY,
-            width: normalizedWidth,
-            height: normalizedHeight,
-            notes: '',
-          });
-        });
-      });
-
-      console.log('Annotations to submit:', annotations);
-
       // Collect unique defects used in annotations
       const uniqueDefects = new Set<number>();
-      annotations.forEach((ann) => uniqueDefects.add(ann.defect));
+
+      // Build panel_images array with nested annotations
+      const panelImagesWithAnnotations = data.panel_images.map(
+        (panelImage, index) => {
+          const boxes = data.bounding_boxes[index] || [];
+
+          console.log(`Processing pattern ${index + 1}: ${boxes.length} boxes`);
+
+          // Create annotations array for this specific panel
+          const annotations = boxes.map((box) => {
+            // Normalize coordinates to 0-1 range
+            const normalizedX = box.x / imageWidth;
+            const normalizedY = box.y / imageHeight;
+            const normalizedWidth = box.width / imageWidth;
+            const normalizedHeight = box.height / imageHeight;
+
+            const defectId = getDefectIdFromType(box.defect_type);
+            uniqueDefects.add(defectId);
+
+            // Check if this annotation is visible on current pattern
+            // visible_on is true if drawn on this pattern, false if replicated
+            const visibleOn = box.drawn_on_pattern === index;
+
+            return {
+              defect: defectId,
+              x: normalizedX,
+              y: normalizedY,
+              width: normalizedWidth,
+              height: normalizedHeight,
+              visible_on: visibleOn,
+              status: 'pending',
+              notes: '',
+            };
+          });
+
+          return {
+            id: panelImage.id,
+            base_pattern: panelImage.base_pattern,
+            image_url: panelImage.image_url,
+            annotations: annotations,
+          };
+        }
+      );
+
+      console.log('Panel images with annotations:', panelImagesWithAnnotations);
 
       const defects = Array.from(uniqueDefects).map((defectId) => ({
         id: defectId,
         name: DEFECT_ID_TO_NAME[defectId] || `Defect ${defectId}`,
       }));
 
-      // Call bulk annotations endpoint if we have annotations
-      if (annotations.length > 0) {
-        // Complete payload structure
-        const payload = {
-          ppid: data.ppid,
-          test_type: data.test_type,
-          defects: defects,
-          panel_images: data.panel_images,
-          annotations: annotations,
-        };
+      // Complete payload structure with annotations grouped by panel_images
+      const payload = {
+        ppid: data.ppid,
+        test_type: data.test_type,
+        defects: defects,
+        panel_images: panelImagesWithAnnotations,
+      };
 
-        console.log('Payload to submit:', payload);
+      console.log('Payload to submit:', payload);
 
-        const annotationsResponse = await api
-          .post('api/self-learning/annotations/bulk_create/', payload)
-          .then((response) => response.data);
+      const annotationsResponse = await api
+        .post('api/self-learning/annotations/bulk_create/', payload)
+        .then((response) => response.data);
 
-        console.log('Annotations created:', annotationsResponse);
+      console.log('Annotations created:', annotationsResponse);
 
-        // Handle partial success or errors
-        if (annotationsResponse.status === 'partial_success') {
-          console.warn(
-            `Partial success: ${annotationsResponse.created_count} created, ${annotationsResponse.error_count} failed`,
-            annotationsResponse.errors
-          );
-
-          return {
-            success: true,
-            message: `Partial success: ${annotationsResponse.created_count} annotations created, ${annotationsResponse.error_count} failed`,
-            annotations: annotationsResponse,
-            hasErrors: true,
-          };
-        }
-
-        if (annotationsResponse.status === 'error') {
-          throw new Error(
-            `Failed to create annotations: ${annotationsResponse.error_count} errors`
-          );
-        }
+      // Handle partial success or errors
+      if (annotationsResponse.status === 'partial_success') {
+        console.warn(
+          `Partial success: ${annotationsResponse.created_count} created, ${annotationsResponse.error_count} failed`,
+          annotationsResponse.errors
+        );
 
         return {
           success: true,
-          message: `Successfully created ${annotationsResponse.created_count} annotations`,
+          message: `Partial success: ${annotationsResponse.created_count} annotations created, ${annotationsResponse.error_count} failed`,
           annotations: annotationsResponse,
+          hasErrors: true,
         };
+      }
+
+      if (annotationsResponse.status === 'error') {
+        throw new Error(
+          `Failed to create annotations: ${annotationsResponse.error_count} errors`
+        );
       }
 
       return {
         success: true,
-        message: 'No annotations to submit',
+        message: `Successfully created ${annotationsResponse.created_count} annotations`,
+        annotations: annotationsResponse,
       };
     },
     {
@@ -1327,10 +1318,14 @@ export const bulkUpdateAnnotationStatus = async (data: {
     }>;
   }>;
 }) => {
+  console.log('API call - bulkUpdateAnnotationStatus payload:', JSON.stringify(data, null, 2));
   return apiCallWithErrorHandling(
     () =>
       api
-        .post('/api/self-learning/annotations/bulk_update_annotation_status/', data)
+        .post(
+          '/api/self-learning/annotations/bulk_update_annotation_status/',
+          data
+        )
         .then((response) => response.data),
     {
       location: 'bulkUpdateAnnotationStatus',
@@ -1354,6 +1349,143 @@ export const bulkUpdateStatus = async (data: {
       location: 'bulkUpdateStatus',
       operation: 'bulk_status_update',
       extra: { annotations_count: data.annotation_ids.length },
+    }
+  );
+};
+
+// Delete single annotation by ID
+export const deleteAnnotation = async (annotationId: number) => {
+  return apiCallWithErrorHandling(
+    () =>
+      api
+        .delete(`/api/self-learning/annotations/${annotationId}/`)
+        .then((response) => response.data),
+    {
+      location: 'deleteAnnotation',
+      operation: 'annotation_delete',
+      extra: { annotation_id: annotationId },
+    }
+  );
+};
+
+// Delete multiple annotations (calls DELETE for each)
+export const deleteAnnotations = async (annotationIds: number[]) => {
+  const results = await Promise.allSettled(
+    annotationIds.map((id) => deleteAnnotation(id))
+  );
+
+  const failed = results.filter((r) => r.status === 'rejected');
+  if (failed.length > 0) {
+    console.error('Some deletions failed:', failed);
+    throw new Error(`Failed to delete ${failed.length} annotation(s)`);
+  }
+
+  return { deleted: annotationIds.length };
+};
+
+// Add new annotation
+export const addAnnotation = async (data: {
+  panel_image: number;
+  defect: number;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  status?: 'pending' | 'approved' | 'rejected';
+  visible_on?: boolean;
+  notes?: string;
+}) => {
+  return apiCallWithErrorHandling(
+    () =>
+      api
+        .post('/api/self-learning/annotations/', {
+          ...data,
+          status: data.status || 'pending',
+          visible_on: data.visible_on !== undefined ? data.visible_on : true,
+        })
+        .then((response) => response.data),
+    {
+      location: 'addAnnotation',
+      operation: 'annotation_create',
+      extra: { panel_image: data.panel_image, defect: data.defect },
+    }
+  );
+};
+
+// Add multiple annotations (calls POST for each)
+export const addAnnotations = async (
+  annotations: Array<{
+    panel_image: number;
+    defect: number;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    status?: 'pending' | 'approved' | 'rejected';
+    visible_on?: boolean;
+    notes?: string;
+  }>
+) => {
+  const results = await Promise.allSettled(
+    annotations.map((ann) => addAnnotation(ann))
+  );
+
+  const failed = results.filter((r) => r.status === 'rejected');
+  if (failed.length > 0) {
+    console.error('Some additions failed:', failed);
+    throw new Error(`Failed to add ${failed.length} annotation(s)`);
+  }
+
+  const created = results
+    .filter((r): r is PromiseFulfilledResult<any> => r.status === 'fulfilled')
+    .map((r) => r.value);
+
+  return { created, count: created.length };
+};
+
+// Bulk create PPID annotation - creates same annotation across all 15 patterns
+export const bulkCreatePPIDAnnotation = async (data: {
+  ppid: string;
+  defect: number;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  visible_on?: boolean;
+  status?: 'pending' | 'approved' | 'rejected';
+  notes?: string;
+}) => {
+  return apiCallWithErrorHandling(
+    () =>
+      api
+        .post('/api/self-learning/annotations/bulk_create_ppid_annotation/', {
+          ...data,
+          status: data.status || 'pending',
+          visible_on: data.visible_on !== undefined ? data.visible_on : true,
+        })
+        .then((response) => response.data),
+    {
+      location: 'bulkCreatePPIDAnnotation',
+      operation: 'bulk_create_ppid_annotation',
+      extra: { ppid: data.ppid, defect: data.defect },
+    }
+  );
+};
+
+// Bulk delete PPID annotation - deletes all annotations of a defect type across all 15 patterns
+export const bulkDeletePPIDAnnotation = async (data: {
+  ppid: string;
+  defect: number;
+}) => {
+  return apiCallWithErrorHandling(
+    () =>
+      api
+        .post('/api/self-learning/annotations/bulk_delete_ppid_annotation/', data)
+        .then((response) => response.data),
+    {
+      location: 'bulkDeletePPIDAnnotation',
+      operation: 'bulk_delete_ppid_annotation',
+      extra: { ppid: data.ppid, defect: data.defect },
     }
   );
 };
@@ -1535,6 +1667,7 @@ export const triggerTraining = async (
     model_type?: string;
     edge_model_type?: string;
     training_budget_hours?: number;
+    vertex_dataset_id?: string;
     training_parameters?: {
       epochs?: number;
       batch_size?: number;
@@ -1544,14 +1677,21 @@ export const triggerTraining = async (
   }
 ) => {
   // Default values
-  const payload = {
-    model_display_name: params?.model_display_name || `Model Training ${new Date().toLocaleDateString()}`,
+  const payload: any = {
+    model_display_name:
+      params?.model_display_name ||
+      `Model Training ${new Date().toLocaleDateString()}`,
     description: params?.description || `Training model for defect detection`,
     model_type: params?.model_type || 'object_detection',
     edge_model_type: params?.edge_model_type || 'MOBILE_TF_VERSATILE_1',
     training_budget_hours: params?.training_budget_hours || 8,
     training_parameters: params?.training_parameters || {},
   };
+
+  // Add vertex_dataset_id if provided
+  if (params?.vertex_dataset_id) {
+    payload.vertex_dataset_id = params.vertex_dataset_id;
+  }
 
   return apiCallWithErrorHandling(
     () =>
@@ -1604,6 +1744,82 @@ export const lockBatch = async (slug: string) => {
       location: 'lockBatch',
       operation: 'batch_lock',
       extra: { slug },
+    }
+  );
+};
+
+export const createDataset = async (data: {
+  dataset_name: string;
+  description?: string;
+  test_type?: 'production' | 'test';
+  ppids?: string[];
+  defect_names?: string[];
+  start_date?: string;
+  end_date?: string;
+}) => {
+  return apiCallWithErrorHandling(
+    () =>
+      api
+        .post('/api/self-learning/dataset-creation/', data)
+        .then((response) => response.data),
+    {
+      location: 'createDataset',
+      operation: 'dataset_creation',
+      extra: { dataset_name: data.dataset_name },
+    }
+  );
+};
+
+export const getBatchPPIDs = async (slug: string) => {
+  return apiCallWithErrorHandling(
+    () =>
+      api
+        .get(`/api/self-learning/batches/${slug}/get_batch_ppids/`)
+        .then((response) => response.data),
+    {
+      location: 'getBatchPPIDs',
+      operation: 'batch_ppids_fetch',
+      extra: { slug },
+    }
+  );
+};
+
+export const getAllBatchStatistics = async () => {
+  return apiCallWithErrorHandling(
+    () =>
+      api
+        .get('/api/self-learning/batches/all_statistics/')
+        .then((response) => response.data),
+    {
+      location: 'getAllBatchStatistics',
+      operation: 'all_batch_statistics_fetch',
+    }
+  );
+};
+
+export const getDatasetCreationTaskStatus = async (taskUuid: string) => {
+  return apiCallWithErrorHandling(
+    () =>
+      api
+        .get(`/api/self-learning/dataset-creation/tasks/${taskUuid}/`)
+        .then((response) => response.data),
+    {
+      location: 'getDatasetCreationTaskStatus',
+      operation: 'dataset_task_status_fetch',
+      extra: { taskUuid },
+    }
+  );
+};
+
+export const getDefectOverview = async () => {
+  return apiCallWithErrorHandling(
+    () =>
+      api
+        .get('/api/self-learning/defect-overview/')
+        .then((response) => response.data),
+    {
+      location: 'getDefectOverview',
+      operation: 'defect_overview_fetch',
     }
   );
 };
