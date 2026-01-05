@@ -76,7 +76,6 @@
       }
     ],
     "directories": {
-      "buildResources": "src/assets",
       "output": "dist_electron/${version}"
     },
     "files": [
