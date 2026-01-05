@@ -86,9 +86,9 @@
       "package.json",
       "src/assets/**/*"
     ],
-    "icon": "nvision_logo.ico",
     "win": {
       "target": "nsis",
+      "icon": "nvision_logo.ico",
       "artifactName": "${productName}-${version}.${ext}"
     },
     "mac": {
