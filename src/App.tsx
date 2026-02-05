@@ -1356,7 +1356,7 @@ function App() {
   //       return;
   //     }
 
-  //     // Update task ID and start polling with the latest task UUID
+  //     // Update task ID and start polling with the latest  
   //     setTaskid(latestTask.task_uuid);
   //     pollPredictionStatus(latestTask.task_uuid);
   //   } catch (error) {
@@ -1633,19 +1633,19 @@ function App() {
             }}
           />
         );
-      case 'batch-training-summary':
-        return selectedBatchSlug ? (
-          <BatchTrainingSummaryPage
-            batchSlug={selectedBatchSlug}
-            batchName={selectedBatchName}
-            onBack={() => {
-              setActivePage('new-model-training');
-            }}
-            onTrainingTriggered={() => {
-              setActivePage('new-model-training');
-            }}
-          />
-        ) : null;
+      // case 'batch-training-summary':
+      //   return selectedBatchSlug ? (
+      //     <BatchTrainingSummaryPage
+      //       batchSlug={selectedBatchSlug}
+      //       batchName={selectedBatchName}
+      //       onBack={() => {
+      //         setActivePage('new-model-training');
+      //       }}
+      //       onTrainingTriggered={() => {
+      //         setActivePage('new-model-training');
+      //       }}
+      //     />
+      //   ) : null;
       case 'summary':
         return <SummaryPage />;
       case 'pattern-ebc':

@@ -1,6 +1,6 @@
 {
   "name": "nvision-ai",
-  "version": "5.0.3",
+  "version": "5.0.7",
   "description": "Nvision AI",
   "author": "Nvision",
   "main": "main.js",
@@ -76,6 +76,7 @@
       }
     ],
     "directories": {
+      "buildResources": "src/assets",
       "output": "dist_electron/${version}"
     },
     "files": [
@@ -85,13 +86,16 @@
       "package.json",
       "src/assets/**/*"
     ],
+    "icon": "nvision_logo.ico",
     "win": {
       "target": "nsis",
-      "icon": "nvision_logo.ico",
       "artifactName": "${productName}-${version}.${ext}"
     },
     "mac": {
-      "target": ["dmg", "zip"],
+      "target": [
+        "dmg",
+        "zip"
+      ],
       "category": "public.app-category.utilities",
       "artifactName": "${productName}-${version}.${ext}"
     }

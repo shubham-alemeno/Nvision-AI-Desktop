@@ -81,7 +81,8 @@ const BatchTrainingSummaryPage: React.FC<BatchTrainingSummaryPageProps> = ({
       console.log('Batch PPIDs data:', batchPPIDsData);
 
       const ppids = batchPPIDsData.ppids || [];
-      const defectNames = batchPPIDsData.defects?.map((d: any) => d.defect_name) || [];
+      const defectNames =
+        batchPPIDsData.defects?.map((d: any) => d.defect_name) || [];
 
       if (ppids.length === 0) {
         throw new Error('No PPIDs found in this batch');
@@ -90,7 +91,7 @@ const BatchTrainingSummaryPage: React.FC<BatchTrainingSummaryPageProps> = ({
       // Step 2: Create dataset
       console.log('Creating dataset...');
       const datasetResponse = await createDataset({
-        dataset_name: `dataset_${batchName}`,
+        batch_slug: batchName,
         description: `Dataset for defect detection - ${batchName}`,
         test_type: isTestMode ? 'test' : 'production',
         ppids: ppids,
@@ -103,13 +104,20 @@ const BatchTrainingSummaryPage: React.FC<BatchTrainingSummaryPageProps> = ({
       const vertexDatasetId = datasetResponse.vertex_dataset_id;
 
       if (!vertexDatasetId) {
-        throw new Error('Dataset creation did not return vertex_dataset_id. Please wait for dataset processing to complete.');
+        throw new Error(
+          'Dataset creation did not return vertex_dataset_id. Please wait for dataset processing to complete.'
+        );
       }
 
       // Step 3: Trigger training with vertex_dataset_id
-      console.log('Triggering training with vertex_dataset_id:', vertexDatasetId);
+      console.log(
+        'Triggering training with vertex_dataset_id:',
+        vertexDatasetId
+      );
       const trainingResponse = await triggerTraining(batchSlug, {
         model_display_name: `${batchName} - ${new Date().toLocaleDateString()}`,
+        dataset_task_id: batchName,
+        // batch_slug: batchName,
         description: `Training model for defect detection - ${batchName}`,
         model_type: 'object_detection',
         edge_model_type: 'MOBILE_TF_VERSATILE_1',
@@ -126,7 +134,7 @@ const BatchTrainingSummaryPage: React.FC<BatchTrainingSummaryPageProps> = ({
       console.log('Training triggered:', trainingResponse);
 
       alert(
-        `Training triggered successfully for ${batchName}!\nDataset: ${datasetResponse.dataset_name}\nTraining Log UUID: ${trainingResponse.training_log_uuid}`
+        `Training triggered successfully for ${batchName}!\nDataset: ${datasetResponse.dataset_name}\nTraining Log UUID: ${trainingResponse.training_log.uuid}`
       );
 
       // Navigate back to the training page
@@ -159,12 +167,7 @@ const BatchTrainingSummaryPage: React.FC<BatchTrainingSummaryPageProps> = ({
         <Card>
           <CardHeader>
             <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={onBack}
-                title="Back"
-              >
+              <Button variant="ghost" size="icon" onClick={onBack} title="Back">
                 <ArrowLeft className="w-5 h-5" />
               </Button>
               <CardTitle>Self Learning Summary</CardTitle>
@@ -181,19 +184,22 @@ const BatchTrainingSummaryPage: React.FC<BatchTrainingSummaryPageProps> = ({
   }
 
   const defectStats = statistics?.statistics?.defect_statistics || [];
-  const allDefectsMeetThreshold = defectStats.every(d => d.meets_threshold);
+  const allDefectsMeetThreshold = defectStats.every((d) => d.meets_threshold);
 
   // Calculate panel-level statistics from defect statistics
   const calculatePanelStats = () => {
-    const panelStats: Record<string, {
-      annotated: number;
-      pending: number;
-      approved: number;
-      discarded: number;
-      used: number;
-    }> = {};
+    const panelStats: Record<
+      string,
+      {
+        annotated: number;
+        pending: number;
+        approved: number;
+        discarded: number;
+        used: number;
+      }
+    > = {};
 
-    defectStats.forEach(defect => {
+    defectStats.forEach((defect) => {
       if (!panelStats[defect.defect_name]) {
         panelStats[defect.defect_name] = {
           annotated: defect.total_annotations,
@@ -215,12 +221,7 @@ const BatchTrainingSummaryPage: React.FC<BatchTrainingSummaryPageProps> = ({
       <Card>
         <CardHeader>
           <div className="flex items-center gap-2">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={onBack}
-              title="Back"
-            >
+            <Button variant="ghost" size="icon" onClick={onBack} title="Back">
               <ArrowLeft className="w-5 h-5" />
             </Button>
             <CardTitle>Self Learning Summary</CardTitle>
@@ -264,7 +265,9 @@ const BatchTrainingSummaryPage: React.FC<BatchTrainingSummaryPageProps> = ({
                     <tr
                       key={defect.defect_id}
                       className={`${
-                        index % 2 === 0 ? 'bg-white dark:bg-gray-900' : 'bg-gray-50 dark:bg-gray-850'
+                        index % 2 === 0
+                          ? 'bg-white dark:bg-gray-900'
+                          : 'bg-gray-50 dark:bg-gray-850'
                       } hover:bg-gray-100 dark:hover:bg-gray-800`}
                     >
                       <td className="border border-gray-300 dark:border-gray-700 px-6 py-3 font-medium">
@@ -317,7 +320,9 @@ const BatchTrainingSummaryPage: React.FC<BatchTrainingSummaryPageProps> = ({
                     <tr
                       key={defect.defect_id}
                       className={`${
-                        index % 2 === 0 ? 'bg-white dark:bg-gray-900' : 'bg-gray-50 dark:bg-gray-850'
+                        index % 2 === 0
+                          ? 'bg-white dark:bg-gray-900'
+                          : 'bg-gray-50 dark:bg-gray-850'
                       } hover:bg-gray-100 dark:hover:bg-gray-800`}
                     >
                       <td className="border border-gray-300 dark:border-gray-700 px-6 py-3 font-medium">
@@ -348,7 +353,8 @@ const BatchTrainingSummaryPage: React.FC<BatchTrainingSummaryPageProps> = ({
                   Not enough images for training
                 </p>
                 <p className="text-yellow-700 dark:text-yellow-300 text-sm mt-1">
-                  Some defects do not meet the minimum threshold. Please annotate more images before requesting training.
+                  Some defects do not meet the minimum threshold. Please
+                  annotate more images before requesting training.
                 </p>
               </div>
             </div>

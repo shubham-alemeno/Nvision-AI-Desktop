@@ -1318,7 +1318,10 @@ export const bulkUpdateAnnotationStatus = async (data: {
     }>;
   }>;
 }) => {
-  console.log('API call - bulkUpdateAnnotationStatus payload:', JSON.stringify(data, null, 2));
+  console.log(
+    'API call - bulkUpdateAnnotationStatus payload:',
+    JSON.stringify(data, null, 2)
+  );
   return apiCallWithErrorHandling(
     () =>
       api
@@ -1480,7 +1483,10 @@ export const bulkDeletePPIDAnnotation = async (data: {
   return apiCallWithErrorHandling(
     () =>
       api
-        .post('/api/self-learning/annotations/bulk_delete_ppid_annotation/', data)
+        .post(
+          '/api/self-learning/annotations/bulk_delete_ppid_annotation/',
+          data
+        )
         .then((response) => response.data),
     {
       location: 'bulkDeletePPIDAnnotation',
@@ -1661,13 +1667,14 @@ export const validateTrainingReadiness = async (slug: string) => {
 
 export const triggerTraining = async (
   slug: string,
-  params?: {
+  params: {
+    dataset_task_id: string;
     model_display_name?: string;
     description?: string;
     model_type?: string;
     edge_model_type?: string;
     training_budget_hours?: number;
-    vertex_dataset_id?: string;
+    vertex_dataset_id: string;
     training_parameters?: {
       epochs?: number;
       batch_size?: number;
@@ -1676,22 +1683,18 @@ export const triggerTraining = async (
     };
   }
 ) => {
-  // Default values
-  const payload: any = {
+  const payload = {
+    dataset_task_id: params.dataset_task_id,
+    vertex_dataset_id: params.vertex_dataset_id,
     model_display_name:
-      params?.model_display_name ||
+      params.model_display_name ||
       `Model Training ${new Date().toLocaleDateString()}`,
-    description: params?.description || `Training model for defect detection`,
-    model_type: params?.model_type || 'object_detection',
-    edge_model_type: params?.edge_model_type || 'MOBILE_TF_VERSATILE_1',
-    training_budget_hours: params?.training_budget_hours || 8,
-    training_parameters: params?.training_parameters || {},
+    description: params.description || `Training model for defect detection`,
+    model_type: params.model_type || 'object_detection',
+    edge_model_type: params.edge_model_type || 'MOBILE_TF_VERSATILE_1',
+    training_budget_hours: params.training_budget_hours || 8,
+    training_parameters: params.training_parameters || {},
   };
-
-  // Add vertex_dataset_id if provided
-  if (params?.vertex_dataset_id) {
-    payload.vertex_dataset_id = params.vertex_dataset_id;
-  }
 
   return apiCallWithErrorHandling(
     () =>
@@ -1702,6 +1705,38 @@ export const triggerTraining = async (
       location: 'triggerTraining',
       operation: 'batch_trigger_training',
       extra: { slug },
+    }
+  );
+};
+
+export const getBatchTrainingProgress = async (slug: string) => {
+  return apiCallWithErrorHandling(
+    () =>
+      api
+        .get(`/api/self-learning/batches/${slug}/training-progress/`)
+        .then((response) => response.data),
+    {
+      location: 'getBatchTrainingProgress',
+      operation: 'batch_training_progress_fetch',
+      extra: { slug },
+    }
+  );
+};
+
+/**
+ * Get model training status using the lightweight status endpoint
+ * This is the recommended approach for polling training progress
+ */
+export const getModelTrainingStatus = async (taskUuid: string) => {
+  return apiCallWithErrorHandling(
+    () =>
+      api
+        .get(`/api/self-learning/model-training/${taskUuid}/status/`)
+        .then((response) => response.data),
+    {
+      location: 'getModelTrainingStatus',
+      operation: 'model_training_status_fetch',
+      extra: { taskUuid },
     }
   );
 };
@@ -1749,7 +1784,7 @@ export const lockBatch = async (slug: string) => {
 };
 
 export const createDataset = async (data: {
-  dataset_name: string;
+  batch_slug: string;
   description?: string;
   test_type?: 'production' | 'test';
   ppids?: string[];
@@ -1765,7 +1800,7 @@ export const createDataset = async (data: {
     {
       location: 'createDataset',
       operation: 'dataset_creation',
-      extra: { dataset_name: data.dataset_name },
+      extra: { batch_slug: data.batch_slug },
     }
   );
 };
@@ -1824,6 +1859,24 @@ export const getDefectOverview = async () => {
   );
 };
 
+/**
+ * Get pipeline status for a batch - single endpoint for training, deployment, and benchmark status
+ * This is the preferred API for polling pipeline progress
+ */
+export const getBatchPipelineStatus = async (slug: string) => {
+  return apiCallWithErrorHandling(
+    () =>
+      api
+        .get(`/api/self-learning/batches/${slug}/pipeline-status/`)
+        .then((response) => response.data),
+    {
+      location: 'getBatchPipelineStatus',
+      operation: 'batch_pipeline_status_fetch',
+      extra: { slug },
+    }
+  );
+};
+
 export const getBatchAnnotations = async (
   slug: string,
   params?: {
@@ -1856,6 +1909,120 @@ export const getBatchAnnotations = async (
       location: 'getBatchAnnotations',
       operation: 'batch_annotations_fetch',
       extra: { slug },
+    }
+  );
+};
+
+// ==================== DEPLOYMENT APIs ====================
+
+/**
+ * Get list of model deployments with optional filters
+ */
+export const getModelDeploymentList = async (params?: {
+  batch_uuid?: string;
+  status?: string;
+  training_task_uuid?: string;
+  page?: number;
+  page_size?: number;
+}) => {
+  return apiCallWithErrorHandling(
+    () => {
+      const queryParams = new URLSearchParams();
+      if (params?.batch_uuid)
+        queryParams.append('batch_uuid', params.batch_uuid);
+      if (params?.status) queryParams.append('status', params.status);
+      if (params?.training_task_uuid)
+        queryParams.append('training_task_uuid', params.training_task_uuid);
+      if (params?.page) queryParams.append('page', params.page.toString());
+      if (params?.page_size)
+        queryParams.append('page_size', params.page_size.toString());
+
+      return api
+        .get(
+          `/api/self-learning/model-deployment/list/?${queryParams.toString()}`
+        )
+        .then((response) => response.data);
+    },
+    {
+      location: 'getModelDeploymentList',
+      operation: 'deployment_list_fetch',
+      extra: params,
+    }
+  );
+};
+
+/**
+ * Get deployment status for a specific task
+ */
+export const getModelDeploymentStatus = async (taskUuid: string) => {
+  return apiCallWithErrorHandling(
+    () =>
+      api
+        .get(`/api/self-learning/model-deployment/${taskUuid}/status/`)
+        .then((response) => response.data),
+    {
+      location: 'getModelDeploymentStatus',
+      operation: 'deployment_status_fetch',
+      extra: { taskUuid },
+    }
+  );
+};
+
+// ==================== BENCHMARKING APIs ====================
+
+/**
+ * Trigger model benchmarking after deployment
+ */
+export const triggerModelBenchmark = async (
+  deploymentTaskUuid: string,
+  maxImagesPerClass?: number
+) => {
+  return apiCallWithErrorHandling(
+    () =>
+      api
+        .post('/api/self-learning/model-benchmark/create/', {
+          deployment_task_uuid: deploymentTaskUuid,
+          max_images_per_class: maxImagesPerClass || 50,
+        })
+        .then((response) => response.data),
+    {
+      location: 'triggerModelBenchmark',
+      operation: 'benchmark_trigger',
+      extra: { deploymentTaskUuid, maxImagesPerClass },
+    }
+  );
+};
+
+/**
+ * Get benchmark status for a specific task
+ */
+export const getModelBenchmarkStatus = async (taskUuid: string) => {
+  return apiCallWithErrorHandling(
+    () =>
+      api
+        .get(`/api/self-learning/model-benchmark/${taskUuid}/status/`)
+        .then((response) => response.data),
+    {
+      location: 'getModelBenchmarkStatus',
+      operation: 'benchmark_status_fetch',
+      extra: { taskUuid },
+    }
+  );
+};
+
+/**
+ * Get full benchmark results after completion
+ */
+export const getModelBenchmarkResults = async (taskUuid: string) => {
+  return apiCallWithErrorHandling(
+    () =>
+      api
+        .get(`/api/self-learning/model-benchmark/${taskUuid}/results/`)
+        .then((response) => response.data),
+    {
+      location: 'getModelBenchmarkResults',
+      operation: 'benchmark_results_fetch',
+      extra: { taskUuid },
     }
   );
 };
