@@ -101,6 +101,10 @@ const data = {
           title: 'New Model Training',
           url: '#new-model-training',
         },
+        {
+          title: 'Past Unannotated Panels',
+          url: '#self-learning-annotation',
+        },
       ],
     },
     // HISTORY & REPORTS Section

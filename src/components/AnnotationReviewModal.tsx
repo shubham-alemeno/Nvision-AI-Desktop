@@ -64,6 +64,14 @@ interface AnnotationReviewModalProps {
     notes?: string
   ) => Promise<void>;
   onRefresh?: () => Promise<void>;
+  customSaveHandler?: (
+    ppid: string,
+    newAnnotations: Array<{
+      defect_id: number;
+      bbox: { x: number; y: number; width: number; height: number };
+    }>
+  ) => Promise<void>;
+  hideApproveReject?: boolean;
 }
 
 // Defect types and colors matching BoundingBoxPage
@@ -98,6 +106,8 @@ const AnnotationReviewModal: React.FC<AnnotationReviewModalProps> = ({
   onApprove,
   onReject,
   onRefresh,
+  customSaveHandler,
+  hideApproveReject,
 }) => {
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [notes, setNotes] = useState('');
@@ -692,7 +702,7 @@ const AnnotationReviewModal: React.FC<AnnotationReviewModalProps> = ({
         }
       }
 
-      // Add new annotations using bulk PPID creation
+      // Add new annotations
       if (hasNewAnnotations) {
         // Collect unique defect boxes by UID - one per drawn annotation
         const uniqueAnnotations = new Map<string, {
@@ -718,21 +728,26 @@ const AnnotationReviewModal: React.FC<AnnotationReviewModalProps> = ({
 
         console.log('Adding unique annotations:', Array.from(uniqueAnnotations.values()));
 
-        // Create each annotation across all 15 patterns
-        for (const [uid, data] of uniqueAnnotations) {
-          const result = await bulkCreatePPIDAnnotation({
-            ppid,
-            defect: data.defect_id,
-            x: data.bbox.x,
-            y: data.bbox.y,
-            width: data.bbox.width,
-            height: data.bbox.height,
-            status: 'pending',
-            visible_on: true,
-          });
-          console.log(
-            `Successfully created ${result.annotations_created} annotation(s) for UID ${uid}`
-          );
+        if (customSaveHandler) {
+          // Use custom save handler (e.g., for annotating existing past data panels)
+          await customSaveHandler(ppid, Array.from(uniqueAnnotations.values()));
+        } else {
+          // Default: Create each annotation across all 15 patterns using bulk PPID creation
+          for (const [uid, data] of uniqueAnnotations) {
+            const result = await bulkCreatePPIDAnnotation({
+              ppid,
+              defect: data.defect_id,
+              x: data.bbox.x,
+              y: data.bbox.y,
+              width: data.bbox.width,
+              height: data.bbox.height,
+              status: 'pending',
+              visible_on: true,
+            });
+            console.log(
+              `Successfully created ${result.annotations_created} annotation(s) for UID ${uid}`
+            );
+          }
         }
       }
 
@@ -774,7 +789,7 @@ const AnnotationReviewModal: React.FC<AnnotationReviewModalProps> = ({
           <DialogTitle className="flex items-center justify-between">
             <div>
               <span className="text-xl font-semibold">
-                Review Annotations - {ppid}
+                {hideApproveReject ? 'Annotate Panel' : 'Review Annotations'} - {ppid}
               </span>
               <p className="text-sm text-gray-600 font-normal mt-1">
                 Pattern {currentImageIndex + 1} of {panelImages.length} •{' '}
@@ -1166,6 +1181,7 @@ const AnnotationReviewModal: React.FC<AnnotationReviewModalProps> = ({
               </div>
 
               {/* Current Image Actions */}
+              {!hideApproveReject && (
               <div>
                 <h3 className="text-sm font-semibold mb-2">
                   Current Image Actions
@@ -1197,6 +1213,7 @@ const AnnotationReviewModal: React.FC<AnnotationReviewModalProps> = ({
                   </Button>
                 </div>
               </div>
+              )}
             </div>
           </div>
         </div>
@@ -1236,24 +1253,28 @@ const AnnotationReviewModal: React.FC<AnnotationReviewModalProps> = ({
           })()}
 
           <div className="flex gap-2 ml-auto">
-            <Button
-              size="sm"
-              className="bg-green-600 hover:bg-green-700 text-white"
-              onClick={handleApproveAll}
-              disabled={processing}
-            >
-              <Check className="w-4 h-4 mr-1" />
-              Approve All
-            </Button>
-            <Button
-              size="sm"
-              className="bg-red-600 hover:bg-red-700 text-white"
-              onClick={handleRejectAll}
-              disabled={processing}
-            >
-              <X className="w-4 h-4 mr-1" />
-              Reject All
-            </Button>
+            {!hideApproveReject && (
+              <>
+                <Button
+                  size="sm"
+                  className="bg-green-600 hover:bg-green-700 text-white"
+                  onClick={handleApproveAll}
+                  disabled={processing}
+                >
+                  <Check className="w-4 h-4 mr-1" />
+                  Approve All
+                </Button>
+                <Button
+                  size="sm"
+                  className="bg-red-600 hover:bg-red-700 text-white"
+                  onClick={handleRejectAll}
+                  disabled={processing}
+                >
+                  <X className="w-4 h-4 mr-1" />
+                  Reject All
+                </Button>
+              </>
+            )}
             <Button
               size="sm"
               variant="outline"

@@ -1496,6 +1496,86 @@ export const bulkDeletePPIDAnnotation = async (data: {
   );
 };
 
+// Annotate existing panel from past data
+export const annotateExistingPanel = async (data: {
+  ppid: string;
+  annotations: Array<{
+    panel_image_id: number;
+    defect: number;
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    visible_on?: boolean;
+    status?: string;
+    notes?: string;
+  }>;
+}) => {
+  return apiCallWithErrorHandling(
+    () =>
+      api
+        .post(
+          '/api/self-learning/annotations/annotate_existing_panel/',
+          data
+        )
+        .then((response) => response.data),
+    {
+      location: 'annotateExistingPanel',
+      operation: 'annotate_existing_panel',
+      extra: { ppid: data.ppid, annotations_count: data.annotations.length },
+    }
+  );
+};
+
+// Unannotated Panels API
+export const getUnannotatedPanels = async (params?: {
+  page?: number;
+  page_size?: number;
+  include_images?: boolean;
+  include_group_members?: boolean;
+  ppid?: string;
+  test_type?: string;
+  from_date?: string;
+  to_date?: string;
+  ordering?: string;
+}) => {
+  return apiCallWithErrorHandling(
+    () => {
+      const queryParams = new URLSearchParams();
+      if (params?.page) queryParams.append('page', params.page.toString());
+      if (params?.page_size) queryParams.append('page_size', params.page_size.toString());
+      if (params?.include_images !== undefined) queryParams.append('include_images', params.include_images.toString());
+      if (params?.include_group_members !== undefined) queryParams.append('include_group_members', params.include_group_members.toString());
+      if (params?.ppid) queryParams.append('ppid', params.ppid);
+      if (params?.test_type) queryParams.append('test_type', params.test_type);
+      if (params?.from_date) queryParams.append('from_date', params.from_date);
+      if (params?.to_date) queryParams.append('to_date', params.to_date);
+      if (params?.ordering) queryParams.append('ordering', params.ordering);
+      return api
+        .get(`/api/self-learning/unannotated-panels/?${queryParams.toString()}`)
+        .then((response) => response.data);
+    },
+    {
+      location: 'getUnannotatedPanels',
+      operation: 'unannotated_panels_fetch',
+    }
+  );
+};
+
+export const getUnannotatedPanelDetail = async (ppid: string) => {
+  return apiCallWithErrorHandling(
+    () =>
+      api
+        .get(`/api/self-learning/unannotated-panels/${ppid}/`)
+        .then((response) => response.data),
+    {
+      location: 'getUnannotatedPanelDetail',
+      operation: 'unannotated_panel_detail_fetch',
+      extra: { ppid },
+    }
+  );
+};
+
 // Batch Training System API
 export const createBatch = async (data: {
   name: string;

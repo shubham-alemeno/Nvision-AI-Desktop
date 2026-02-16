@@ -51,6 +51,7 @@ import SelfLearningPage from './components/SelfLearning';
 import BoundingBoxPage from './components/BoundingBoxPage';
 import SelfLearningDataPage from './components/SelfLearningDataPage';
 import SelfLearningSummaryPage from './components/SelfLearningSummaryPage';
+import SelfLearningAnnotationPage from './components/SelfLearningAnnotationPage';
 import NewModelTrainingPage from './components/NewModelTrainingPage';
 import BatchTrainingSummaryPage from './components/BatchTrainingSummaryPage';
 
@@ -603,6 +604,7 @@ function App() {
     'ntf-checker': 'NTF Checker',
     'data-collection': 'Data Collection',
     'self-learning': 'Self Learning',
+    'self-learning-annotation': 'Past Unannotated Panels',
     'self-learning-data': 'Self Learning Data',
     'new-model-training': 'New Model Training',
     summary: 'Data Collection Summary',
@@ -1605,6 +1607,8 @@ function App() {
         return <NTFCheckerPage onStartDefectChecker={startDefectChecker} />;
       case 'self-learning':
         return <SelfLearningPage onStartDefectChecker={startDefectChecker} />;
+      case 'self-learning-annotation':
+        return <SelfLearningAnnotationPage />;
       case 'self-learning-data':
         return (
           <SelfLearningDataPage
