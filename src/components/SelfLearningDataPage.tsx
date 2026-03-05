@@ -454,7 +454,7 @@ const SelfLearningDataPage: React.FC<SelfLearningDataPageProps> = ({
       }
 
       // Refresh data
-      await fetchOverviewData();
+      await fetchOverviewData(currentPage);
 
       // Show success message
       alert(`Successfully approved annotations for ${ppid}`);
@@ -501,7 +501,7 @@ const SelfLearningDataPage: React.FC<SelfLearningDataPageProps> = ({
       }
 
       // Refresh data
-      await fetchOverviewData();
+      await fetchOverviewData(currentPage);
 
       // Show success message
       alert(`Successfully rejected annotations for ${ppid}`);
