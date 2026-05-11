@@ -14,13 +14,14 @@ import {
   ZoomOut,
   Trash2,
   Save,
-  RotateCcw,
+  Maximize2,
   Eye,
   EyeOff,
 } from 'lucide-react';
 import {
   bulkCreatePPIDAnnotation,
-  bulkDeletePPIDAnnotation
+  bulkDeletePPIDAnnotation,
+  bulkUpdatePPIDAnnotation,
 } from '@/services/api';
 import { TransformWrapper, TransformComponent } from 'react-zoom-pan-pinch';
 
@@ -98,6 +99,54 @@ const getDefectColor = (defectName: string): string => {
   return defect?.color || '#6b7280';
 };
 
+// Desired handle size on screen (px). Hit area is larger for easier clicking.
+const SCREEN_HANDLE_PX = 14;
+const SCREEN_HIT_PX = 22;
+
+type ResizeHandle = 'nw' | 'n' | 'ne' | 'e' | 'se' | 's' | 'sw' | 'w';
+
+const HANDLE_CURSORS: Record<ResizeHandle, string> = {
+  nw: 'nw-resize', n: 'ns-resize', ne: 'ne-resize',
+  e: 'ew-resize',  se: 'se-resize', s: 'ns-resize',
+  sw: 'sw-resize', w: 'ew-resize',
+};
+
+function getResizeHandles(
+  x: number, y: number, w: number, h: number
+): Array<{ handle: ResizeHandle; cx: number; cy: number }> {
+  return [
+    { handle: 'nw', cx: x,       cy: y       },
+    { handle: 'n',  cx: x + w/2, cy: y       },
+    { handle: 'ne', cx: x + w,   cy: y       },
+    { handle: 'e',  cx: x + w,   cy: y + h/2 },
+    { handle: 'se', cx: x + w,   cy: y + h   },
+    { handle: 's',  cx: x + w/2, cy: y + h   },
+    { handle: 'sw', cx: x,       cy: y + h   },
+    { handle: 'w',  cx: x,       cy: y + h/2 },
+  ];
+}
+
+// halfSize: canvas-pixel hit radius (computed from screen px * scale)
+function hitTestHandle(
+  pos: { x: number; y: number },
+  handles: Array<{ handle: ResizeHandle; cx: number; cy: number }>,
+  halfSize: number
+): ResizeHandle | null {
+  for (const h of handles) {
+    if (pos.x >= h.cx - halfSize && pos.x <= h.cx + halfSize &&
+        pos.y >= h.cy - halfSize && pos.y <= h.cy + halfSize) {
+      return h.handle;
+    }
+  }
+  return null;
+}
+
+// Returns canvas-pixels-per-screen-pixel for a canvas element
+function getCanvasScale(canvas: HTMLCanvasElement): number {
+  const rect = canvas.getBoundingClientRect();
+  return rect.width > 0 ? canvas.width / rect.width : 1;
+}
+
 const AnnotationReviewModal: React.FC<AnnotationReviewModalProps> = ({
   isOpen,
   onClose,
@@ -135,6 +184,31 @@ const AnnotationReviewModal: React.FC<AnnotationReviewModalProps> = ({
       color: string;
     }>;
   }>({});
+
+  const [highlightedAnnotation, setHighlightedAnnotation] = useState<
+    | { type: 'existing'; id: number }
+    | { type: 'new'; uid: string }
+    | null
+  >(null);
+  const [resizingState, setResizingState] = useState<{
+    kind: 'new' | 'existing';
+    uid: string | null;   // for new annotations
+    id: number | null;    // for existing annotations
+    handle: ResizeHandle;
+    startMousePos: { x: number; y: number };
+    originalBbox: { x: number; y: number; width: number; height: number };
+  } | null>(null);
+  const [modifiedExistingAnnotations, setModifiedExistingAnnotations] = useState<{
+    [id: number]: { x: number; y: number; width: number; height: number };
+  }>({});
+  const [hoveredHandle, setHoveredHandle] = useState<ResizeHandle | null>(null);
+  const didJustResize = useRef(false);
+  const rightClickPanState = useRef<{
+    startClientX: number;
+    startClientY: number;
+    startPosX: number;
+    startPosY: number;
+  } | null>(null);
 
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const imageRef = useRef<HTMLImageElement>(null);
@@ -223,7 +297,7 @@ const AnnotationReviewModal: React.FC<AnnotationReviewModalProps> = ({
     if (img && img.complete) {
       redrawCanvas();
     }
-  }, [deletedAnnotations, annotationsVisible, newAnnotations, currentBox]);
+  }, [deletedAnnotations, annotationsVisible, newAnnotations, currentBox, highlightedAnnotation, resizingState, modifiedExistingAnnotations]);
 
   const redrawCanvas = () => {
     const canvas = canvasRef.current;
@@ -245,7 +319,8 @@ const AnnotationReviewModal: React.FC<AnnotationReviewModalProps> = ({
         if (!annotation.bbox) return;
 
         const color = getDefectColor(annotation.defect);
-        const bbox = annotation.bbox;
+        // Use locally modified bbox if the user has resized this annotation
+        const bbox = modifiedExistingAnnotations[annotation.id] || annotation.bbox;
 
         // Convert normalized coordinates to pixel coordinates
         const x = bbox.x * canvas.width;
@@ -253,13 +328,20 @@ const AnnotationReviewModal: React.FC<AnnotationReviewModalProps> = ({
         const width = bbox.width * canvas.width;
         const height = bbox.height * canvas.height;
 
-        // Draw box
+        // Draw box (highlighted = glow + thicker border)
+        const isHighlightedExisting =
+          highlightedAnnotation?.type === 'existing' &&
+          highlightedAnnotation.id === annotation.id;
+        ctx.shadowColor = isHighlightedExisting ? color : 'transparent';
+        ctx.shadowBlur = isHighlightedExisting ? 18 : 0;
         ctx.strokeStyle = color;
-        ctx.lineWidth = 3;
+        ctx.lineWidth = isHighlightedExisting ? 5 : 3;
         ctx.strokeRect(x, y, width, height);
+        ctx.shadowBlur = 0;
+        ctx.lineWidth = 3;
 
         // Draw label background
-        const label = annotation.defect;
+        const label = annotation.defect + (modifiedExistingAnnotations[annotation.id] ? ' *' : '');
         ctx.font = '14px sans-serif';
         const labelWidth = ctx.measureText(label).width + 10;
         ctx.fillStyle = color;
@@ -268,6 +350,21 @@ const AnnotationReviewModal: React.FC<AnnotationReviewModalProps> = ({
         // Draw label text
         ctx.fillStyle = '#ffffff';
         ctx.fillText(label, x + 5, y - 6);
+
+        // Draw resize handles if this existing annotation is highlighted
+        if (isHighlightedExisting) {
+          const scale = getCanvasScale(canvas);
+          const hs = SCREEN_HANDLE_PX * scale;
+          const handles = getResizeHandles(x, y, width, height);
+          handles.forEach(({ cx, cy }) => {
+            ctx.fillStyle = '#ffffff';
+            ctx.strokeStyle = '#333333';
+            ctx.lineWidth = Math.max(1, scale);
+            ctx.fillRect(cx - hs / 2, cy - hs / 2, hs, hs);
+            ctx.strokeRect(cx - hs / 2, cy - hs / 2, hs, hs);
+          });
+          ctx.lineWidth = 3;
+        }
       });
 
       // Draw newly created annotations
@@ -278,9 +375,17 @@ const AnnotationReviewModal: React.FC<AnnotationReviewModalProps> = ({
         const width = newBox.bbox.width * canvas.width;
         const height = newBox.bbox.height * canvas.height;
 
+        // Draw box (highlighted = glow + thicker border)
+        const isHighlightedNew =
+          highlightedAnnotation?.type === 'new' &&
+          highlightedAnnotation.uid === newBox.uid;
+        ctx.shadowColor = isHighlightedNew ? newBox.color : 'transparent';
+        ctx.shadowBlur = isHighlightedNew ? 18 : 0;
         ctx.strokeStyle = newBox.color;
-        ctx.lineWidth = 3;
+        ctx.lineWidth = isHighlightedNew ? 5 : 3;
         ctx.strokeRect(x, y, width, height);
+        ctx.shadowBlur = 0;
+        ctx.lineWidth = 3;
 
         // Draw label
         ctx.font = '14px sans-serif';
@@ -289,6 +394,21 @@ const AnnotationReviewModal: React.FC<AnnotationReviewModalProps> = ({
         ctx.fillRect(x, y - 24, labelWidth, 24);
         ctx.fillStyle = '#ffffff';
         ctx.fillText(newBox.defect_name, x + 5, y - 6);
+
+        // Draw resize handles if this box is highlighted
+        if (isHighlightedNew) {
+          const scale = getCanvasScale(canvas);
+          const hs = SCREEN_HANDLE_PX * scale; // canvas px
+          const handles = getResizeHandles(x, y, width, height);
+          handles.forEach(({ cx, cy }) => {
+            ctx.fillStyle = '#ffffff';
+            ctx.strokeStyle = '#333333';
+            ctx.lineWidth = Math.max(1, scale);
+            ctx.fillRect(cx - hs / 2, cy - hs / 2, hs, hs);
+            ctx.strokeRect(cx - hs / 2, cy - hs / 2, hs, hs);
+          });
+          ctx.lineWidth = 3;
+        }
       });
     }
 
@@ -311,6 +431,7 @@ const AnnotationReviewModal: React.FC<AnnotationReviewModalProps> = ({
     if (hasNext) {
       setCurrentImageIndex((prev) => prev + 1);
       setSelectedAnnotations(new Set());
+      setHighlightedAnnotation(null);
       setNotes('');
     }
   };
@@ -319,6 +440,7 @@ const AnnotationReviewModal: React.FC<AnnotationReviewModalProps> = ({
     if (hasPrev) {
       setCurrentImageIndex((prev) => prev - 1);
       setSelectedAnnotations(new Set());
+      setHighlightedAnnotation(null);
       setNotes('');
     }
   };
@@ -398,6 +520,66 @@ const AnnotationReviewModal: React.FC<AnnotationReviewModalProps> = ({
   };
 
   const handleMouseDown = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    // Priority 1: Right-click → start pan
+    if (e.button === 2) {
+      const state = transformRef.current?.instance?.transformState;
+      if (!state) return;
+      rightClickPanState.current = {
+        startClientX: e.clientX,
+        startClientY: e.clientY,
+        startPosX: state.positionX,
+        startPosY: state.positionY,
+      };
+      e.preventDefault();
+      return;
+    }
+
+    // Priority 2: Left-click on a resize handle of the highlighted annotation (new or existing)
+    if (e.button === 0 && highlightedAnnotation) {
+      const canvas = canvasRef.current;
+      const pos = getCanvasCoordinates(e);
+      if (canvas && pos) {
+        const scale = getCanvasScale(canvas);
+        const hitHalf = (SCREEN_HIT_PX / 2) * scale;
+
+        if (highlightedAnnotation.type === 'new') {
+          const ann = (newAnnotations[currentImageIndex] || []).find(
+            (a) => a.uid === highlightedAnnotation.uid
+          );
+          if (ann) {
+            const handles = getResizeHandles(
+              ann.bbox.x * canvas.width, ann.bbox.y * canvas.height,
+              ann.bbox.width * canvas.width, ann.bbox.height * canvas.height
+            );
+            const hitHandle = hitTestHandle(pos, handles, hitHalf);
+            if (hitHandle) {
+              setResizingState({ kind: 'new', uid: ann.uid, id: null, handle: hitHandle, startMousePos: pos, originalBbox: { ...ann.bbox } });
+              e.preventDefault();
+              return;
+            }
+          }
+        } else {
+          const ann = currentImage.annotations.find(a => a.id === highlightedAnnotation.id);
+          if (ann) {
+            const bbox = modifiedExistingAnnotations[ann.id] || ann.bbox;
+            if (bbox) {
+              const handles = getResizeHandles(
+                bbox.x * canvas.width, bbox.y * canvas.height,
+                bbox.width * canvas.width, bbox.height * canvas.height
+              );
+              const hitHandle = hitTestHandle(pos, handles, hitHalf);
+              if (hitHandle) {
+                setResizingState({ kind: 'existing', uid: null, id: ann.id, handle: hitHandle, startMousePos: pos, originalBbox: { ...bbox } });
+                e.preventDefault();
+                return;
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // Priority 3: Left-click in draw mode → draw box
     if (!isDrawMode) return;
 
     const pos = getCanvasCoordinates(e);
@@ -414,6 +596,99 @@ const AnnotationReviewModal: React.FC<AnnotationReviewModalProps> = ({
   };
 
   const handleMouseMove = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    // Handle right-click pan
+    if (rightClickPanState.current && transformRef.current) {
+      const { startClientX, startClientY, startPosX, startPosY } = rightClickPanState.current;
+      const dx = e.clientX - startClientX;
+      const dy = e.clientY - startClientY;
+      const scale = transformRef.current.instance?.transformState?.scale ?? 1;
+      transformRef.current.setTransform(startPosX + dx, startPosY + dy, scale, 0);
+      return;
+    }
+
+    // Handle resize drag
+    if (resizingState) {
+      const canvas = canvasRef.current;
+      const pos = getCanvasCoordinates(e);
+      if (!canvas || !pos) return;
+
+      const dx = (pos.x - resizingState.startMousePos.x) / canvas.width;
+      const dy = (pos.y - resizingState.startMousePos.y) / canvas.height;
+      const orig = resizingState.originalBbox;
+      let { x, y, width, height } = orig;
+
+      switch (resizingState.handle) {
+        case 'se': width = orig.width + dx; height = orig.height + dy; break;
+        case 'sw': x = orig.x + dx; width = orig.width - dx; height = orig.height + dy; break;
+        case 'ne': width = orig.width + dx; y = orig.y + dy; height = orig.height - dy; break;
+        case 'nw': x = orig.x + dx; y = orig.y + dy; width = orig.width - dx; height = orig.height - dy; break;
+        case 'n':  y = orig.y + dy; height = orig.height - dy; break;
+        case 's':  height = orig.height + dy; break;
+        case 'e':  width = orig.width + dx; break;
+        case 'w':  x = orig.x + dx; width = orig.width - dx; break;
+      }
+
+      const MIN_SIZE = 0.005;
+      width = Math.max(MIN_SIZE, width);
+      height = Math.max(MIN_SIZE, height);
+      x = Math.max(0, Math.min(x, 1 - width));
+      y = Math.max(0, Math.min(y, 1 - height));
+
+      if (resizingState.kind === 'new') {
+        setNewAnnotations((prev) => {
+          const updated = { ...prev };
+          for (let i = 0; i < panelImages.length; i++) {
+            updated[i] = (updated[i] || []).map((ann) =>
+              ann.uid === resizingState.uid
+                ? { ...ann, bbox: { x, y, width, height } }
+                : ann
+            );
+          }
+          return updated;
+        });
+      } else {
+        setModifiedExistingAnnotations((prev) => ({
+          ...prev,
+          [resizingState.id!]: { x, y, width, height },
+        }));
+      }
+      return;
+    }
+
+    // Hover: update cursor when mouse moves over handles of the highlighted annotation
+    if (highlightedAnnotation) {
+      const canvas = canvasRef.current;
+      const pos = getCanvasCoordinates(e);
+      if (canvas && pos) {
+        const scale = getCanvasScale(canvas);
+        const hitHalf = (SCREEN_HIT_PX / 2) * scale;
+        let bbox: { x: number; y: number; width: number; height: number } | undefined;
+
+        if (highlightedAnnotation.type === 'new') {
+          const ann = (newAnnotations[currentImageIndex] || []).find(
+            (a) => a.uid === highlightedAnnotation.uid
+          );
+          bbox = ann?.bbox;
+        } else {
+          const ann = currentImage?.annotations.find((a) => a.id === highlightedAnnotation.id);
+          bbox = modifiedExistingAnnotations[highlightedAnnotation.id] || ann?.bbox;
+        }
+
+        if (bbox) {
+          const handles = getResizeHandles(
+            bbox.x * canvas.width, bbox.y * canvas.height,
+            bbox.width * canvas.width, bbox.height * canvas.height
+          );
+          setHoveredHandle(hitTestHandle(pos, handles, hitHalf));
+        } else {
+          setHoveredHandle(null);
+        }
+      }
+    } else {
+      setHoveredHandle(null);
+    }
+
+    // Handle draw
     if (!isDrawing || !startPos || !currentBox || !isDrawMode) return;
 
     const pos = getCanvasCoordinates(e);
@@ -428,6 +703,19 @@ const AnnotationReviewModal: React.FC<AnnotationReviewModalProps> = ({
   };
 
   const handleMouseUp = () => {
+    // Handle right-click pan end
+    if (rightClickPanState.current) {
+      rightClickPanState.current = null;
+      return;
+    }
+
+    // Handle resize end
+    if (resizingState) {
+      didJustResize.current = true;
+      setResizingState(null);
+      return;
+    }
+
     if (!isDrawing || !currentBox || !isDrawMode) return;
 
     const canvas = canvasRef.current;
@@ -480,6 +768,60 @@ const AnnotationReviewModal: React.FC<AnnotationReviewModalProps> = ({
     setIsDrawing(false);
     setStartPos(null);
     setCurrentBox(null);
+  };
+
+  const handleCanvasClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (isDrawMode) return;
+    if (didJustResize.current) {
+      didJustResize.current = false;
+      return;
+    }
+
+    const canvas = canvasRef.current;
+    if (!canvas || !currentImage) return;
+
+    const pos = getCanvasCoordinates(e);
+    if (!pos) return;
+
+    // Check new annotations first (topmost)
+    const currentNewAnnotations = newAnnotations[currentImageIndex] || [];
+    for (let i = currentNewAnnotations.length - 1; i >= 0; i--) {
+      const annotation = currentNewAnnotations[i];
+      if (!annotation.bbox) continue;
+      const bx = annotation.bbox.x * canvas.width;
+      const by = annotation.bbox.y * canvas.height;
+      const bw = annotation.bbox.width * canvas.width;
+      const bh = annotation.bbox.height * canvas.height;
+      if (pos.x >= bx && pos.x <= bx + bw && pos.y >= by && pos.y <= by + bh) {
+        setHighlightedAnnotation(
+          highlightedAnnotation?.type === 'new' && highlightedAnnotation.uid === annotation.uid
+            ? null
+            : { type: 'new', uid: annotation.uid }
+        );
+        return;
+      }
+    }
+
+    // Then check existing annotations
+    for (let i = currentImage.annotations.length - 1; i >= 0; i--) {
+      const annotation = currentImage.annotations[i];
+      if (!annotation.bbox || deletedAnnotations.has(annotation.id)) continue;
+      const bx = annotation.bbox.x * canvas.width;
+      const by = annotation.bbox.y * canvas.height;
+      const bw = annotation.bbox.width * canvas.width;
+      const bh = annotation.bbox.height * canvas.height;
+      if (pos.x >= bx && pos.x <= bx + bw && pos.y >= by && pos.y <= by + bh) {
+        setHighlightedAnnotation(
+          highlightedAnnotation?.type === 'existing' && highlightedAnnotation.id === annotation.id
+            ? null
+            : { type: 'existing', id: annotation.id }
+        );
+        return;
+      }
+    }
+
+    // Clicked empty space — deselect
+    setHighlightedAnnotation(null);
   };
 
   const handleCanvasDoubleClick = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -654,8 +996,9 @@ const AnnotationReviewModal: React.FC<AnnotationReviewModalProps> = ({
       (arr: any) => arr && arr.length > 0
     );
     const hasDeletions = deletedAnnotations.size > 0;
+    const hasModifications = Object.keys(modifiedExistingAnnotations).length > 0;
 
-    if (!hasNewAnnotations && !hasDeletions) {
+    if (!hasNewAnnotations && !hasDeletions && !hasModifications) {
       alert('No changes to save');
       return;
     }
@@ -667,6 +1010,7 @@ const AnnotationReviewModal: React.FC<AnnotationReviewModalProps> = ({
         deletedAnnotations.has(a.id)
       ).length;
       const addedCountForMessage = newAnnotations[currentImageIndex]?.length || 0;
+      const modifiedCountForMessage = Object.keys(modifiedExistingAnnotations).length;
 
       // Delete annotations using bulk PPID deletion
       if (hasDeletions) {
@@ -699,6 +1043,34 @@ const AnnotationReviewModal: React.FC<AnnotationReviewModalProps> = ({
           console.log(
             `Successfully deleted ${result.annotations_deleted} annotation(s) for defect ${defectId}`
           );
+        }
+      }
+
+      // Update modified existing annotations
+      if (hasModifications) {
+        for (const idStr of Object.keys(modifiedExistingAnnotations)) {
+          const id = parseInt(idStr);
+          const bbox = modifiedExistingAnnotations[id];
+          let defectId: number | null = null;
+          for (const img of panelImages) {
+            const ann = img.annotations.find((a) => a.id === id);
+            if (ann) {
+              const defectType = DEFECT_TYPES.find((d) => d.name === ann.defect);
+              defectId = defectType?.id ?? null;
+              break;
+            }
+          }
+          if (defectId) {
+            const result = await bulkUpdatePPIDAnnotation({
+              ppid,
+              defect: defectId,
+              x: bbox.x,
+              y: bbox.y,
+              width: bbox.width,
+              height: bbox.height,
+            });
+            console.log(`Successfully updated ${result.annotations_updated} annotation(s) for id ${id}`);
+          }
         }
       }
 
@@ -754,17 +1126,19 @@ const AnnotationReviewModal: React.FC<AnnotationReviewModalProps> = ({
       // Clear local state
       setDeletedAnnotations(new Set());
       setNewAnnotations({});
+      setModifiedExistingAnnotations({});
 
       // Refresh data from server
       if (onRefresh) {
         await onRefresh();
       }
 
-      alert(
-        `Successfully ${deletedCountForMessage > 0 ? `deleted ${deletedCountForMessage}` : ''}${
-          deletedCountForMessage > 0 && addedCountForMessage > 0 ? ' and ' : ''
-        }${addedCountForMessage > 0 ? `added ${addedCountForMessage} annotation(s)` : ''} per pattern`
-      );
+      const parts = [
+        deletedCountForMessage > 0 ? `deleted ${deletedCountForMessage}` : '',
+        modifiedCountForMessage > 0 ? `modified ${modifiedCountForMessage}` : '',
+        addedCountForMessage > 0 ? `added ${addedCountForMessage} new` : '',
+      ].filter(Boolean);
+      alert(`Successfully ${parts.join(' • ')} annotation(s) per pattern`);
     } catch (err: any) {
       console.error('Error saving changes:', err);
       console.error('Error details:', JSON.stringify(err, null, 2));
@@ -862,7 +1236,7 @@ const AnnotationReviewModal: React.FC<AnnotationReviewModalProps> = ({
               minScale={0.1}
               maxScale={5}
               doubleClick={{ disabled: true }}
-              panning={{ disabled: isDrawMode }}
+              panning={{ disabled: isDrawMode || highlightedAnnotation !== null }}
               wheel={{ disabled: false }}
               centerOnInit={true}
               limitToBounds={false}
@@ -893,8 +1267,9 @@ const AnnotationReviewModal: React.FC<AnnotationReviewModalProps> = ({
                       variant="secondary"
                       onClick={() => resetTransform()}
                       className="shadow-lg h-8 w-8 p-0"
+                      title="Center & Fit View"
                     >
-                      <RotateCcw className="w-4 h-4" />
+                      <Maximize2 className="w-4 h-4" />
                     </Button>
                     <div className="h-px bg-gray-300" />
                     <Button
@@ -939,15 +1314,24 @@ const AnnotationReviewModal: React.FC<AnnotationReviewModalProps> = ({
                       />
                       <canvas
                         ref={canvasRef}
-                        className={
-                          isDrawMode ? 'cursor-crosshair' : 'cursor-pointer'
-                        }
                         onMouseDown={handleMouseDown}
                         onMouseMove={handleMouseMove}
                         onMouseUp={handleMouseUp}
                         onMouseLeave={handleMouseUp}
                         onDoubleClick={handleCanvasDoubleClick}
-                        style={{ maxWidth: '100%', height: 'auto' }}
+                        onClick={handleCanvasClick}
+                        onContextMenu={(e) => e.preventDefault()}
+                        style={{
+                          maxWidth: '100%',
+                          height: 'auto',
+                          cursor: resizingState
+                            ? HANDLE_CURSORS[resizingState.handle]
+                            : isDrawMode
+                            ? 'crosshair'
+                            : hoveredHandle
+                            ? HANDLE_CURSORS[hoveredHandle]
+                            : 'pointer',
+                        }}
                       />
                     </div>
                   </TransformComponent>
@@ -1048,12 +1432,15 @@ const AnnotationReviewModal: React.FC<AnnotationReviewModalProps> = ({
                     {currentImage.annotations.map((annotation) => {
                       const isDeleted = deletedAnnotations.has(annotation.id);
                       const isSelected = selectedAnnotations.has(annotation.id);
+                      const isModified = !!modifiedExistingAnnotations[annotation.id];
                       return (
                         <div
                           key={annotation.id}
                           className={`p-2 border rounded text-xs transition ${
                             isDeleted
                               ? 'border-red-300 bg-red-50 opacity-50'
+                              : highlightedAnnotation?.type === 'existing' && highlightedAnnotation.id === annotation.id
+                              ? 'border-yellow-400 bg-yellow-50 ring-2 ring-yellow-300'
                               : isSelected
                               ? 'border-blue-500 bg-blue-50'
                               : 'border-gray-200 hover:border-gray-300'
@@ -1061,9 +1448,15 @@ const AnnotationReviewModal: React.FC<AnnotationReviewModalProps> = ({
                         >
                           <div className="flex items-start justify-between gap-2">
                             <div
-                              onClick={() =>
-                                !isDeleted && toggleAnnotation(annotation.id)
-                              }
+                              onClick={() => {
+                                if (isDeleted) return;
+                                toggleAnnotation(annotation.id);
+                                setHighlightedAnnotation(
+                                  highlightedAnnotation?.type === 'existing' && highlightedAnnotation.id === annotation.id
+                                    ? null
+                                    : { type: 'existing', id: annotation.id }
+                                );
+                              }}
                               className={`flex-1 ${
                                 !isDeleted && 'cursor-pointer'
                               }`}
@@ -1084,6 +1477,11 @@ const AnnotationReviewModal: React.FC<AnnotationReviewModalProps> = ({
                                 >
                                   {annotation.defect}
                                 </span>
+                                {isModified && (
+                                  <span className="text-orange-600 font-semibold ml-1">
+                                    (MODIFIED)
+                                  </span>
+                                )}
                               </div>
                               <div className="text-gray-500">
                                 by {annotation.created_by}
@@ -1125,7 +1523,18 @@ const AnnotationReviewModal: React.FC<AnnotationReviewModalProps> = ({
                         return (
                           <div
                             key={annotation.uid}
-                            className="p-2 border rounded text-xs transition border-green-300 bg-green-50"
+                            onClick={() =>
+                              setHighlightedAnnotation(
+                                highlightedAnnotation?.type === 'new' && highlightedAnnotation.uid === annotation.uid
+                                  ? null
+                                  : { type: 'new', uid: annotation.uid }
+                              )
+                            }
+                            className={`p-2 border rounded text-xs transition cursor-pointer ${
+                              highlightedAnnotation?.type === 'new' && highlightedAnnotation.uid === annotation.uid
+                                ? 'border-yellow-400 bg-yellow-50 ring-2 ring-yellow-300'
+                                : 'border-green-300 bg-green-50'
+                            }`}
                           >
                             <div className="flex items-start justify-between gap-2">
                               <div className="flex-1">
@@ -1229,15 +1638,18 @@ const AnnotationReviewModal: React.FC<AnnotationReviewModalProps> = ({
 
             // Count actual new annotations on current pattern
             const newCount = newAnnotations[currentImageIndex]?.length || 0;
+            const modifiedCount = Object.keys(modifiedExistingAnnotations).length;
 
-            const hasChanges = deletedCount > 0 || newCount > 0;
+            const hasChanges = deletedCount > 0 || newCount > 0 || modifiedCount > 0;
 
             return hasChanges ? (
               <div className="flex items-center gap-3 px-3 py-2 bg-orange-50 border border-orange-200 rounded-md">
                 <span className="text-sm text-orange-800 font-medium">
-                  {deletedCount > 0 && `${deletedCount} deletion(s)`}
-                  {deletedCount > 0 && newCount > 0 && ' • '}
-                  {newCount > 0 && `${newCount} new annotation(s)`}
+                  {[
+                    deletedCount > 0 ? `${deletedCount} deletion(s)` : '',
+                    modifiedCount > 0 ? `${modifiedCount} modified` : '',
+                    newCount > 0 ? `${newCount} new` : '',
+                  ].filter(Boolean).join(' • ')}
                 </span>
               <Button
                 size="sm"

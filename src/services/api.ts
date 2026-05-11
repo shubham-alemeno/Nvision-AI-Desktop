@@ -1475,6 +1475,32 @@ export const bulkCreatePPIDAnnotation = async (data: {
   );
 };
 
+// Bulk update PPID annotation bbox - updates all instances of a defect type across all 15 patterns
+export const bulkUpdatePPIDAnnotation = async (data: {
+  ppid: string;
+  defect: number;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  panel_image_ids?: number[];
+  visible_on?: boolean;
+  status?: 'pending' | 'approved' | 'rejected';
+  notes?: string;
+}) => {
+  return apiCallWithErrorHandling(
+    () =>
+      api
+        .patch('/api/self-learning/annotations/bulk_update_ppid_annotation/', data)
+        .then((response) => response.data),
+    {
+      location: 'bulkUpdatePPIDAnnotation',
+      operation: 'bulk_update_ppid_annotation',
+      extra: { ppid: data.ppid, defect: data.defect },
+    }
+  );
+};
+
 // Bulk delete PPID annotation - deletes all annotations of a defect type across all 15 patterns
 export const bulkDeletePPIDAnnotation = async (data: {
   ppid: string;
