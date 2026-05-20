@@ -22,6 +22,17 @@ interface ModelInfo {
   notes: string;
   benchmark_count: number;
   training_annotations_count: number;
+  defect_specific_metrics?: {
+    accuracy: number;
+    precision: number;
+    recall: number;
+    f1_score: number;
+    fn: number;
+    fp: number;
+    tn: number;
+    tp: number;
+    support: number;
+  };
 }
 
 interface ModelSummary {
@@ -286,7 +297,11 @@ const SelfLearningSummaryPage: React.FC<SelfLearningSummaryPageProps> = ({
                               {displayModel ? `V${displayModel.model_version}` : 'N/A'}
                             </td>
                             <td className="border border-gray-300 dark:border-gray-700 px-4 py-2 text-center">
-                              {displayModel ? `${(displayModel.accuracy * 100).toFixed(0)}%` : 'N/A'}
+                              {displayModel
+                                ? displayModel.defect_specific_metrics?.accuracy != null
+                                  ? `${(displayModel.defect_specific_metrics.accuracy * 100).toFixed(0)}%`
+                                  : `${(displayModel.accuracy * 100).toFixed(0)}%`
+                                : 'N/A'}
                             </td>
                             <td className="border border-gray-300 dark:border-gray-700 px-4 py-2 text-center">
                               {displayModel ? formatDate(displayModel.last_updated) : 'N/A'}
