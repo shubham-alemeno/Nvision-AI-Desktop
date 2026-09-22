@@ -174,9 +174,9 @@ function PastDataPage() {
         qa: isNTFMode, // false = Defect Checker, true = NTF
       });
 
-      const allTasks = allTasksResponse.tasks || allTasksResponse;
+      const allTasks = allTasksResponse.tasks;
 
-      if (!allTasks || allTasks.length === 0) {
+      if (!Array.isArray(allTasks) || allTasks.length === 0) {
         alert("No data to export");
         return;
       }

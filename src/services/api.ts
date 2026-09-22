@@ -1,6 +1,7 @@
 import axios from 'axios';
 import * as Sentry from '@sentry/react';
 import { STAGING_URL, PRODUCTION_URL } from '../../constants';
+import { parseCsv } from '../utils/parseCsv';
 
 // Enhanced error types for better categorization
 export interface ApiError {
@@ -802,7 +803,18 @@ export const getPastTasks = async (params: {
   );
 };
 
-// Alternative approach: Create a separate function specifically for export
+// Dedicated export endpoint: one request, streamed CSV with columns
+// PPID,Timestamp,Prediction,Correction,Created_By (Prediction/Correction are
+// JSON-encoded strings, no image URLs). Throttled separately (20/min).
+const parseJsonCell = (value: string) => {
+  if (!value) return null;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return null;
+  }
+};
+
 export const getPastTasksForExport = async (params: {
   from_date?: string;
   to_date?: string;
@@ -812,9 +824,8 @@ export const getPastTasksForExport = async (params: {
   qa?: boolean;
 }) => {
   return apiCallWithErrorHandling(
-    () => {
+    async () => {
       const queryParams = new URLSearchParams();
-      // Intentionally exclude page parameter for unpaginated results
       if (params.from_date) queryParams.append('from_date', params.from_date);
       if (params.to_date) queryParams.append('to_date', params.to_date);
       if (params.ppid) queryParams.append('ppid', params.ppid);
@@ -822,9 +833,20 @@ export const getPastTasksForExport = async (params: {
       queryParams.append('group', (params.group || false).toString());
       queryParams.append('qa', (params.qa || false).toString());
 
-      return api
-        .get(`/data/task/past_tasks/?${queryParams.toString()}`)
-        .then((response) => response.data);
+      const response = await api.get(
+        `/data/task/past_tasks/export/?${queryParams.toString()}`,
+        { responseType: 'text', transformResponse: (data) => data }
+      );
+
+      const tasks = parseCsv(response.data as string).map((row) => ({
+        PPID: row.PPID,
+        Timestamp: row.Timestamp,
+        Prediction: parseJsonCell(row.Prediction),
+        Correction: parseJsonCell(row.Correction),
+        Created_By: row.Created_By,
+      }));
+
+      return { tasks };
     },
     {
       location: 'getPastTasksForExport',
